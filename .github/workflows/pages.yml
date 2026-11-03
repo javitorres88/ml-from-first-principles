@@ -1,0 +1,94 @@
+name: CI + deploy site to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Rebuild module pages
+        run: node tools/build.mjs
+
+      - name: Fail if generated pages are stale
+        run: |
+          if [ -n "$(git status --porcelain modules index.html assets/favicon.svg)" ]; then
+            echo "::error::Generated pages are out of date. Run 'node tools/build.mjs' and commit."
+            git --no-pager diff --stat
+            exit 1
+          fi
+
+      - name: Check every script parses
+        run: for f in assets/js/*.js assets/js/labs/*.js tools/*.mjs; do node --check "$f"; done
+
+      - name: Consistency check (sections, lab ids, local links)
+        run: node tools/check.mjs
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "./python[dev]"
+
+      - name: Test
+        working-directory: python
+        run: pytest -q
+
+  deploy:
+    needs: [site, python]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build
+        run: node tools/build.mjs
+
+      - name: Stage the site
+        run: |
+          mkdir -p _site
+          cp -r index.html modules assets README.md LICENSE _site/
+          cp python/README.md _site/mlfs-readme.md
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

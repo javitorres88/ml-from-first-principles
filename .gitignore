@@ -1,0 +1,40 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Node (only used for the build script and screenshot helpers)
+node_modules/
+package-lock.json
+_site/
+
+# Local scratch work — never commit these
+_extracted/
+_tmp/
+_shots/
+_extract.py
+_fix01.py
+_repair.py
+_check_enc.py
+_gen_iris.py
+*.log
+
+# Third-party course material: lecture decks, textbooks, reference PDFs.
+# Copyrighted and far too large for a repository — keep them on disk only.
+ML_Resources/

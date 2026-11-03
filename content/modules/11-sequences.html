@@ -1,0 +1,647 @@
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-seq">From fixed vectors to sequences</h3>
+  <p>
+    Feed-forward networks consume one input and produce one or more outputs: an image becomes a label. But many problems are
+    <em>sequences</em>, and the shape of the input/output relationship varies:
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Pattern</th><th>Example</th><th>Input → output</th></tr></thead>
+      <tbody>
+        <tr><td>One to many</td><td>image captioning</td><td>image → sequence of words</td></tr>
+        <tr><td>Many to one</td><td>video classification, sentiment</td><td>sequence → single label</td></tr>
+        <tr><td>Many to many</td><td>machine translation, per-frame labelling</td><td>sequence → sequence</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    A recurrent neural network handles all three with one idea: an <strong>internal state</strong> that is updated as the sequence
+    is processed. At each time step,
+  </p>
+  <div class="formula">$$ \mathbf{h}_t = f_W(\mathbf{h}_{t-1}, \mathbf{x}_t) $$</div>
+  <p>
+    where $f_W$ is a function with parameters $W$ — <em>the same</em> $W$ at every step. That sharing is what lets an RNN process
+    sequences of any length with a fixed parameter budget, exactly as weight sharing lets a CNN process images of any size.
+  </p>
+
+  <h3 class="sub" id="i-vanilla">The vanilla RNN (Elman network)</h3>
+  <div class="formula">$$ \mathbf{h}_t = \tanh\!\big(W_{hh}\mathbf{h}_{t-1} + W_{xh}\mathbf{x}_t + \mathbf{b}_h\big), \qquad \mathbf{y}_t = W_{hy}\mathbf{h}_t + \mathbf{b}_y $$</div>
+  <p>
+    An RNN is a <strong>dynamical system</strong>: the state is a single vector $\mathbf{h}$, and the whole history of the input is
+    compressed into it. Unrolling the graph over time turns the recurrence into a very deep feed-forward network — with one
+    crucial difference: every layer shares the same weights. Backpropagation on that unrolled graph is called
+    <strong>backpropagation through time</strong> (BPTT).
+  </p>
+  <p>
+    Two illustrative examples from the lecture notes: an RNN whose recurrence is $\mathbf{h}_t = \mathbf{h}_{t-1} + \mathbf{x}_t$
+    <em>sums</em> the sequence; an RNN whose recurrence takes $\max$ of the running sum and the new input <em>remembers the largest
+    prefix sum</em>. The state is a program, and training chooses the program.
+  </p>
+
+  <h3 class="sub" id="i-problems">Why training RNNs is hard</h3>
+  <p>
+    In a 20-word sentence, the gradient from the loss at word 20 must travel back through 20 applications of the same weight
+    matrix. Three problems follow:
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Problem</th><th>Symptom</th><th>Standard fix</th></tr></thead>
+      <tbody>
+        <tr><td>Vanishing gradients</td><td>gradient decays to zero; the model cannot learn long-range dependencies</td><td>gating (LSTM/GRU), residual connections, layer norm</td></tr>
+        <tr><td>Exploding gradients</td><td>gradient grows without bound; loss becomes <code>nan</code></td><td>gradient clipping</td></tr>
+        <tr><td>Memory / state</td><td>BPTT over a long sequence needs the whole activation history in memory</td><td>truncated BPTT</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>Gradient clipping</strong> rescales the gradient when its norm exceeds a threshold $v$:</p>
+  <div class="formula">$$ \text{if } \|\mathbf{g}\| \gt v \quad\text{then}\quad \mathbf{g} \leftarrow \frac{v\,\mathbf{g}}{\|\mathbf{g}\|} $$</div>
+  <p>
+    <strong>Truncated BPTT</strong> carries the hidden state forward forever but backpropagates only through a fixed window of
+    steps, trading gradient accuracy for memory.
+  </p>
+
+  <h3 class="sub" id="i-lstm">Long short-term memory</h3>
+  <p>
+    An LSTM builds a cell from a <strong>memory state</strong> $\mathbf{C}_t$ plus three soft gates (sigmoids in $(0,1)$) that
+    decide when to write, erase and read:
+  </p>
+  <div class="formula">$$ \mathbf{G}_t = \sigma\big(\mathbf{X}_tW_{xg} + \mathbf{H}_{t-1}W_{hg} + \mathbf{b}_g\big) \quad \text{for } g \in \{i, f, o\} $$</div>
+  <div class="formula">$$ \tilde{\mathbf{C}}_t = \tanh\big(\mathbf{X}_tW_{xc} + \mathbf{H}_{t-1}W_{hc} + \mathbf{b}_c\big), \qquad \mathbf{C}_t = \mathbf{F}_t\odot\mathbf{C}_{t-1} + \mathbf{I}_t\odot\tilde{\mathbf{C}}_t, \qquad \mathbf{H}_t = \mathbf{O}_t\odot\tanh(\mathbf{C}_t) $$</div>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Gate</th><th>Role</th><th>Behaviour</th></tr></thead>
+      <tbody>
+        <tr><td>Input $\mathbf{I}_t$</td><td>when to read new data into the cell</td><td>—</td></tr>
+        <tr><td>Forget $\mathbf{F}_t$</td><td>when to reset cell memory</td><td>$\mathbf{F}\approx0,\mathbf{I}\approx0$: erase; $\mathbf{F}\approx0,\mathbf{I}\approx1$: overwrite</td></tr>
+        <tr><td>Output $\mathbf{O}_t$</td><td>when to read data out of the cell</td><td>$\mathbf{O}\approx0$: the cell only stores, and does not speak</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The decisive property is the <em>additive</em> memory update: when $\mathbf{F}_t\approx1$ and $\mathbf{I}_t\approx0$, the
+    memory is passed forward unchanged. The gradient flows back along that highway without being multiplied by a weight matrix
+    at every step, which is why LSTMs capture long-range dependencies that vanilla RNNs cannot.
+  </p>
+
+  <h3 class="sub" id="i-attention">Attention: removing the bottleneck</h3>
+  <p>
+    Sequence-to-sequence models encode the input into a single context vector and decode from it. For a 1,000-token input, all
+    information must survive compression into one fixed-size vector — a bottleneck. Bahdanau et al. (2015) replaced it with
+    <strong>attention</strong>: at each decoder step, look at <em>all</em> encoder states and take a weighted average.
+  </p>
+  <ol class="derivation">
+    <li><strong>Score</strong> each encoder state against the current decoder state: $e_{t,i} = f_{\text{att}}(\mathbf{s}_{t-1}, \mathbf{h}_i)$, where $f_{\text{att}}$ is a small MLP.</li>
+    <li><strong>Normalise</strong> with softmax: $a_{t,i} = \dfrac{e^{e_{t,i}}}{\sum_j e^{e_{t,j}}}$, so $0 \lt a_{t,i} \lt 1$ and $\sum_i a_{t,i} = 1$.</li>
+    <li><strong>Aggregate</strong> into a context vector: $\mathbf{c}_t = \sum_i a_{t,i}\mathbf{h}_i$.</li>
+    <li><strong>Decode</strong> using that context: $\mathbf{s}_t = g_U(\mathbf{y}_{t-1}, \mathbf{s}_{t-1}, \mathbf{c}_t)$.</li>
+  </ol>
+  <p>
+    Everything is differentiable, so the attention weights are <em>learned</em> — never supervised. Visualising them is a
+    diagnostic: a diagonal pattern means source and target words correspond in order; off-diagonal structure means the model
+    has learned a word reordering, or that a verb's conjugation is being aligned with a distant noun.
+  </p>
+  <div class="callout insight">
+    <span class="label">The step that leads to transformers</span>
+    <p>
+      The decoder never uses the fact that the $\mathbf{h}_i$ form an ordered sequence — it treats them as an unordered
+      <em>set</em>. If attention works on a set of vectors, it works on any set: image patches (image captioning with visual
+      attention), and then tokens in the same sequence attending to each other. That last generalisation is
+      <strong>self-attention</strong>, and it is module 12.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Language · character models</span>
+      <h4>Shakespeare generator</h4>
+      <p>Karpathy's famous experiment: a character-level RNN trained on Shakespeare produces gibberish at first, then word-like tokens, then plausible names and stage directions. A compact demonstration that a recurrent state can model syntax.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Translation · seq2seq</span>
+      <h4>Encoder–decoder</h4>
+      <p>Sutskever et al. (2014): an encoder RNN compresses the source sentence, a decoder RNN generates the target, with ⟨EOS⟩ marking boundaries. Attention (2015) made long sentences work.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Vision · captioning</span>
+      <h4>Show, attend and tell</h4>
+      <p>A CNN produces a grid of image features; an RNN decoder attends to different grid cells at each word. The attention map shows which part of the image produced "cat" versus "sitting".</p>
+    </div>
+    <div class="example">
+      <span class="tag">Clinical · longitudinal data</span>
+      <h4>ICU time series</h4>
+      <p>Hourly vitals are a sequence; LSTMs model the trajectory and predict deterioration. Truncated BPTT and clipping are standard practice in these pipelines.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Audio · speech recognition</span>
+      <h4>Acoustic modelling</h4>
+      <p>Before transformers, bidirectional LSTMs over spectrograms were the state of the art for transcription — sequence in, sequence out, with attention alignment.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Where RNNs still win</span>
+      <h4>Streaming and tiny models</h4>
+      <p>RNNs have $O(1)$ memory per step and constant compute per token, unlike attention's $O(t)$ cache. For real-time streaming on constrained hardware they remain competitive.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-bptt">2.1 Backpropagation through time</h3>
+  <p>Unroll the recurrence and apply the chain rule along every path. With $\mathbf{z}_t = W_{hh}\mathbf{h}_{t-1} + W_{xh}\mathbf{x}_t + \mathbf{b}_h$ and $\mathbf{h}_t = \sigma(\mathbf{z}_t)$:</p>
+  <details class="steps" open>
+    <summary>Derivation — the recursion for ∂L/∂h_t and the parameter gradients</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>The loss at time $t$ depends on $\mathbf{h}_t$ directly (through $\mathbf{y}_t$) <em>and</em> through all future states. So
+          $$ \frac{\partial L}{\partial \mathbf{h}_t} = \frac{\partial L_t}{\partial \mathbf{h}_t} + \frac{\partial \mathbf{h}_{t+1}}{\partial \mathbf{h}_t}^{\!\top}\frac{\partial L}{\partial \mathbf{h}_{t+1}}. $$
+        </li>
+        <li>Since $\mathbf{h}_{t+1} = \sigma(\mathbf{z}_{t+1})$ and $\mathbf{z}_{t+1}$ depends on $\mathbf{h}_t$ through $W_{hh}$,
+          $$ \frac{\partial \mathbf{h}_{t+1}}{\partial \mathbf{h}_t} = \mathrm{diag}\big(\sigma'(\mathbf{z}_{t+1})\big)W_{hh}. $$
+        </li>
+        <li>Parameters are shared across time, so their gradients <em>sum</em> over steps:
+          $$ \frac{\partial L}{\partial W_{hh}} = \sum_t \frac{\partial L}{\partial \mathbf{z}_t}\mathbf{h}_{t-1}^\top, \qquad \frac{\partial L}{\partial W_{xh}} = \sum_t \frac{\partial L}{\partial \mathbf{z}_t}\mathbf{x}_t^\top, \qquad \frac{\partial L}{\partial \mathbf{b}_h} = \sum_t \frac{\partial L}{\partial \mathbf{z}_t}. $$
+        </li>
+        <li><span class="qed">∎</span> Cost: the forward pass must store every $\mathbf{h}_t$, so memory is $O(T\cdot|\mathbf{h}|)$ — the reason truncated BPTT exists.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-explode">2.2 Why gradients vanish or explode</h3>
+  <details class="steps">
+    <summary>Derivation — the product of Jacobians and the spectral radius</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>From the recursion, expanding over $k$ steps gives
+          $$ \frac{\partial L}{\partial \mathbf{h}_t} \supseteq \left(\prod_{j=t+1}^{t+k}\mathrm{diag}(\sigma'(\mathbf{z}_j))W_{hh}\right)^{\!\top}\frac{\partial L}{\partial \mathbf{h}_{t+k}}. $$
+        </li>
+        <li>Taking norms and using submultiplicativity:
+          $$ \left\|\prod_j \mathrm{diag}(\sigma')\,W_{hh}\right\| \le \Big(\max|\sigma'|\cdot\|W_{hh}\|_2\Big)^{k}. $$
+        </li>
+        <li>Let $\rho$ be the spectral radius (largest absolute eigenvalue) of $W_{hh}$. For large $k$ the product behaves like $\rho^k$ (times the $\sigma'$ factors). Hence $\rho \lt 1$ → vanishing, $\rho \gt 1$ → exploding. <span class="qed">∎</span></li>
+        <li><span class="why">Lab 2 plots exactly this: $\log_{10}\rho^k = k\log_{10}\rho$ is a straight line whose slope is set by $\rho$. Gradient clipping caps the growth but cannot resurrect a vanished gradient — which is why gating is the structural fix.</span></li>
+        <li><strong>Why the LSTM escapes it.</strong> The cell update $\mathbf{C}_t = \mathbf{F}_t\odot\mathbf{C}_{t-1} + \dots$ has Jacobian $\partial\mathbf{C}_t/\partial\mathbf{C}_{t-1} = \mathrm{diag}(\mathbf{F}_t)$. There is no weight matrix in that path, so if the forget gate stays near 1 the gradient passes through nearly unchanged for arbitrarily many steps.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-clip">2.3 Gradient clipping preserves direction</h3>
+  <p>
+    Clipping replaces $\mathbf{g}$ by $v\,\mathbf{g}/\|\mathbf{g}\|$ when $\|\mathbf{g}\| \gt v$. Since the factor is a positive
+    scalar, the <em>direction</em> of the update is unchanged; only the step length is capped. This is what makes it safe to use
+    with momentum and adaptive methods — and why it is standard in every RNN and transformer training script.
+  </p>
+
+  <h3 class="sub" id="m-attn">2.4 Attention as a weighted average</h3>
+  <p>
+    The context vector is a convex combination of encoder states:
+    $\mathbf{c}_t = \sum_i a_{t,i}\mathbf{h}_i$ with $a_{t,i}\ge0$ and $\sum_i a_{t,i} = 1$. Two consequences follow immediately:
+  </p>
+  <ul>
+    <li>$\mathbf{c}_t$ always lies in the convex hull of the $\{\mathbf{h}_i\}$, so attention can only <em>select and blend</em> existing representations — it cannot invent new content. All the expressive power must come from the projections and the decoder.</li>
+    <li>Because the weights are produced by a softmax, the gradient with respect to the scores is
+      $\partial L/\partial e_{t,i} = a_{t,i}\big(\partial L/\partial a_{t,i} - \sum_j a_{t,j}\partial L/\partial a_{t,j}\big)$ —
+      the same softmax Jacobian as module 04. Attention is differentiable end-to-end, so no supervision of the alignment is needed.</li>
+  </ul>
+
+  <h3 class="sub" id="m-embed">2.5 Embeddings, briefly</h3>
+  <p>
+    Token $i$ is encoded as a one-hot vector $\mathbf{e}_i\in\{0,1\}^{|V|}$, and multiplying by a weight matrix
+    $W\in\mathbb{R}^{|V|\times d}$ simply <em>selects a row</em>: $\mathbf{e}_i^\top W = W_{i,:}$. That is why the input layer of a
+    language model is an <strong>embedding layer</strong> — a lookup table that is trained by the same gradient descent as
+    everything else. Nearby rows end up with similar meanings because tokens used in similar contexts receive similar gradients.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-rnn-unroll">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · recurrence</span><h4>What a hidden state remembers</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>The dashed line is the input sequence; the solid line is the hidden state produced by $h_t = \tanh(w_h h_{t-1} + w_x x_t)$.</p>
+      <p>Set $w_h = 0.2$ and the state tracks the input almost immediately — memory is short. Raise it to $0.95$ and the state becomes a slow moving average: earlier inputs still influence later steps. Push $w_h$ above $1$ with tanh and the state saturates at $\pm1$ and stops carrying information; with ReLU it diverges instead. The memory half-life readout quantifies what you are seeing.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-gradient-flow">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · BPTT</span><h4>Gradients through time</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>The vertical axis is $\log_{10}$ of the gradient magnitude after $t$ steps back through the unrolled network; the straight line is $k\log_{10}\rho$ from §2.2.</p>
+      <p>With $\rho = 0.9$, after 25 steps the gradient has fallen by a factor of about 15 — slow but survivable. With $\rho = 0.8$ it has fallen by $10^{2.4}$. With $\rho = 1.2$ it explodes past $10^{2}$ and training diverges. Turn on clipping and the exploding case is capped at the threshold, but notice what clipping cannot do: the vanishing curve is unchanged, because a clipped gradient cannot recover information that has already been multiplied away.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-attention">
+    <div class="lab-head"><span class="lab-tag">Lab 3 · attention</span><h4>Scores, weights, context</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Four encoder states for the sentence <em>we are eating bread</em>, and one decoder step. Move the score sliders to align the decoder with different source words: the weights are a softmax over the scores, and the context vector is their weighted average.</p>
+      <p>Try to reproduce the lecture's translation example — a decoder producing "estamos" ("we are") should put about 0.45 of its mass on <em>we</em> and <em>are</em>, and 0.05 on the rest. Then lower the temperature and watch attention sharpen toward a hard argmax; raise it and the context vector becomes the plain average of all states.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">PyTorch</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 11 — a vanilla RNN cell and truncated BPTT, no libraries."""
+import math
+import random
+
+
+def tanh(z):
+    return math.tanh(z)
+
+
+def dtanh(a):
+    return 1 - a * a
+
+
+def sigmoid(z):
+    return 1 / (1 + math.exp(-z)) if z &gt;= 0 else math.exp(z) / (1 + math.exp(z))
+
+
+class RNN:
+    """Single hidden unit for clarity: h_t = tanh(w_h h_{t-1} + w_x x_t + b)."""
+
+    def __init__(self, seed=0):
+        rng = random.Random(seed)
+        self.wh = rng.uniform(-0.5, 0.5)
+        self.wx = rng.uniform(-0.5, 0.5)
+        self.b = 0.0
+        self.wy = rng.uniform(-0.5, 0.5)
+
+    def forward(self, xs):
+        hs, ys = [], []
+        h = 0.0
+        for x in xs:
+            h = tanh(self.wh * h + self.wx * x + self.b)
+            hs.append(h)
+            ys.append(self.wy * h)
+        return hs, ys
+
+    def bptt(self, xs, targets, lr=0.05, truncate=None):
+        """Truncated backpropagation through time on squared error."""
+        hs, ys = self.forward(xs)
+        T = len(xs)
+        truncate = truncate or T
+        # gradients accumulated over the whole sequence
+        dwh = dwx = db = dwy = 0.0
+        dh_next = 0.0
+        for t in reversed(range(T)):
+            dy = 2 * (ys[t] - targets[t]) / T
+            dwy += dy * hs[t]
+            dh = dy * self.wy + dh_next
+            dpre = dh * dtanh(hs[t])
+            dwh += dpre * (hs[t - 1] if t &gt; 0 else 0.0)
+            dwx += dpre * xs[t]
+            db += dpre
+            # stop the backward flow after `truncate` steps
+            dh_next = dpre * self.wh if (T - t) &lt; truncate else 0.0
+        self.wh -= lr * dwh
+        self.wx -= lr * dwx
+        self.b -= lr * db
+        self.wy -= lr * dwy
+        return sum((y - t) ** 2 for y, t in zip(ys, targets)) / T
+
+
+def clip(grad, v):
+    """Rescale a gradient vector whose norm exceeds v, preserving direction."""
+    norm = math.sqrt(sum(g * g for g in grad))
+    if norm &lt;= v:
+        return grad
+    return [g * v / norm for g in grad]
+
+
+if __name__ == "__main__":
+    xs = [math.sin(0.3 * t) for t in range(20)]
+    targets = [x * 0.8 for x in xs]          # learn a scaled copy
+
+    rnn = RNN(seed=1)
+    for epoch in range(200):
+        loss = rnn.bptt(xs, targets, lr=0.05)
+        if epoch % 50 == 0:
+            print(f"epoch {epoch:3d} loss {loss:.5f}")
+
+    hs, ys = rnn.forward(xs)
+    print("final loss:", sum((y - t) ** 2 for y, t in zip(ys, targets)) / len(xs))
+    print("clipped:", clip([3.0, 4.0], 2.5))     # [1.5, 2.0]
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 11 — vectorised vanilla RNN, an LSTM cell, and Bahdanau attention."""
+import numpy as np
+
+
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+
+def rnn_forward(X, Wh, Wx, b, h0=None):
+    """X: (T, n_in). Returns hidden states (T, n_h) and outputs."""
+    T = X.shape[0]
+    H = np.zeros((T, Wh.shape[0]))
+    h = np.zeros(Wh.shape[0]) if h0 is None else h0
+    for t in range(T):
+        h = np.tanh(X[t] @ Wx + h @ Wh + b)
+        H[t] = h
+    return H
+
+
+def lstm_forward(X, params, h0=None, c0=None):
+    """One LSTM layer. params: dict of weight matrices for i, f, o, g gates."""
+    Wx, Wh, b = params["Wx"], params["Wh"], params["b"]
+    T, n_h = X.shape[0], Wh.shape[0]
+    H = np.zeros((T, n_h))
+    C = np.zeros((T, n_h))
+    h = np.zeros(n_h) if h0 is None else h0
+    c = np.zeros(n_h) if c0 is None else c0
+    for t in range(T):
+        z = X[t] @ Wx + h @ Wh + b
+        i, f, o, g = np.split(z, 4)          # each (n_h,)
+        i, f, o = sigmoid(i), sigmoid(f), sigmoid(o)
+        g = np.tanh(g)
+        c = f * c + i * g                    # the additive memory highway
+        h = o * np.tanh(c)
+        H[t], C[t] = h, c
+    return H, C
+
+
+def attention(s_prev, H, W_att):
+    """Bahdanau-style additive attention: returns weights and context vector."""
+    scores = np.tanh(H @ W_att + s_prev) @ np.ones(H.shape[1])   # (T,)
+    a = np.exp(scores - scores.max())
+    a /= a.sum()
+    return a, a @ H
+
+
+def clip_gradients(grads, v):
+    total = np.sqrt(sum((g ** 2).sum() for g in grads))
+    if total &gt; v:
+        grads = [g * v / total for g in grads]
+    return grads, total
+
+
+def spectral_radius(W):
+    return float(np.max(np.abs(np.linalg.eigvals(W))))
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    T, n_in, n_h = 12, 3, 8
+    X = rng.normal(size=(T, n_in))
+
+    Wh = rng.normal(0, 0.4, (n_h, n_h))
+    H = rnn_forward(X, Wh, rng.normal(0, 0.4, (n_in, n_h)), np.zeros(n_h))
+    print("rnn hidden shape:", H.shape, " spectral radius:", round(spectral_radius(Wh), 3))
+
+    params = {"Wx": rng.normal(0, 0.3, (n_in, 4 * n_h)),
+              "Wh": rng.normal(0, 0.3, (n_h, 4 * n_h)),
+              "b": np.zeros(4 * n_h)}
+    H2, C2 = lstm_forward(X, params)
+    print("lstm hidden shape:", H2.shape, " memory norm:", round(float(np.linalg.norm(C2[-1])), 3))
+
+    a, ctx = attention(np.zeros(n_h), H2, rng.normal(0, 0.3, (n_h, n_h)))
+    print("attention weights sum to", round(float(a.sum()), 6), " context shape:", ctx.shape)
+
+    grads, norm = clip_gradients([np.full((2, 2), 10.0)], 1.0)
+    print("clipped norm:", round(float(np.linalg.norm(grads[0])), 3), " from", round(norm, 3))
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 11 — the production version in PyTorch, with clipping and a GRU baseline."""
+import torch
+import torch.nn as nn
+
+
+class CharRNN(nn.Module):
+    def __init__(self, vocab_size, hidden=64, cell="lstm", layers=1):
+        super().__init__()
+        self.embed = nn.Embedding(vocab_size, 32)
+        cls = {"rnn": nn.RNN, "lstm": nn.LSTM, "gru": nn.GRU}[cell]
+        self.rnn = cls(32, hidden, num_layers=layers, batch_first=True)
+        self.head = nn.Linear(hidden, vocab_size)
+
+    def forward(self, x, state=None):
+        e = self.embed(x)
+        out, state = self.rnn(e, state)
+        return self.head(out), state
+
+
+if __name__ == "__main__":
+    torch.manual_seed(0)
+    text = "deep learning on google colab is fab" * 40
+    vocab = sorted(set(text))
+    stoi = {c: i for i, c in enumerate(vocab)}
+    ids = torch.tensor([stoi[c] for c in text])
+
+    for cell in ("rnn", "lstm", "gru"):
+        model = CharRNN(len(vocab), hidden=64, cell=cell)
+        opt = torch.optim.Adam(model.parameters(), lr=5e-3)
+        losses = []
+        for step in range(120):
+            i = torch.randint(0, len(ids) - 33, (1,)).item()
+            x = ids[i:i + 32].unsqueeze(0)
+            y = ids[i + 1:i + 33].unsqueeze(0)
+            logits, _ = model(x)
+            loss = nn.functional.cross_entropy(logits.view(-1, len(vocab)), y.view(-1))
+            opt.zero_grad()
+            loss.backward()
+            # gradient clipping: the standard RNN safeguard
+            nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            opt.step()
+            losses.append(loss.item())
+        print(f"{cell:5s} final loss {losses[-1]:.3f}  (first {losses[0]:.3f})")
+
+    # Attention, in the form that module 12 generalises
+    def scaled_dot_product_attention(Q, K, V, mask=None):
+        d_k = Q.size(-1)
+        scores = Q @ K.transpose(-2, -1) / (d_k ** 0.5)
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, float("-inf"))
+        weights = torch.softmax(scores, dim=-1)
+        return weights @ V, weights
+
+    T, d = 5, 8
+    Q = torch.randn(T, d)
+    out, w = scaled_dot_product_attention(Q, torch.randn(T, d), torch.randn(T, d))
+    print("attention output:", tuple(out.shape), " weights sum:", round(w.sum(-1).mean().item(), 5))
+
+    causal = torch.tril(torch.ones(T, T))
+    _, w_causal = scaled_dot_product_attention(Q, Q, Q, mask=causal)
+    print("causal weights are upper-triangular zeros:", bool((w_causal.triu(1) == 0).all()))
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block separates the three ideas cleanly: the recurrence, the gated cell with its additive memory path, and
+      attention as a softmax-weighted average. The PyTorch block shows that the practical difference between RNN, LSTM and GRU
+      is a single string — and that gradient clipping is one line that every RNN training loop needs.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="11">
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>What distinguishes an RNN from a deep feed-forward network with the same number of layers?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>RNNs have non-linearities</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>RNNs have fewer parameters per layer</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>RNNs share the same weights across time steps and pass a hidden state forward</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>RNNs cannot be trained with backpropagation</span></button></li>
+      </ul>
+      <div class="explain"><p>Weight sharing across time is what lets one model handle sequences of any length, and the hidden state is what carries information forward.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>During BPTT with a recurrent weight matrix whose spectral radius is 0.7, the gradient after 30 steps is approximately scaled by:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$0.7\times30 \approx 21$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>$0.7^{30} \approx 2\times10^{-5}$ — vanishing</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>$30^{0.7} \approx 11$</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Unchanged</span></button></li>
+      </ul>
+      <div class="explain"><p>Gradients compose multiplicatively through time, so the scale is $\rho^T$. A spectral radius below 1 gives exponential decay.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>Why does the LSTM's cell state help with vanishing gradients?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Because it uses tanh instead of sigmoid</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Because it has more parameters</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Because it removes the hidden state</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The update $C_t = F_t\odot C_{t-1} + I_t\odot\tilde C_t$ is additive, so the backward path has no weight matrix multiplication</span></button></li>
+      </ul>
+      <div class="explain"><p>$\partial C_t/\partial C_{t-1} = \mathrm{diag}(F_t)$: if the forget gate stays near 1, the gradient passes through essentially unchanged for many steps.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>Attention solves which specific problem of the encoder–decoder architecture?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>The input sequence must be compressed into a single fixed-size context vector</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>The decoder is too slow</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>The vocabulary is too large</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The encoder cannot use embeddings</span></button></li>
+      </ul>
+      <div class="explain"><p>A different context vector is computed at every decoder step as a weighted average over <em>all</em> encoder states, so no information has to survive a single-vector bottleneck.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>Gradient clipping sets $\mathbf{g} \leftarrow v\mathbf{g}/\|\mathbf{g}\|$ when $\|\mathbf{g}\| \gt v$. This:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Changes the direction of the update</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Preserves the direction and caps the step length</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Fixes vanishing gradients</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Requires a second backward pass</span></button></li>
+      </ul>
+      <div class="explain"><p>The scaling factor is a positive scalar, so the direction is untouched — only the magnitude is capped. It addresses exploding gradients; a vanished gradient cannot be clipped back into existence.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Vanilla RNN recurrence</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\mathbf{h}_t = \tanh(W_{hh}\mathbf{h}_{t-1} + W_{xh}\mathbf{x}_t + \mathbf{b}_h)$, with the same weights at every step.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">BPTT</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Backpropagation on the time-unrolled graph. Parameter gradients sum over time steps; memory is $O(T\cdot|h|)$.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Truncated BPTT</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Carry the hidden state forward indefinitely but backpropagate only through a fixed window. Trades exact gradients for bounded memory.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Forget gate</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\mathbf{F}_t = \sigma(\cdot)$ multiplying the previous cell state. Near 1 keeps memory (and gradients), near 0 erases it.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Teacher forcing</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Feeding the true previous token to the decoder during training rather than its own prediction. Speeds convergence but creates train/test mismatch (exposure bias).</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Bahdanau attention</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$e_{t,i} = f_{att}(\mathbf{s}_{t-1},\mathbf{h}_i)$, $a_{t,i} = \mathrm{softmax}(e)$, $\mathbf{c}_t = \sum_i a_{t,i}\mathbf{h}_i$. Learned end-to-end, never supervised.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Embedding layer</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">A lookup table of learned vectors. Multiplying a one-hot vector by a weight matrix is exactly row selection, which is why it is implemented as an index.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Where RNNs still beat attention</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Constant memory and compute per token, streaming inference, and small models on constrained hardware. Attention costs $O(t)$ cache and $O(t^2)$ training compute.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+</section>
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Trace a recurrence</h4></div>
+    <p>With $h_t = \tanh(0.5h_{t-1} + x_t)$, $h_0 = 0$, and inputs $x = (1, 0, 0, 0)$, compute $h_1,\dots,h_4$ numerically and explain why the state decays but never reaches zero.</p>
+    <button class="btn btn-sm" data-reveal="sol-11-1" type="button">Show solution</button>
+    <div id="sol-11-1" class="solution" hidden>
+      <p>$h_1 = \tanh(1) = 0.7616$; $h_2 = \tanh(0.3808) = 0.3634$; $h_3 = \tanh(0.1817) = 0.1797$; $h_4 = \tanh(0.0899) = 0.0897$.</p>
+      <p>The state roughly halves each step (consistent with a spectral radius of 0.5), so after four steps about 12% of the original signal remains. It approaches zero but tanh is only asymptotically zero, so the memory fades smoothly rather than being erased.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Derive the attention gradient</h4></div>
+    <p>For $\mathbf{c} = \sum_i a_i\mathbf{h}_i$ with $\mathbf{a} = \mathrm{softmax}(\mathbf{e})$, derive $\partial L/\partial e_i$ in terms of $\partial L/\partial a_j$ and explain why the weights receive gradient even though they are never supervised.</p>
+    <button class="btn btn-sm" data-reveal="sol-11-2" type="button">Show solution</button>
+    <div id="sol-11-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>$\partial L/\partial a_i = \nabla_{\mathbf{c}}L\cdot\mathbf{h}_i$ (the context is linear in the weights).</li>
+        <li>The softmax Jacobian is $\partial a_j/\partial e_i = a_j(\delta_{ij}-a_i)$, so
+          $$ \frac{\partial L}{\partial e_i} = \sum_j \frac{\partial L}{\partial a_j}a_j(\delta_{ij}-a_i) = a_i\Big(\frac{\partial L}{\partial a_i} - \sum_j a_j\frac{\partial L}{\partial a_j}\Big). $$
+        </li>
+        <li><span class="qed">∎</span> The bracket compares a weight's contribution to the average contribution: attention increases for states that help more than average and decreases for those that help less. No alignment labels are needed — the loss on the translated output supplies all the signal.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Show that the LSTM can hold memory indefinitely</h4></div>
+    <p>Assume $\mathbf{F}_t = \mathbf{1}$, $\mathbf{I}_t = \mathbf{0}$, and $\mathbf{O}_t = \mathbf{1}$. Show that $\mathbf{C}_t = \mathbf{C}_0$ for all $t$ and compute the gradient $\partial\mathbf{C}_T/\partial\mathbf{C}_0$. What breaks this in practice?</p>
+    <button class="btn btn-sm" data-reveal="sol-11-3" type="button">Show solution</button>
+    <div id="sol-11-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>With $\mathbf{F}_t=\mathbf{1}$ and $\mathbf{I}_t=\mathbf{0}$, the update reduces to $\mathbf{C}_t = \mathbf{C}_{t-1}$, so by induction $\mathbf{C}_t=\mathbf{C}_0$.</li>
+        <li>The Jacobian of each step is $\partial\mathbf{C}_t/\partial\mathbf{C}_{t-1} = \mathrm{diag}(\mathbf{F}_t) = I$, so the product over $T$ steps is the identity: $\partial\mathbf{C}_T/\partial\mathbf{C}_0 = I$. <span class="qed">∎</span></li>
+        <li><span class="why">In practice the gates are sigmoids of a learned function, so $\mathbf{F}_t$ sits strictly below 1 (e.g. 0.95), and the product becomes $0.95^T$ — slow decay, not zero decay. That is the difference between an LSTM and a vanilla RNN: the per-step factor is a gate near 1 rather than a full matrix with an uncontrolled spectral radius. Adding a forget-gate bias of +1 (as many implementations do) pushes $\mathbf{F}$ even closer to 1.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 11</span>
+    <h3>A character-level language model, three ways</h3>
+    <p>Train RNN, LSTM and GRU models on the same text and measure exactly what gating buys you — in loss, in memory and in the length of the dependencies each model can learn.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Implement a vanilla RNN with BPTT and truncated BPTT in NumPy; verify gradients numerically.</li>
+      <li>Train character-level models (RNN, LSTM, GRU) on a public-domain text and compare final loss and sample quality at matched parameter counts.</li>
+      <li>Run the dependency-length experiment: tasks like "copy the first character after 20 distractors" and report accuracy versus gap length for each architecture.</li>
+      <li>Show the effect of gradient clipping: train with and without, and plot the gradient-norm trajectory.</li>
+      <li>Generate text from each model and include samples at several training stages.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li><code>rnn.py</code> with gradient checks and truncated BPTT</li>
+      <li>Table: architecture, parameters, final loss, sample quality</li>
+      <li>Figure: accuracy vs. dependency length for all three cells</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Implementation</td><td>Gradient checks pass; truncation implemented correctly</td><td>30</td></tr>
+        <tr><td>Comparison</td><td>Equal parameter budget; loss curves and samples shown for all three cells</td><td>30</td></tr>
+        <tr><td>Dependency study</td><td>Clean experimental design isolating memory length</td><td>25</td></tr>
+        <tr><td>Writing</td><td>Explains the gating mechanism using the Jacobian argument</td><td>15</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Add a peephole connection or layer normalisation inside the LSTM and measure the effect.</li>
+      <li>Implement beam search decoding and compare with greedy sampling.</li>
+      <li>Add attention over the encoder states for a toy translation task.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/11-char-lm/</code>.</p>
+  </div>
+</section>

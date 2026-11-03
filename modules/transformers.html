@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>12 · Transformers & Large Language Models — ML from First Principles</title>
+<meta name="description" content="Self-attention as soft dictionary lookup: queries, keys, values, the √d_k scaling, multi-head projections, causal masking, sinusoidal positional encoding, and how GPT, BERT and scaling laws fit together." />
+<meta property="og:title" content="12 · Transformers & Large Language Models — ML from First Principles" />
+<meta property="og:description" content="Self-attention as soft dictionary lookup: queries, keys, values, the √d_k scaling, multi-head projections, causal masking, sinusoidal positional encoding, and how GPT, BERT and scaling laws fit together." />
+<meta property="og:type" content="article" />
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css" />
+<link rel="stylesheet" href="../assets/css/site.css" />
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/js/viz.js"></script>
+<script defer src="../assets/js/mla.js"></script>
+<script defer src="../assets/js/site.js"></script>
+<script defer src="../assets/js/labs/12-transformers.js"></script>
+</head>
+<body data-module="transformers">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark">ML</span>
+      <span>ML from First Principles<small>Interactive course · CUNY CSC 74020</small></span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a class="opt" href="../index.html#curriculum">Curriculum</a>
+      <a class="opt" href="../index.html#python">Python library</a>
+      <a class="opt" href="../index.html#projects">Projects</a>
+      <a class="opt" href="../index.html#sources">Sources</a>
+      <button class="icon-btn" data-theme-toggle type="button" aria-label="Toggle theme">☾</button>
+      <button class="icon-btn" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">☰</button>
+    </nav>
+  </div>
+  <div id="navMenu" hidden style="border-top:1px solid var(--line);background:var(--panel)">
+    <div class="shell" style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:.86rem">
+      <a href="../modules/foundations.html" style="padding:4px 0;color:var(--ink-2)">01 · What Machine Learning Actually Is</a>
+      <a href="../modules/knn-evaluation.html" style="padding:4px 0;color:var(--ink-2)">02 · Nearest Neighbours & Honest Evaluation</a>
+      <a href="../modules/linear-regression.html" style="padding:4px 0;color:var(--ink-2)">03 · Linear Models & Least Squares</a>
+      <a href="../modules/logistic-regression.html" style="padding:4px 0;color:var(--ink-2)">04 · Logistic Regression & Classification Loss</a>
+      <a href="../modules/regularization.html" style="padding:4px 0;color:var(--ink-2)">05 · Regularization, Bias–Variance & Model Selection</a>
+      <a href="../modules/neural-networks.html" style="padding:4px 0;color:var(--ink-2)">06 · Artificial Neural Networks</a>
+      <a href="../modules/backpropagation.html" style="padding:4px 0;color:var(--ink-2)">07 · Backpropagation & Training Deep Networks</a>
+      <a href="../modules/trees-ensembles.html" style="padding:4px 0;color:var(--ink-2)">08 · Decision Trees, Bagging & Boosting</a>
+      <a href="../modules/clustering.html" style="padding:4px 0;color:var(--ink-2)">09 · Unsupervised Learning: Clustering</a>
+      <a href="../modules/cnns.html" style="padding:4px 0;color:var(--ink-2)">10 · Convolutional Neural Networks</a>
+      <a href="../modules/sequences.html" style="padding:4px 0;color:var(--ink-2)">11 · Sequences: RNNs, LSTMs & Attention</a>
+      <a href="../modules/transformers.html" style="padding:4px 0;color:var(--ink-2)">12 · Transformers & Large Language Models</a>
+      <a href="../modules/dimensionality-reduction.html" style="padding:4px 0;color:var(--ink-2)">13 · Dimensionality Reduction & Representation Learning</a>
+      <a href="../modules/svm-kernels.html" style="padding:4px 0;color:var(--ink-2)">14 · Support Vector Machines & Kernels</a>
+      <a href="../modules/reinforcement-learning.html" style="padding:4px 0;color:var(--ink-2)">15 · Reinforcement Learning</a>
+      <a href="../modules/interpretation.html" style="padding:4px 0;color:var(--ink-2)">16 · Model Interpretation & What Comes Next</a>
+    </div>
+  </div>
+</header>
+<main id="main" class="shell with-rail">
+<aside class="rail" aria-label="On this page">
+  <h4>12 · Modern AI</h4>
+  <ol>
+    <li><a href="#objectives">Learning objectives</a></li>
+    <li><a href="#intuition">1 · Intuition</a></li>
+    <li><a href="#math">2 · Mathematical foundations</a></li>
+    <li><a href="#labs">3 · Interactive visualizations</a></li>
+    <li><a href="#code">4 · Coding from scratch</a></li>
+    <li><a href="#assessment">5 · Assessment</a></li>
+    <li><a href="#project">6 · Portfolio project</a></li>
+  </ol>
+  <h4 style="margin-top:22px">All modules</h4>
+  <ol class="rail-sub">
+    <li><a href="foundations.html">01 What Machine Learning Actually Is</a></li>
+    <li><a href="knn-evaluation.html">02 Nearest Neighbours & Honest Evaluation</a></li>
+    <li><a href="linear-regression.html">03 Linear Models & Least Squares</a></li>
+    <li><a href="logistic-regression.html">04 Logistic Regression & Classification Loss</a></li>
+    <li><a href="regularization.html">05 Regularization, Bias–Variance & Model Selection</a></li>
+    <li><a href="neural-networks.html">06 Artificial Neural Networks</a></li>
+    <li><a href="backpropagation.html">07 Backpropagation & Training Deep Networks</a></li>
+    <li><a href="trees-ensembles.html">08 Decision Trees, Bagging & Boosting</a></li>
+    <li><a href="clustering.html">09 Unsupervised Learning: Clustering</a></li>
+    <li><a href="cnns.html">10 Convolutional Neural Networks</a></li>
+    <li><a href="sequences.html">11 Sequences: RNNs, LSTMs & Attention</a></li>
+    <li><a href="transformers.html" style="color:var(--accent);font-weight:600">12 Transformers & Large Language Models</a></li>
+    <li><a href="dimensionality-reduction.html">13 Dimensionality Reduction & Representation Learning</a></li>
+    <li><a href="svm-kernels.html">14 Support Vector Machines & Kernels</a></li>
+    <li><a href="reinforcement-learning.html">15 Reinforcement Learning</a></li>
+    <li><a href="interpretation.html">16 Model Interpretation & What Comes Next</a></li>
+  </ol>
+  <div style="margin-top:22px">
+    <button class="btn btn-sm" data-mark-complete type="button" style="width:100%;justify-content:center">Mark module complete</button>
+  </div>
+</aside>
+<article class="article">
+  <header>
+    <span class="kicker">Module 12 · Modern AI</span>
+    <h1>Transformers & Large Language Models</h1>
+    <p class="lede">Self-attention as soft dictionary lookup: queries, keys, values, the √d_k scaling, multi-head projections, causal masking, sinusoidal positional encoding, and how GPT, BERT and scaling laws fit together.</p>
+    <div class="header-meta">
+      <span>📚 Source: Lecture Notes 10</span>
+      <span>⏱ 85 min</span>
+      <span>🧪 2 interactive labs</span>
+      <span>🐍 3 implementations</span>
+    </div>
+  </header>
+
+  <section class="block" id="objectives">
+    <h2><span class="secnum">◎</span> Learning objectives</h2>
+    <div class="card">
+      <p class="small muted" style="margin-top:0">By the end of this module you should be able to:</p>
+      <ul class="tight">
+      <li>Compute a scaled dot-product attention matrix for a tiny sequence by hand.</li>
+      <li>Explain why scores are divided by √d_k and what happens if they are not.</li>
+      <li>Describe multi-head attention as several learned subspaces plus a projection.</li>
+      <li>Build a causal mask and explain the autoregressive property.</li>
+      <li>Derive the sinusoidal positional encoding and its relative-offset property.</li>
+      </ul>
+    </div>
+  </section>
+
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-why">What transformers are for</h3>
+  <p>
+    Transformers are a class of neural network architecture built on <strong>self-attention</strong>, which lets every position in
+    a sequence attend to every other position — capturing long-range dependencies in a single step rather than through a
+    chain of recurrences. They are now the dominant architecture for natural language processing, code generation and
+    chatbot LLMs, they replace CNNs in vision (ViTs), and they enabled scientific results such as AlphaFold.
+  </p>
+  <p>
+    Module 11 ended with three problems and three fixes: vanishing gradients → residual connections; unstable activations →
+    layer normalisation; state updates → attention. A transformer is exactly that combination, plus one ingredient of its own
+    (positional encoding), because attention on its own is order-blind.
+  </p>
+
+  <h3 class="sub" id="i-setup">The problem setup</h3>
+  <p>
+    Text is parsed into <strong>tokens</strong> — semantic units roughly corresponding to words or sub-words. A vocabulary has
+    tens of thousands of tokens, encoded and compressed (for instance with byte-pair encoding) into integers, plus control
+    tokens such as <code>[UNK]</code>, <code>[CLS]</code>, <code>[SEP]</code>. Each integer indexes an embedding vector, and the
+    sequence of embeddings is what the transformer consumes.
+  </p>
+
+  <h3 class="sub" id="i-components">Four components</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Component</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Self-attention</strong></td><td>lets each position gather information from all positions, with learned weights</td></tr>
+        <tr><td><strong>Positional encoding</strong></td><td>injects information about <em>where</em> each token is, since attention has no inherent order</td></tr>
+        <tr><td><strong>Residual connections</strong></td><td>carry the signal and the gradient around each sub-layer</td></tr>
+        <tr><td><strong>Layer normalisation</strong></td><td>normalises across the feature dimension (not the batch), stabilising activations</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The main body is an <strong>encoder–decoder</strong>: the encoder processes the input sequence into context-rich
+    representations, and the decoder generates the output sequence one token at a time, using both the encoder's
+    representations (through <em>cross-attention</em>) and its own previous outputs. Each encoder or decoder block is a
+    self-attention layer followed by a feed-forward MLP applied at each token position.
+  </p>
+
+  <h3 class="sub" id="i-attention">Self-attention as a search engine</h3>
+  <p>
+    The cleanest way to understand attention is as an information-retrieval system. A YouTube search matches your search terms
+    (the <strong>query</strong>) against the metadata of videos (the <strong>keys</strong>) and returns the most relevant videos
+    (the <strong>values</strong>). Self-attention does the same thing inside a sequence: each token issues a query, every token
+    advertises a key, similarity between them decides how much of each value to retrieve.
+  </p>
+  <div class="formula">$$ \mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V $$</div>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Step</th><th>Computation</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>1. Project</td><td>$Q = XW_Q$, $K = XW_K$, $V = XW_V$</td><td>learn three views of the same embeddings</td></tr>
+        <tr><td>2. Score</td><td>$QK^\top$</td><td>compatibility of each query with each key</td></tr>
+        <tr><td>3. Scale</td><td>$\div\sqrt{d_k}$</td><td>keep the softmax in a region with usable gradients</td></tr>
+        <tr><td>4. Normalise</td><td>$\mathrm{softmax}(\cdot)$</td><td>turn scores into a convex combination</td></tr>
+        <tr><td>5. Aggregate</td><td>$\times V$</td><td>weighted sum of value vectors</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The canonical demonstration: in "The animal didn't cross the street because <strong>it</strong> was too tired", the token
+    <em>it</em> attends strongly to <em>animal</em>; in "…because it was too wide", it attends to <em>street</em>. The same
+    weights, different context, different answer — which is exactly what a static embedding cannot do.
+  </p>
+
+  <div class="callout">
+    <span class="label">Why divide by √d_k?</span>
+    <p>
+      As the key dimension grows, dot products of roughly independent entries grow in magnitude like $\sqrt{d_k}$ (their
+      variance is $d_k$). Large scores push the softmax into saturation, where one weight is ≈1 and the rest ≈0 — and the
+      gradient of a saturated softmax is nearly zero. Dividing by $\sqrt{d_k}$ restores unit variance and keeps training alive.
+      Lab 1 lets you turn the scaling off and watch the weights collapse onto a single token.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-multihead">Multi-head attention</h3>
+  <p>
+    A single attention head can only express one notion of relevance. Multi-head attention runs $h$ attention operations in
+    parallel on projected subspaces, then concatenates and projects:
+  </p>
+  <div class="formula">$$ \mathbf{c}_i = \mathrm{attention}\big(QW_Q^{(i)},\, KW_K^{(i)},\, VW_V^{(i)}\big), \qquad \mathrm{MultiHead}(Q,K,V) = \mathrm{concat}(\mathbf{c}_1,\dots,\mathbf{c}_h)W_O $$</div>
+  <p>
+    Each head can specialise: one tracks syntax, another tracks coreference, another tracks position. This is precisely
+    analogous to using multiple filters in a CNN — several detectors in parallel, combined by a learned projection.
+  </p>
+
+  <h3 class="sub" id="i-mask">Masking</h3>
+  <ul>
+    <li><strong>Encoder attention</strong> is all-to-all: each token attends to the entire input, including itself.</li>
+    <li><strong>Padding masks</strong> ignore the padding used to make sequences equal length.</li>
+    <li><strong>Decoder attention is causal</strong>: token $t$ may attend only to tokens $\le t$. The mask is applied by setting future scores to $-\infty$ before the softmax, so their weights become exactly zero. This preserves the <em>autoregressive property</em> — the model can never cheat by looking at the answer it is about to predict.</li>
+  </ul>
+
+  <h3 class="sub" id="i-pos">Positional encoding</h3>
+  <p>
+    Attention is permutation-equivariant: shuffle the tokens and the outputs shuffle with them. Word order is crucial, so
+    position information must be injected. The original transformer adds fixed sinusoids of geometrically spaced frequencies:
+  </p>
+  <div class="formula">$$ \mathrm{PE}_{(\text{pos},\,2i)} = \sin\!\left(\frac{\text{pos}}{10000^{2i/d_{\text{model}}}}\right), \qquad \mathrm{PE}_{(\text{pos},\,2i+1)} = \cos\!\left(\frac{\text{pos}}{10000^{2i/d_{\text{model}}}}\right) $$</div>
+  <p>
+    Even dimensions use sine, odd dimensions cosine, and the $10000^{2i/d}$ term gives each dimension its own frequency. Low
+    dimensions oscillate quickly (they encode fine position), high dimensions slowly (coarse position). Both sine and cosine
+    are needed: a single sinusoid cannot distinguish $p=22$ from $p=35$ in a high-frequency dimension.
+  </p>
+
+  <h3 class="sub" id="i-llm">From transformer to LLM</h3>
+  <p>
+    The original transformer was designed for translation and trained <em>supervised</em>, on bilingual corpora. Scaling that up
+    requires ever larger labelled datasets, which do not exist for general language ability. The resolution is
+    <strong>self-supervised learning</strong>: take a large unlabelled corpus, mask or shift the text, and use the next token as
+    its own label.
+  </p>
+  <p>
+    Concretely, given "Deep learning on Google CoLab is fab" with $l=7$ tokens: feed "Deep learning" and ask the model to
+    predict "on"; measure the loss, backpropagate; then feed "Deep learning on" and predict "Colab"; and so on, over
+    minibatches. Pretraining is followed by supervised fine-tuning (either feature-based, as in transfer learning, or by
+    fine-tuning the whole model) — the two-step process called <strong>semi-supervised learning</strong>.
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Family</th><th>Architecture</th><th>Training objective</th><th>Good at</th></tr></thead>
+      <tbody>
+        <tr><td>GPT (2018–)</td><td>decoder only, causal</td><td>next-token prediction</td><td>generation, in-context learning</td></tr>
+        <tr><td>BERT (2018)</td><td>encoder only, bidirectional</td><td>masked language modelling + next-sentence prediction</td><td>classification, extraction, QA</td></tr>
+        <tr><td>BART / T5 (2019)</td><td>encoder–decoder</td><td>denoising / span corruption</td><td>translation, summarisation</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    GPT-2 (1.5B parameters) established that a decoder trained on enough text performs many tasks zero-shot, given the task in
+    the context window. GPT-3 (175B) established <em>in-context learning</em>: put a few examples in the prompt and the model
+    infers the task without any weight updates. Both rely on <strong>sparse attention</strong>, because full self-attention is
+    quadratic in sequence length: with $t$ tokens the weight matrix has $t^2$ entries. Sparse patterns reduce this to
+    sub-quadratic complexity at some cost in expressiveness.
+  </p>
+  <div class="callout warn">
+    <span class="label">Limits of scaling</span>
+    <p>
+      Loss falls as a power law in parameters, data and compute — the empirical basis of the "scaling hypothesis". Two hard
+      constraints are emerging: high-quality training text is finite (the projected exhaustion of the public corpus is a
+      measured result, not a guess), and compute cost grows by orders of magnitude per generation. Both are why data
+      efficiency, retrieval and mixture-of-experts architectures are active research areas.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Translation · the original task</span>
+      <h4>WMT14 English–German</h4>
+      <p>The 2017 paper beat the previous best BLEU score using 24 GPU-days instead of 64 — better and cheaper, because attention parallelises over the sequence whereas RNNs cannot.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Code · completion</span>
+      <h4>Copilots</h4>
+      <p>Code is a sequence with long-range dependencies (a variable defined 200 lines earlier), exactly what self-attention handles well.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Vision · ViT</span>
+      <h4>Patches as tokens</h4>
+      <p>Split an image into $16\times16$ patches, project each to $D$ dimensions, add position embeddings, and run a standard transformer encoder. No convolutions at all.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Science · structure prediction</span>
+      <h4>AlphaFold</h4>
+      <p>Attention over residue pairs models which amino acids interact at a distance — the long-range dependency problem in a biological form.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Retrieval · RAG</span>
+      <h4>Retrieval-augmented generation</h4>
+      <p>Embed documents, retrieve the nearest ones, and put them in the context window. The transformer's ability to condition on a long prompt is what makes this work.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Efficiency · distillation</span>
+      <h4>Small models</h4>
+      <p>DistilBERT and quantised variants retain most of the accuracy at a fraction of the cost — the practical answer to quadratic attention for deployment.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-sdpa">2.1 Scaled dot-product attention, worked</h3>
+  <p>For a sequence of $n$ tokens with $Q,K,V\in\mathbb{R}^{n\times d_k}$:</p>
+  <ol class="derivation">
+    <li>$S = QK^\top\in\mathbb{R}^{n\times n}$: entry $S_{ij} = \mathbf{q}_i\cdot\mathbf{k}_j$.</li>
+    <li>$S \leftarrow S/\sqrt{d_k}$; optionally set masked entries to $-\infty$.</li>
+    <li>$A = \mathrm{softmax}_{\text{row}}(S)$: each row is a probability distribution over the $n$ positions.</li>
+    <li>$H = AV$: row $i$ of $H$ is $\sum_j A_{ij}\mathbf{v}_j$, a convex combination of value vectors.</li>
+  </ol>
+  <p>
+    Total cost: $O(n^2d_k)$ for $QK^\top$ plus $O(n^2d_v)$ for $AV$ — quadratic in sequence length, which is the fundamental
+    scaling limitation.
+  </p>
+
+  <details class="steps" open>
+    <summary>Derivation — why scores grow like √d_k and why that breaks the softmax</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Let the components of $\mathbf{q}$ and $\mathbf{k}$ be independent with mean 0 and variance 1. Then
+          $$ \mathbb{E}[\mathbf{q}\cdot\mathbf{k}] = \sum_{i=1}^{d_k}\mathbb{E}[q_ik_i] = 0, \qquad \mathrm{Var}(\mathbf{q}\cdot\mathbf{k}) = \sum_{i=1}^{d_k}\mathrm{Var}(q_ik_i) = d_k. $$
+        </li>
+        <li>So the standard deviation of the scores is $\sqrt{d_k}$: with $d_k = 64$, typical scores are around $\pm8$.</li>
+        <li>Feed scores of that spread into a softmax with $n$ entries and the largest one dominates: $e^{8}$ versus $e^{0}$ is a ratio of about 3,000, so one weight is ≈1 and the rest ≈0.</li>
+        <li>The softmax Jacobian is $a_i(\delta_{ij}-a_j)$. When $\mathbf{a}$ is one-hot, every entry of that Jacobian is 0 — no gradient reaches the scores, and attention stops learning. <span class="qed">∎</span></li>
+        <li>Dividing by $\sqrt{d_k}$ restores unit variance, keeps the softmax in a well-conditioned regime, and is the entire justification for the $\sqrt{d_k}$ in the formula.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-multihead">2.2 Multi-head attention as a sum of low-rank terms</h3>
+  <p>
+    With $h$ heads of dimension $d_k = d_{\text{model}}/h$, each head computes a rank-$\le d_k$ update to the residual stream.
+    Writing out one head without the final projection,
+  </p>
+  <div class="formula">$$ H^{(i)} = \mathrm{softmax}\!\left(\frac{XW_Q^{(i)}W_K^{(i)\top}X^\top}{\sqrt{d_k}}\right)XW_V^{(i)} $$</div>
+  <p>
+    so each head is a data-dependent, low-rank linear map of $X$. Concatenating $h$ of them and applying $W_O$ mixes the heads.
+    Two practical consequences: the total parameter count is roughly the same as one head of full width (because
+    $d_k = d/h$), and the rank of the combined update is at most $h\,d_k = d$ — heads do not add capacity so much as
+    <em>diversity</em> of routing.
+  </p>
+
+  <h3 class="sub" id="m-pe">2.3 Positional encoding and relative offsets</h3>
+  <details class="steps">
+    <summary>Derivation — the rotation identity behind relative positions</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Write the encoding of position $p$ in dimension pair $i$ as a vector
+          $\mathrm{PE}_i(p) = \big(\sin(p\omega_i), \cos(p\omega_i)\big)$ with $\omega_i = 10000^{-2i/d}$.</li>
+        <li>Apply the angle-addition formulas:
+          $$ \sin\big((p+\Delta)\omega_i\big) = \sin(p\omega_i)\cos(\Delta\omega_i) + \cos(p\omega_i)\sin(\Delta\omega_i), $$
+          $$ \cos\big((p+\Delta)\omega_i\big) = \cos(p\omega_i)\cos(\Delta\omega_i) - \sin(p\omega_i)\sin(\Delta\omega_i). $$
+        </li>
+        <li>In matrix form, $\mathrm{PE}_i(p+\Delta) = R(\Delta\omega_i)\,\mathrm{PE}_i(p)$ where $R$ is a rotation by $\Delta\omega_i$ that depends only on the <em>offset</em> $\Delta$, not on $p$. <span class="qed">∎</span></li>
+        <li><span class="why">So a linear function of the encoding can recover relative position — which is why fixed sinusoids work at all, and why the model can generalise to offsets it never saw. Lab 2 shows the cosine similarity between $\mathrm{PE}(p)$ and $\mathrm{PE}(p+\Delta)$ decaying smoothly with $\Delta$, the fingerprint of this structure.</span></li>
+        <li>Because different dimensions have different $\omega_i$, the full encoding gives every position a unique vector (absolute position) while simultaneously encoding offsets at multiple scales (relative position).</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-layer">2.4 Layer normalisation, and why not batch norm</h3>
+  <p>
+    LayerNorm normalises across the <em>feature</em> dimension for each token independently:
+  </p>
+  <div class="formula">$$ \mathrm{LN}(\mathbf{x}) = \gamma\odot\frac{\mathbf{x}-\mu}{\sqrt{\sigma^2+\epsilon}} + \beta, \qquad \mu = \frac1d\sum_i x_i,\quad \sigma^2 = \frac1d\sum_i (x_i-\mu)^2 $$</div>
+  <p>
+    Batch norm normalises across the <em>batch</em> for each feature. For sequences, batch statistics mix unrelated samples and
+    depend on batch size; layer statistics depend only on the token itself, so they are identical at training and inference and
+    work with batch size 1. Modern transformers use a <em>pre-norm</em> arrangement (normalise before the sub-layer, then add
+    the residual), which trains more stably at depth than the original post-norm.
+  </p>
+
+  <h3 class="sub" id="m-scaling">2.5 Scaling laws, briefly</h3>
+  <p>
+    Empirically, test loss falls as a power law in model size $N$, dataset size $D$ and compute $C$:
+    $L \propto N^{-\alpha_N}$, $L \propto D^{-\alpha_D}$, with exponents around $0.05$–$0.1$. On log–log axes these are straight
+    lines, which is why "make it bigger" worked for a decade. The exponents also imply diminishing returns: each additional
+    order of magnitude of compute buys a fixed fractional reduction in loss, so the cost per unit of improvement grows
+    exponentially. Chinchilla-style results refine this into a practical rule — for a fixed compute budget, parameters and
+    tokens should be scaled together, and most early large models were badly undertrained relative to their size.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-attention-matrix">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · self-attention</span><h4>Score matrix → weight matrix</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Five tokens, one attention head. The top matrix is $QK^\top/\sqrt{d_k}$ (red positive, blue negative); the bottom is the row-wise softmax that turns it into weights. Each row sums to exactly 1 — that invariant is printed in the panel.</p>
+      <p>Now turn <strong>off</strong> the $\sqrt{d_k}$ scaling and raise the sharpness: the score matrix saturates and the weight matrix collapses onto a single column per row — one-hot attention, zero gradient, no learning. Turn scaling back on and the weights soften. Finally enable the <strong>causal mask</strong>: the upper triangle becomes exactly zero, which is the autoregressive property that makes GPT-style generation possible.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-positional">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · positions</span><h4>Sinusoidal positional encoding</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>The matrix has one row per position and one column per dimension. Low dimensions oscillate fast (they encode fine position); high dimensions oscillate slowly (coarse position) — the geometric spacing of frequencies is what gives the encoding multiple scales at once.</p>
+      <p>Change the offset $\Delta$ and watch the similarity readout: $\mathrm{PE}(p)$ and $\mathrm{PE}(p+\Delta)$ are nearly identical for small offsets and decorrelate smoothly as $\Delta$ grows. That decay is the relative-position structure of §2.3, and it is why a linear layer can recover offsets from these features.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">PyTorch</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 12 — scaled dot-product attention and positional encoding, no libraries."""
+import math
+
+
+def matmul(A, B):
+    Bt = list(zip(*B))
+    return [[sum(a * b for a, b in zip(row, col)) for col in Bt] for row in A]
+
+
+def transpose(A):
+    return [list(r) for r in zip(*A)]
+
+
+def softmax(row):
+    m = max(row)
+    e = [math.exp(v - m) for v in row]
+    s = sum(e)
+    return [v / s for v in e]
+
+
+def scaled_dot_product_attention(Q, K, V, causal=False):
+    """Q,K,V: n x d lists. Returns (output, attention weights)."""
+    n, dk = len(Q), len(Q[0])
+    scores = matmul(Q, transpose(K))                 # n x n
+    for i in range(n):
+        for j in range(n):
+            scores[i][j] /= math.sqrt(dk)             # the scaling term
+            if causal and j &gt; i:
+                scores[i][j] = float("-inf")          # mask the future
+    weights = [softmax(row) for row in scores]
+    out = matmul(weights, V)
+    return out, weights
+
+
+def positional_encoding(max_pos, d_model):
+    pe = []
+    for pos in range(max_pos):
+        row = []
+        for i in range(d_model // 2):
+            omega = 1.0 / (10000 ** (2 * i / d_model))
+            row += [math.sin(pos * omega), math.cos(pos * omega)]
+        pe.append(row)
+    return pe
+
+
+def multi_head(Q, K, V, n_heads):
+    """Split the feature dimension into heads, attend in each, concatenate."""
+    d = len(Q[0])
+    dh = d // n_heads
+    outs = []
+    for h in range(n_heads):
+        sl = slice(h * dh, (h + 1) * dh)
+        Qh = [row[sl] for row in Q]
+        Kh = [row[sl] for row in K]
+        Vh = [row[sl] for row in V]
+        o, _ = scaled_dot_product_attention(Qh, Kh, Vh)
+        outs.append(o)
+    return [[v for h in range(n_heads) for v in outs[h][i]] for i in range(len(Q))]
+
+
+if __name__ == "__main__":
+    Q = [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
+    K = [[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]]
+    V = [[10.0, 0.0], [0.0, 10.0], [5.0, 5.0]]
+
+    out, w = scaled_dot_product_attention(Q, K, V)
+    print("weights row sums:", [round(sum(r), 6) for r in w])
+    print("output:", [[round(v, 2) for v in row] for row in out])
+
+    _, wc = scaled_dot_product_attention(Q, K, V, causal=True)
+    print("causal upper triangle zero:", all(wc[i][j] == 0 for i in range(3) for j in range(i + 1, 3)))
+
+    pe = positional_encoding(6, 8)
+    print("PE(0):", [round(v, 2) for v in pe[0]])
+    print("PE(1):", [round(v, 2) for v in pe[1]])
+
+    mh = multi_head(Q, K, V, n_heads=1)
+    print("multi-head (h=1) equals single head:", mh == out)
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 12 — vectorised attention, a full transformer block, and causal masking."""
+import numpy as np
+
+
+def softmax(x, axis=-1):
+    x = x - x.max(axis=axis, keepdims=True)
+    e = np.exp(x)
+    return e / e.sum(axis=axis, keepdims=True)
+
+
+def scaled_dot_product_attention(Q, K, V, mask=None):
+    dk = Q.shape[-1]
+    scores = Q @ K.swapaxes(-1, -2) / np.sqrt(dk)
+    if mask is not None:
+        scores = np.where(mask, scores, -np.inf)
+    weights = softmax(scores, axis=-1)
+    return weights @ V, weights
+
+
+def causal_mask(n):
+    return np.tril(np.ones((n, n), dtype=bool))
+
+
+def positional_encoding(max_pos, d_model):
+    pos = np.arange(max_pos)[:, None]
+    i = np.arange(0, d_model, 2)[None, :]
+    omega = 1.0 / (10000 ** (i / d_model))
+    pe = np.zeros((max_pos, d_model))
+    pe[:, 0::2] = np.sin(pos * omega)
+    pe[:, 1::2] = np.cos(pos * omega)
+    return pe
+
+
+def layer_norm(x, gamma, beta, eps=1e-5):
+    mu = x.mean(-1, keepdims=True)
+    var = x.var(-1, keepdims=True)
+    return gamma * (x - mu) / np.sqrt(var + eps) + beta
+
+
+def multi_head_attention(X, Wq, Wk, Wv, Wo, n_heads, mask=None):
+    n, d = X.shape
+    dh = d // n_heads
+    Q, K, V = X @ Wq, X @ Wk, X @ Wv
+    heads = []
+    for h in range(n_heads):
+        sl = slice(h * dh, (h + 1) * dh)
+        o, _ = scaled_dot_product_attention(Q[:, sl], K[:, sl], V[:, sl], mask)
+        heads.append(o)
+    return np.concatenate(heads, axis=-1) @ Wo
+
+
+def transformer_block(X, params, n_heads, mask=None):
+    """Pre-norm: LN -> attention -> residual -> LN -> MLP -> residual."""
+    p = params
+    A = multi_head_attention(layer_norm(X, p["g1"], p["b1"]),
+                             p["Wq"], p["Wk"], p["Wv"], p["Wo"], n_heads, mask)
+    X = X + A
+    H = layer_norm(X, p["g2"], p["b2"])
+    X = X + np.maximum(H @ p["W1"] + p["c1"], 0) @ p["W2"] + p["c2"]
+    return X
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    n, d, heads = 5, 16, 4
+    X = rng.normal(size=(n, d))
+    params = {k: rng.normal(0, 0.2, s) for k, s in {
+        "Wq": (d, d), "Wk": (d, d), "Wv": (d, d), "Wo": (d, d),
+        "W1": (d, 4 * d), "W2": (4 * d, d),
+        "c1": (4 * d,), "c2": (d,),
+        "g1": (d,), "b1": (d,), "g2": (d,), "b2": (d,),
+    }.items()}
+    params["g1"] = np.ones(d); params["g2"] = np.ones(d)
+
+    out = transformer_block(X, params, heads)
+    print("block output shape:", out.shape)
+
+    # Scaling experiment: what happens without the sqrt(d_k) division
+    Q = rng.normal(size=(n, 64)); K = rng.normal(size=(n, 64)); V = rng.normal(size=(n, 64))
+    _, w_scaled = scaled_dot_product_attention(Q, K, V)
+    _, w_unscaled = scaled_dot_product_attention(Q * np.sqrt(64), K, V)
+    print("max weight with scaling   :", round(float(w_scaled.max()), 3))
+    print("max weight without scaling:", round(float(w_unscaled.max()), 3))
+
+    # Causal mask
+    _, w = scaled_dot_product_attention(Q, Q, Q, mask=causal_mask(n))
+    print("causal weights upper-triangular:", bool((w[np.triu_indices(n, 1)] == 0).all()))
+
+    pe = positional_encoding(20, 16)
+    print("PE shape:", pe.shape, " norm of row 0:", round(float(np.linalg.norm(pe[0])), 3))
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 12 — the real thing: nn.MultiheadAttention, a small GPT, and a pretrained tokenizer."""
+import torch
+import torch.nn as nn
+
+
+class CausalSelfAttention(nn.Module):
+    def __init__(self, d_model, n_heads, block_size):
+        super().__init__()
+        assert d_model % n_heads == 0
+        self.attn = nn.MultiheadAttention(d_model, n_heads, batch_first=True)
+        self.register_buffer("mask", torch.tril(torch.ones(block_size, block_size)).bool())
+
+    def forward(self, x):
+        T = x.size(1)
+        out, weights = self.attn(x, x, x, attn_mask=self.mask[:T, :T], need_weights=True)
+        return out, weights
+
+
+class Block(nn.Module):
+    def __init__(self, d_model, n_heads, block_size, dropout=0.1):
+        super().__init__()
+        self.ln1, self.ln2 = nn.LayerNorm(d_model), nn.LayerNorm(d_model)
+        self.sa = CausalSelfAttention(d_model, n_heads, block_size)
+        self.mlp = nn.Sequential(nn.Linear(d_model, 4 * d_model), nn.GELU(),
+                                 nn.Linear(4 * d_model, d_model), nn.Dropout(dropout))
+
+    def forward(self, x):
+        a, w = self.sa(self.ln1(x))
+        x = x + a                       # residual around attention
+        x = x + self.mlp(self.ln2(x))   # residual around the MLP
+        return x, w
+
+
+class TinyGPT(nn.Module):
+    def __init__(self, vocab, d_model=64, n_heads=4, n_layers=2, block_size=32):
+        super().__init__()
+        self.tok = nn.Embedding(vocab, d_model)
+        self.pos = nn.Embedding(block_size, d_model)
+        self.blocks = nn.ModuleList([Block(d_model, n_heads, block_size) for _ in range(n_layers)])
+        self.ln_f = nn.LayerNorm(d_model)
+        self.head = nn.Linear(d_model, vocab, bias=False)
+
+    def forward(self, idx):
+        T = idx.size(1)
+        x = self.tok(idx) + self.pos(torch.arange(T, device=idx.device))
+        for b in self.blocks:
+            x, _ = b(x)
+        return self.head(self.ln_f(x))
+
+
+if __name__ == "__main__":
+    torch.manual_seed(0)
+    text = "attention is all you need. " * 60
+    vocab = sorted(set(text))
+    stoi = {c: i for i, c in enumerate(vocab)}
+    data = torch.tensor([stoi[c] for c in text])
+
+    model = TinyGPT(len(vocab), block_size=24)
+    opt = torch.optim.AdamW(model.parameters(), lr=3e-3)
+    print("parameters:", sum(p.numel() for p in model.parameters()))
+
+    for step in range(300):
+        i = torch.randint(0, len(data) - 25, (1,)).item()
+        x, y = data[i:i + 24].unsqueeze(0), data[i + 1:i + 25].unsqueeze(0)
+        logits = model(x)
+        loss = nn.functional.cross_entropy(logits.view(-1, len(vocab)), y.view(-1))
+        opt.zero_grad(); loss.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        opt.step()
+        if step % 100 == 0:
+            print(f"step {step:3d} loss {loss.item():.3f}")
+
+    # Generate: sample one token at a time, feeding the output back in
+    model.eval()
+    idx = torch.tensor([[stoi["a"]]])
+    with torch.no_grad():
+        for _ in range(40):
+            logits = model(idx[:, -24:])
+            probs = torch.softmax(logits[:, -1] / 0.8, dim=-1)
+            nxt = torch.multinomial(probs, 1)
+            idx = torch.cat([idx, nxt], dim=1)
+    print("sample:", "".join(vocab[i] for i in idx[0].tolist()))
+
+    # Inspect an attention map: the causal structure must be visible
+    _, w = model.blocks[0].sa(model.pos(torch.arange(8)).unsqueeze(0))
+    print("attention shape:", tuple(w.shape), " upper-triangle zero:", bool((w[0].triu(1) == 0).all()))
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block isolates the three ideas: attention with and without the $\sqrt{d_k}$ scaling, the causal mask, and a
+      full pre-norm transformer block. The PyTorch block is a complete (if tiny) GPT: embedding + position + blocks + head,
+      trained on next-token prediction and then sampled autoregressively.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="12">
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>In $\mathrm{Attention}(Q,K,V) = \mathrm{softmax}(QK^\top/\sqrt{d_k})V$, the division by $\sqrt{d_k}$ exists because:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>It normalises the output to unit length</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Dot products of $d_k$-dimensional vectors have variance $d_k$, and large scores saturate the softmax and kill its gradient</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>It reduces the number of parameters</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>It enforces the causal mask</span></button></li>
+      </ul>
+      <div class="explain"><p>Scaling restores unit variance, keeps the softmax soft, and preserves a usable gradient. Lab 1 lets you switch it off and watch the weights become one-hot.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>What does the causal mask do in a decoder's self-attention?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Hides padding tokens</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Reduces the quadratic cost</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Prevents attention to the current token</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Sets future scores to $-\infty$ so token $t$ attends only to tokens $\le t$, preserving the autoregressive property</span></button></li>
+      </ul>
+      <div class="explain"><p>After the softmax, $e^{-\infty}=0$, so future positions receive exactly zero weight. Without it, training would leak the answer into the prediction.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>Why is positional encoding necessary?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Self-attention is permutation-equivariant, so without it the model cannot tell word order</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>It reduces the sequence length</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>It replaces the embedding layer</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>It prevents overfitting</span></button></li>
+      </ul>
+      <div class="explain"><p>Attention weights depend on content similarity, not position — shuffle the tokens and the outputs shuffle with them. Adding a position-dependent vector to each embedding breaks that symmetry.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>Which architecture and objective match GPT versus BERT?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>GPT: encoder-only, masked LM. BERT: decoder-only, next token</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Both are encoder–decoder with translation objectives</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>GPT: decoder-only, causal next-token prediction. BERT: encoder-only, masked language modelling plus next-sentence prediction</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>GPT is trained with reinforcement learning, BERT with supervised labels</span></button></li>
+      </ul>
+      <div class="explain"><p>GPT generates left-to-right (causal mask), so it is a decoder. BERT sees the whole sequence bidirectionally (no mask) and is trained to fill in blanks, which makes it an encoder.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>Self-attention's cost in sequence length $t$ is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$O(t)$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>$O(t^2)$ — the reason sparse attention exists</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>$O(\log t)$</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>$O(t^3)$</span></button></li>
+      </ul>
+      <div class="explain"><p>The attention matrix has $t^2$ entries. Sparse patterns (local windows, strided blocks, global tokens) reduce this to sub-quadratic complexity — one of the enablers of GPT-3.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Query, key, value</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Three learned projections of the same embeddings: queries ask, keys advertise, values carry content. Attention is a soft dictionary lookup.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Multi-head attention</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$h$ attention operations on projected subspaces of width $d/h$, concatenated and mixed by $W_O$. Different heads specialise in different relations, like multiple CNN filters.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Cross-attention</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Decoder queries attend to encoder keys and values, so each output token can look at the relevant part of the input.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Layer normalisation</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Normalise across the feature dimension per token, then rescale with learned $\gamma,\beta$. Unlike batch norm it works with batch size 1 and behaves identically at train and test time.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Self-supervised learning</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Create labels from the data itself: predict the next token (GPT) or fill in masked tokens (BERT). This is what made training on internet-scale corpora possible.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">In-context learning</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Putting a few examples in the prompt so the model infers the task without any weight updates — the behaviour that appeared at GPT-3 scale.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Scaling law</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Loss falls as a power law in parameters, data and compute. Straight lines on log–log plots, with diminishing returns per order of magnitude.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Vision Transformer (ViT)</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Split an image into fixed-size patches, embed each linearly, add position embeddings, and run a standard transformer encoder. Needs large-scale pretraining to beat CNNs.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+</section>
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Compute one attention row</h4></div>
+    <p>With $d_k=2$, a query $\mathbf{q}=(1,0)$ and keys $\mathbf{k}_1=(1,0)$, $\mathbf{k}_2=(0,1)$, $\mathbf{k}_3=(1,1)$, compute the attention weights and the resulting output if $\mathbf{v}_1=(10,0)$, $\mathbf{v}_2=(0,10)$, $\mathbf{v}_3=(5,5)$.</p>
+    <button class="btn btn-sm" data-reveal="sol-12-1" type="button">Show solution</button>
+    <div id="sol-12-1" class="solution" hidden>
+      <p>Scores: $1,\;0,\;1$; scaled by $\sqrt{2}$: $0.707,\;0,\;0.707$.</p>
+      <p>Softmax: $e^{0.707}=2.028$, $e^{0}=1$, $e^{0.707}=2.028$; sum $=5.056$. Weights: $0.401,\;0.198,\;0.401$.</p>
+      <p>Output $= 0.401(10,0) + 0.198(0,10) + 0.401(5,5) = (4.01 + 2.01,\; 1.98 + 2.01) = (6.02,\; 3.99)$.</p>
+      <p class="small muted" style="margin-bottom:0">Note that the output is a convex combination of the values — attention can only blend what is already there.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Show the scaling keeps the scores at unit variance</h4></div>
+    <p>Assume $q_i,k_i\sim\mathcal{N}(0,1)$ independent. Show that $\mathrm{Var}(\mathbf{q}\cdot\mathbf{k}) = d_k$ and that dividing by $\sqrt{d_k}$ makes the variance 1. Estimate the largest of 100 such scores when $d_k=512$ with and without scaling.</p>
+    <button class="btn btn-sm" data-reveal="sol-12-2" type="button">Show solution</button>
+    <div id="sol-12-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>$\mathbb{E}[q_ik_i] = \mathbb{E}[q_i]\mathbb{E}[k_i] = 0$ and $\mathrm{Var}(q_ik_i) = \mathbb{E}[q_i^2]\mathbb{E}[k_i^2] = 1$.</li>
+        <li>Independence across $i$ gives $\mathrm{Var}(\sum_i q_ik_i) = \sum_i 1 = d_k$, so the standard deviation is $\sqrt{d_k}$.</li>
+        <li>Dividing by $\sqrt{d_k}$ gives variance 1 and standard deviation 1. <span class="qed">∎</span></li>
+        <li>For 100 independent standard normals the expected maximum is about 2.5. Without scaling and $d_k=512$, the scores have standard deviation $\approx22.6$, so the maximum is around $57$ — $e^{57}$ versus $e^{0}$ is a ratio of $10^{24}$, i.e. a completely saturated softmax. With scaling the maximum is $\approx2.5$ and the softmax behaves.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Count the parameters of a transformer block</h4></div>
+    <p>For $d_{\text{model}} = d$, $h$ heads and an MLP expansion factor of 4, count the parameters of one pre-norm block (attention + MLP, ignoring LayerNorm) and evaluate for $d=768$, $h=12$.</p>
+    <button class="btn btn-sm" data-reveal="sol-12-3" type="button">Show solution</button>
+    <div id="sol-12-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>Attention: $W_Q, W_K, W_V$ each $d\times d$, plus $W_O$ $d\times d$: $4d^2$.</li>
+        <li>MLP: $d\to4d$ and $4d\to d$: $4d^2 + 4d^2 = 8d^2$, plus biases $8d$.</li>
+        <li>Total $\approx 12d^2$ (plus LayerNorm's $4d$). <span class="qed">∎</span></li>
+        <li>For $d=768$: $12\cdot768^2 = 7{,}077{,}888$ parameters per block. A 12-block model (BERT-base) is therefore about 85M parameters — matching the published figure, with the remainder in the embedding matrix ($30{,}522\times768 \approx 23$M).</li>
+        <li><span class="why">Note that the head count does not appear: splitting into more heads keeps the parameter count constant because each head's width shrinks proportionally. Heads buy diversity, not capacity.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 12</span>
+    <h3>Build and interpret a small transformer</h3>
+    <p>Train a character- or word-level transformer from scratch, then use its attention maps as evidence for how it works.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Implement scaled dot-product attention, multi-head attention, a pre-norm block and a sinusoidal positional encoding in NumPy (forward pass at minimum).</li>
+      <li>Verify against PyTorch's <code>nn.MultiheadAttention</code> on the same weights — outputs should agree to $10^{-6}$.</li>
+      <li>Train a small GPT on a public-domain corpus and report loss curves and generated samples at several checkpoints.</li>
+      <li>Ablate: (a) remove the $\sqrt{d_k}$ scaling, (b) remove positional encoding, (c) remove the causal mask. Report the effect of each on loss and on sample quality.</li>
+      <li>Visualise attention maps for a few prompts and describe what individual heads appear to track (previous token, matching bracket, repeated word).</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li><code>attention.py</code> with parity tests against PyTorch</li>
+      <li>Ablation table: configuration, final loss, sample</li>
+      <li>Figure: attention heatmaps with interpretation</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Implementation</td><td>Numerical parity with PyTorch, including the mask</td><td>30</td></tr>
+        <tr><td>Ablations</td><td>Three ablations run cleanly and explained mechanistically</td><td>30</td></tr>
+        <tr><td>Interpretation</td><td>Attention maps tied to concrete linguistic patterns</td><td>25</td></tr>
+        <tr><td>Reproducibility</td><td>Seeds, config and data version recorded</td><td>15</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Replace the sinusoidal encoding with learned position embeddings and compare.</li>
+      <li>Implement sparse or sliding-window attention and measure the speed/quality trade-off.</li>
+      <li>Add temperature and top-k sampling and show how they change generated text.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/12-mini-transformer/</code>.</p>
+  </div>
+</section>
+
+
+  <nav class="pager" aria-label="Module navigation">
+  <a class="prev" href="sequences.html"><span>← Previous</span><b>11 · Sequences: RNNs, LSTMs & Attention</b></a>
+  <a class="next" href="dimensionality-reduction.html"><span>Next →</span><b>13 · Dimensionality Reduction & Representation Learning</b></a>
+</nav>
+</article>
+</main>
+<footer class="site">
+  <div class="shell">
+    <div>
+      <strong>ML from First Principles</strong><br />
+      An interactive, open-source companion to CSC 74020 (Machine Learning), Fall 2025, taught by Prof. Jonathan Gryak at the CUNY Graduate Center.
+    </div>
+    <div>
+      <a href="../index.html">Home</a> ·
+      <a href="../index.html#curriculum">Curriculum</a> ·
+      <a href="../index.html#python">Python library</a> ·
+      <a href="../index.html#sources">Sources</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

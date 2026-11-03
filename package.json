@@ -1,0 +1,24 @@
+{
+  "name": "ml-from-first-principles",
+  "version": "1.0.0",
+  "description": "Interactive, open-source course that rebuilds machine learning from first principles",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "check": "node tools/check.mjs",
+    "serve": "python -m http.server 8000",
+    "qa": "node tools/qa.mjs",
+    "shot": "node tools/shot.mjs"
+  },
+  "keywords": [
+    "machine-learning",
+    "education",
+    "from-scratch",
+    "course"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}

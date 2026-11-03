@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>10 · Convolutional Neural Networks — ML from First Principles</title>
+<meta name="description" content="Cross-correlation, weight sharing and locality; output-size arithmetic; channels, padding and stride; pooling; batch normalisation; and the architectural lineage from LeNet to ResNet." />
+<meta property="og:title" content="10 · Convolutional Neural Networks — ML from First Principles" />
+<meta property="og:description" content="Cross-correlation, weight sharing and locality; output-size arithmetic; channels, padding and stride; pooling; batch normalisation; and the architectural lineage from LeNet to ResNet." />
+<meta property="og:type" content="article" />
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css" />
+<link rel="stylesheet" href="../assets/css/site.css" />
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/js/viz.js"></script>
+<script defer src="../assets/js/mla.js"></script>
+<script defer src="../assets/js/site.js"></script>
+<script defer src="../assets/js/labs/10-cnns.js"></script>
+</head>
+<body data-module="cnns">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark">ML</span>
+      <span>ML from First Principles<small>Interactive course · CUNY CSC 74020</small></span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a class="opt" href="../index.html#curriculum">Curriculum</a>
+      <a class="opt" href="../index.html#python">Python library</a>
+      <a class="opt" href="../index.html#projects">Projects</a>
+      <a class="opt" href="../index.html#sources">Sources</a>
+      <button class="icon-btn" data-theme-toggle type="button" aria-label="Toggle theme">☾</button>
+      <button class="icon-btn" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">☰</button>
+    </nav>
+  </div>
+  <div id="navMenu" hidden style="border-top:1px solid var(--line);background:var(--panel)">
+    <div class="shell" style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:.86rem">
+      <a href="../modules/foundations.html" style="padding:4px 0;color:var(--ink-2)">01 · What Machine Learning Actually Is</a>
+      <a href="../modules/knn-evaluation.html" style="padding:4px 0;color:var(--ink-2)">02 · Nearest Neighbours & Honest Evaluation</a>
+      <a href="../modules/linear-regression.html" style="padding:4px 0;color:var(--ink-2)">03 · Linear Models & Least Squares</a>
+      <a href="../modules/logistic-regression.html" style="padding:4px 0;color:var(--ink-2)">04 · Logistic Regression & Classification Loss</a>
+      <a href="../modules/regularization.html" style="padding:4px 0;color:var(--ink-2)">05 · Regularization, Bias–Variance & Model Selection</a>
+      <a href="../modules/neural-networks.html" style="padding:4px 0;color:var(--ink-2)">06 · Artificial Neural Networks</a>
+      <a href="../modules/backpropagation.html" style="padding:4px 0;color:var(--ink-2)">07 · Backpropagation & Training Deep Networks</a>
+      <a href="../modules/trees-ensembles.html" style="padding:4px 0;color:var(--ink-2)">08 · Decision Trees, Bagging & Boosting</a>
+      <a href="../modules/clustering.html" style="padding:4px 0;color:var(--ink-2)">09 · Unsupervised Learning: Clustering</a>
+      <a href="../modules/cnns.html" style="padding:4px 0;color:var(--ink-2)">10 · Convolutional Neural Networks</a>
+      <a href="../modules/sequences.html" style="padding:4px 0;color:var(--ink-2)">11 · Sequences: RNNs, LSTMs & Attention</a>
+      <a href="../modules/transformers.html" style="padding:4px 0;color:var(--ink-2)">12 · Transformers & Large Language Models</a>
+      <a href="../modules/dimensionality-reduction.html" style="padding:4px 0;color:var(--ink-2)">13 · Dimensionality Reduction & Representation Learning</a>
+      <a href="../modules/svm-kernels.html" style="padding:4px 0;color:var(--ink-2)">14 · Support Vector Machines & Kernels</a>
+      <a href="../modules/reinforcement-learning.html" style="padding:4px 0;color:var(--ink-2)">15 · Reinforcement Learning</a>
+      <a href="../modules/interpretation.html" style="padding:4px 0;color:var(--ink-2)">16 · Model Interpretation & What Comes Next</a>
+    </div>
+  </div>
+</header>
+<main id="main" class="shell with-rail">
+<aside class="rail" aria-label="On this page">
+  <h4>10 · Deep learning</h4>
+  <ol>
+    <li><a href="#objectives">Learning objectives</a></li>
+    <li><a href="#intuition">1 · Intuition</a></li>
+    <li><a href="#math">2 · Mathematical foundations</a></li>
+    <li><a href="#labs">3 · Interactive visualizations</a></li>
+    <li><a href="#code">4 · Coding from scratch</a></li>
+    <li><a href="#assessment">5 · Assessment</a></li>
+    <li><a href="#project">6 · Portfolio project</a></li>
+  </ol>
+  <h4 style="margin-top:22px">All modules</h4>
+  <ol class="rail-sub">
+    <li><a href="foundations.html">01 What Machine Learning Actually Is</a></li>
+    <li><a href="knn-evaluation.html">02 Nearest Neighbours & Honest Evaluation</a></li>
+    <li><a href="linear-regression.html">03 Linear Models & Least Squares</a></li>
+    <li><a href="logistic-regression.html">04 Logistic Regression & Classification Loss</a></li>
+    <li><a href="regularization.html">05 Regularization, Bias–Variance & Model Selection</a></li>
+    <li><a href="neural-networks.html">06 Artificial Neural Networks</a></li>
+    <li><a href="backpropagation.html">07 Backpropagation & Training Deep Networks</a></li>
+    <li><a href="trees-ensembles.html">08 Decision Trees, Bagging & Boosting</a></li>
+    <li><a href="clustering.html">09 Unsupervised Learning: Clustering</a></li>
+    <li><a href="cnns.html" style="color:var(--accent);font-weight:600">10 Convolutional Neural Networks</a></li>
+    <li><a href="sequences.html">11 Sequences: RNNs, LSTMs & Attention</a></li>
+    <li><a href="transformers.html">12 Transformers & Large Language Models</a></li>
+    <li><a href="dimensionality-reduction.html">13 Dimensionality Reduction & Representation Learning</a></li>
+    <li><a href="svm-kernels.html">14 Support Vector Machines & Kernels</a></li>
+    <li><a href="reinforcement-learning.html">15 Reinforcement Learning</a></li>
+    <li><a href="interpretation.html">16 Model Interpretation & What Comes Next</a></li>
+  </ol>
+  <div style="margin-top:22px">
+    <button class="btn btn-sm" data-mark-complete type="button" style="width:100%;justify-content:center">Mark module complete</button>
+  </div>
+</aside>
+<article class="article">
+  <header>
+    <span class="kicker">Module 10 · Deep learning</span>
+    <h1>Convolutional Neural Networks</h1>
+    <p class="lede">Cross-correlation, weight sharing and locality; output-size arithmetic; channels, padding and stride; pooling; batch normalisation; and the architectural lineage from LeNet to ResNet.</p>
+    <div class="header-meta">
+      <span>📚 Source: Lecture Notes 7</span>
+      <span>⏱ 80 min</span>
+      <span>🧪 3 interactive labs</span>
+      <span>🐍 3 implementations</span>
+    </div>
+  </header>
+
+  <section class="block" id="objectives">
+    <h2><span class="secnum">◎</span> Learning objectives</h2>
+    <div class="card">
+      <p class="small muted" style="margin-top:0">By the end of this module you should be able to:</p>
+      <ul class="tight">
+      <li>Compute a 2-D cross-correlation output and count learnable parameters and FLOPs for a conv layer.</li>
+      <li>Derive output size H′ = (H − K + 2P)/S + 1 and use it to design a network.</li>
+      <li>Explain why weight sharing reduces parameters and how channels build feature hierarchies.</li>
+      <li>Derive batch normalisation and explain the train/test difference.</li>
+      <li>Explain the residual connection as an identity-friendly reparameterisation that fixes degradation.</li>
+      </ul>
+    </div>
+  </section>
+
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-flatten">What a linear model sees in an image</h3>
+  <p>
+    Take CIFAR-10: ten classes, $32\times32$ colour images. Flattened, each image is a 3,072-dimensional vector, and a linear
+    model computes one dot product per class. Each row of the weight matrix becomes a <strong>template</strong> for that class —
+    literally a picture of what the model is looking for.
+  </p>
+  <p>
+    One template per class is hopeless for anything with intra-class variation. A two-layer MLP helps a little: the first layer
+    produces a bank of whole-image templates and the second layer combines them, so different poses of a horse can be captured
+    by different combinations. But the fundamental problem remains:
+  </p>
+  <div class="callout trap">
+    <span class="label">Flattening destroys spatial structure</span>
+    <ul class="tight" style="margin-bottom:0">
+      <li>Two adjacent pixels are represented by weights that are far apart in the weight vector, so the model cannot easily learn "these belong together".</li>
+      <li>The three colour values of one pixel are likewise separated.</li>
+      <li>Every weight is used exactly once, so the number of parameters grows with the image area — and a cat in the top-left shares no parameters with a cat in the bottom-right.</li>
+    </ul>
+  </div>
+
+  <h3 class="sub" id="i-motivation">Two assumptions that fix it</h3>
+  <ul>
+    <li><strong>Translation invariance</strong> — a decision should not depend on <em>where</em> the object is. If a feature is useful in one location, it is useful everywhere.</li>
+    <li><strong>Locality</strong> — the status of a pixel is determined by a small neighbourhood, not by the whole image.</li>
+  </ul>
+  <p>
+    Together these say: apply the <em>same small detector at every location</em>. That is exactly a convolution, and it is why
+    a convolutional layer has vastly fewer parameters than a fully connected one: the weights are <strong>shared</strong> across
+    all spatial positions.
+  </p>
+
+  <h3 class="sub" id="i-conv">Convolution, cross-correlation, and what CNNs actually compute</h3>
+  <p>Continuous convolution measures overlap between two functions:</p>
+  <div class="formula">$$ (f * g)(x) = \int f(y)\,g(x-y)\,dy $$</div>
+  <p>CNNs use the discrete, non-flipped version — <strong>cross-correlation</strong>:</p>
+  <div class="formula">$$ [H]_{i,j} = [U]_{i,j} + \sum_{a=-\Delta}^{\Delta}\sum_{b=-\Delta}^{\Delta} [V]_{a,b}\,[X]_{i+a,\,j+b} $$</div>
+  <p>
+    where $X$ is the input, $V$ is the <strong>kernel</strong> (or filter), $U$ is the bias, and $H$ is the output
+    <strong>feature map</strong>. The finite window $a,b \le \Delta$ is what enforces locality; the fact that the same $V$ is
+    reused at every $(i,j)$ is what enforces translation invariance and weight sharing.
+  </p>
+  <p>
+    Worked example: a $2\times2$ kernel $\begin{bmatrix}0&amp;1\\2&amp;3\end{bmatrix}$ on the top-left $2\times2$ window
+    $\begin{bmatrix}0&amp;1\\3&amp;4\end{bmatrix}$ of a $3\times3$ input gives
+    $0\cdot0 + 1\cdot1 + 3\cdot2 + 4\cdot3 = 19$. Because the kernel is smaller than the input, the output is smaller — that
+    shrinkage is what padding and stride exist to control.
+  </p>
+
+  <h3 class="sub" id="i-channels">Channels</h3>
+  <p>
+    A colour image is a $H\times W\times3$ volume, so a conv layer needs one kernel slice per input channel. A layer with
+    $C_{\text{in}}$ inputs and $C_{\text{out}}$ outputs therefore has $C_{\text{out}}\times C_{\text{in}}\times K_h\times K_w$
+    weights: <strong>one kernel per (input channel, output channel) pair</strong>, with the per-channel results summed to produce
+    each output channel. Multiple output channels mean multiple <em>learned features</em> — edges, textures, colour opponency —
+    all computed from the same input.
+  </p>
+
+  <h3 class="sub" id="i-arch">The remaining pieces</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Component</th><th>What it does</th><th>Typical setting</th></tr></thead>
+      <tbody>
+        <tr><td>Padding $P$</td><td>adds zeros around the border so information at the edge is not lost and size can be preserved</td><td>"same": $P = (K-1)/2$</td></tr>
+        <tr><td>Stride $S$</td><td>step size of the kernel; downsamples</td><td>$S=2$ halves the resolution</td></tr>
+        <tr><td>Pooling</td><td>aggregates a window: max or average. No learnable parameters.</td><td>max, $K=2$, $S=2$</td></tr>
+        <tr><td>Batch norm</td><td>standardises activations per channel using batch statistics, then rescales with learned $\gamma,\beta$</td><td>after conv, before activation</td></tr>
+        <tr><td>Activation</td><td>non-linearity between conv layers — without it, two convs collapse into one</td><td>ReLU</td></tr>
+        <tr><td>Global average pooling</td><td>averages each feature map to one number, replacing a huge FC layer</td><td>end of modern nets</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The output size follows one formula, used in lab 2:</p>
+  <div class="formula">$$ H' = \frac{H - K + 2P}{S} + 1, \qquad W' = \frac{W - K + 2P}{S} + 1 $$</div>
+  <p>
+    And the two cost measures: parameters $= C_{\text{out}}(C_{\text{in}}K^2 + 1)$, multiply-adds
+    $= H'W'C_{\text{out}}C_{\text{in}}K^2$. For a $3\times32\times32$ input with ten $5\times5$ filters, stride 1, pad 2:
+    output $10\times32\times32$, 760 parameters, 768,000 multiply-adds.
+  </p>
+  <div class="callout insight">
+    <span class="label">The volume-preserving pattern</span>
+    <p>
+      As you go deeper into a CNN, the spatial size shrinks (pooling or strided convolution) while the number of channels grows
+      (32 → 64 → 128 → 256). The total "volume" stays roughly constant, so the amount of computation per layer stays manageable
+      while the <em>semantics</em> become richer: early layers see edges, middle layers see textures and parts, late layers see
+      objects.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-bn">Batch normalisation</h3>
+  <p>
+    Feature scaling helps optimisation (module 07). Batch normalisation is a <em>differentiable, in-network</em> version. For a
+    mini-batch $\mathcal{B}$ of size $M$:
+  </p>
+  <div class="formula">$$ \mu_\mathcal{B} = \frac1M\sum_i \mathbf{x}^{(i)},\quad \sigma^2_\mathcal{B} = \frac1M\sum_i(\mathbf{x}^{(i)}-\mu_\mathcal{B})^2,\quad \hat{\mathbf{x}}^{(i)} = \frac{\mathbf{x}^{(i)}-\mu_\mathcal{B}}{\sqrt{\sigma^2_\mathcal{B}+\epsilon}},\quad \mathbf{z}^{(i)} = \gamma\odot\hat{\mathbf{x}}^{(i)}+\beta $$</div>
+  <p>
+    $\gamma$ and $\beta$ are learned, one per feature, so the layer can undo the normalisation if that is better — this
+    relaxation is what keeps the operation from removing representational power. At inference there is no batch, so running
+    averages of $\mu$ and $\sigma^2$ collected during training are used instead, e.g.
+    $\mu \leftarrow 0.99\mu + 0.01\mu_\mathcal{B}$ per iteration. In CNNs the statistics are computed per channel, and BN is
+    inserted after conv/FC layers and before the non-linearity.
+  </p>
+  <p>
+    Benefits: deeper networks become trainable (it mitigates vanishing gradients), higher learning rates work, the model is more
+    robust to initialisation, and it acts as a mild regulariser. Costs: extra computation during training — but zero at test
+    time, because the normalisation folds into the preceding weights.
+  </p>
+
+  <h3 class="sub" id="i-lineage">The architecture lineage</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Model</th><th>Year</th><th>Key idea</th><th>ImageNet top-5 error</th></tr></thead>
+      <tbody>
+        <tr><td>LeNet-5</td><td>1998</td><td>conv → pool → conv → pool → FC; average pooling, sigmoid</td><td>—</td></tr>
+        <tr><td>AlexNet</td><td>2012</td><td>first deep net to win ILSVRC; ReLU, max pooling, dropout, two GPUs</td><td>16.4%</td></tr>
+        <tr><td>VGG</td><td>2014</td><td>uniform $3\times3$ convolutions stacked deep</td><td>7.3%</td></tr>
+        <tr><td>GoogLeNet / Inception</td><td>2014</td><td>multi-scale modules, $1\times1$ bottlenecks, global average pooling — 10× fewer parameters</td><td>6.7%</td></tr>
+        <tr><td>ResNet</td><td>2015</td><td>residual connections enable 100+ layers</td><td>3.6%</td></tr>
+        <tr><td>Vision Transformer</td><td>2021</td><td>attention instead of convolution (module 12)</td><td>competitive</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The ResNet story is the most instructive. Once batch normalisation made 10+ layer networks trainable, researchers found that
+    a 56-layer network had <em>higher training error</em> than a 20-layer one — underfitting, not overfitting. A deeper network
+    can always emulate a shallower one by setting its extra layers to the identity, so the failure had to be an optimisation
+    problem: learning an identity map with a stack of convolutions is surprisingly hard. The fix is to reparameterise the block:
+  </p>
+  <div class="formula">$$ \text{plain: } \mathbf{x}_{\ell+1} = \mathcal{F}(\mathbf{x}_\ell) \qquad\longrightarrow\qquad \text{residual: } \mathbf{x}_{\ell+1} = \mathcal{F}(\mathbf{x}_\ell) + \mathbf{x}_\ell $$</div>
+  <p>
+    Now setting the weights to zero makes the block compute the identity exactly. The gradient also gets a direct additive path
+    back to earlier layers, which is why residual connections mitigate vanishing gradients — lab 3 shows the signal surviving
+    20 blocks instead of decaying to zero.
+  </p>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Medicine · imaging</span>
+      <h4>Radiology and pathology</h4>
+      <p>CNNs segment lungs, detect nodules and grade slides. The ARDS case study in this course uses CNNs to extract quantitative opacity features from chest X-rays.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Autonomy · perception</span>
+      <h4>Lane and object detection</h4>
+      <p>Detection backbones are CNNs (or ViTs). Weight sharing means a pedestrian detector works at any image position without extra parameters.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Science · structure</span>
+      <h4>Protein and materials</h4>
+      <p>Equivariant convolutions over 3-D point clouds predict molecular properties; the same locality-and-sharing logic applies to non-image grids.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Signal · 1-D convolution</span>
+      <h4>Audio and time series</h4>
+      <p>1-D convs over waveforms, ECG or sensor streams learn local motifs (a heartbeat shape) that are position-independent.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Efficiency · mobile</span>
+      <h4>Depthwise separable convs</h4>
+      <p>MobileNet factorises a standard conv into depthwise + $1\times1$ pointwise, cutting computation by roughly $1/K^2$ with little accuracy loss.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Generative · image synthesis</span>
+      <h4>Decoder stacks</h4>
+      <p>GAN generators (module 13's CycleGAN) and diffusion U-Nets are built from strided convs and transposed convs — convolutions running in both directions.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-correlation">2.1 Cross-correlation as a matrix product</h3>
+  <p>
+    A convolution layer is linear in the input, so it can be written as a (very sparse, highly structured) matrix
+    multiplication. Flatten the input patch-by-patch into a matrix $\tilde X\in\mathbb{R}^{(H'W')\times(C_{\text{in}}K^2)}$ —
+    this is the <em>im2col</em> trick — and flatten the kernels into $\tilde W\in\mathbb{R}^{(C_{\text{in}}K^2)\times C_{\text{out}}}$.
+    Then
+  </p>
+  <div class="formula">$$ \mathrm{vec}(H) = \tilde X\,\tilde W $$</div>
+  <p>
+    which is exactly a dense layer applied to overlapping patches, and it is how GPUs implement convolution efficiently. The
+    sparsity (each weight appears in many rows) is the weight sharing.
+  </p>
+
+  <details class="steps" open>
+    <summary>Proof — two stacked convolutions without a non-linearity are one convolution</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Let layer 1 compute $H_1 = X * V_1$ and layer 2 compute $H_2 = H_1 * V_2$ (cross-correlation, no bias, no activation).</li>
+        <li>By definition $[H_1]_{i,j} = \sum_{a,b}[V_1]_{a,b}[X]_{i+a,j+b}$, and similarly for $H_2$ in terms of $H_1$.</li>
+        <li>Substitute:
+          $$ [H_2]_{i,j} = \sum_{c,d}[V_2]_{c,d}\sum_{a,b}[V_1]_{a,b}[X]_{i+c+a,\,j+d+b} = \sum_{p,q}\Big(\sum_{a,b}[V_1]_{a,b}[V_2]_{p-a,\,q-b}\Big)[X]_{i+p,j+q}. $$
+        </li>
+        <li>The bracket is a fixed kernel $V = V_1 * V_2$ that depends only on the two original kernels. Hence $H_2 = X * V$: a single convolution. <span class="qed">∎</span></li>
+        <li><span class="why">Two consequences. (i) A stack of linear convolutions has exactly the expressive power of one convolution with a larger kernel — depth buys nothing. (ii) The effective receptive field of $L$ stacked $K\times K$ convolutions is $(K-1)L+1$, which is why three $3\times3$ convs see a $7\times7$ region with fewer parameters than one $7\times7$ conv ($3\cdot9=27$ vs $49$ per channel pair).</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-params">2.2 Parameter counting and receptive fields</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Layer</th><th>Output size</th><th>Weights</th></tr></thead>
+      <tbody>
+        <tr><td>Input</td><td>$1\times28\times28$</td><td>—</td></tr>
+        <tr><td>Conv ($C_{out}=20$, $K=5$, $P=2$, $S=1$)</td><td>$20\times28\times28$</td><td>$20\times1\times5\times5 + 20 = 520$</td></tr>
+        <tr><td>ReLU</td><td>$20\times28\times28$</td><td>0</td></tr>
+        <tr><td>MaxPool ($K=2$, $S=2$)</td><td>$20\times14\times14$</td><td>0</td></tr>
+        <tr><td>Conv ($C_{out}=50$, $K=5$, $P=2$)</td><td>$50\times14\times14$</td><td>$50\times20\times5\times5 + 50 = 25{,}050$</td></tr>
+        <tr><td>MaxPool</td><td>$50\times7\times7$</td><td>0</td></tr>
+        <tr><td>Flatten</td><td>$2450$</td><td>0</td></tr>
+        <tr><td>Linear $2450\to500$</td><td>$500$</td><td>$1{,}225{,}000$</td></tr>
+        <tr><td>Linear $500\to10$</td><td>$10$</td><td>$5{,}010$</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    This is LeNet-5. Note where the parameters live: 98% of them are in the fully connected layer, even though the
+    convolutional layers do most of the feature extraction. Replacing that FC layer with global average pooling — as GoogLeNet
+    does — is how modern architectures dropped from 60M to 10M parameters.
+  </p>
+
+  <h3 class="sub" id="m-bn">2.3 Batch normalisation, derived</h3>
+  <details class="steps">
+    <summary>Derivation — the backward pass through BN</summary>
+    <div class="steps-body">
+      <p>Let $\hat x_i = (x_i-\mu)/\sqrt{\sigma^2+\epsilon}$ with $\mu = \frac1M\sum_i x_i$ and $\sigma^2 = \frac1M\sum_i(x_i-\mu)^2$.</p>
+      <ol class="derivation">
+        <li>Note that $\mu$ and $\sigma^2$ both depend on <em>every</em> $x_i$, so the gradient has three paths:
+          $$ \frac{\partial L}{\partial x_i} = \frac{\partial L}{\partial \hat x_i}\frac{\partial\hat x_i}{\partial x_i} + \frac{\partial L}{\partial \sigma^2}\frac{\partial\sigma^2}{\partial x_i} + \frac{\partial L}{\partial\mu}\frac{\partial\mu}{\partial x_i}. $$
+        </li>
+        <li>Working through the algebra and collecting terms gives the compact form
+          $$ \frac{\partial L}{\partial x_i} = \frac{1}{M\sqrt{\sigma^2+\epsilon}}\left[M\frac{\partial L}{\partial\hat x_i} - \sum_j\frac{\partial L}{\partial\hat x_j} - \hat x_i\sum_j\frac{\partial L}{\partial\hat x_j}\hat x_j\right]. $$
+        </li>
+        <li><span class="qed">∎</span> The practical consequence: BN couples all samples in a batch. A sample's gradient depends on the
+          other samples, which is why BN does not work with batch size 1 and why it interacts badly with very small batches
+          (motivating LayerNorm in transformers).</li>
+        <li><span class="why">It also explains the regularisation effect: the noise from random batch statistics perturbs each sample's normalisation, acting like a data-dependent jitter.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-residual">2.4 Why residual connections help optimisation</h3>
+  <details class="steps">
+    <summary>Derivation — the gradient path through a residual block</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>For a residual block, $\mathbf{x}_{\ell+1} = \mathbf{x}_\ell + \mathcal{F}(\mathbf{x}_\ell)$. Differentiate:
+          $$ \frac{\partial \mathbf{x}_{\ell+1}}{\partial \mathbf{x}_\ell} = I + \frac{\partial \mathcal{F}}{\partial \mathbf{x}_\ell}. $$
+        </li>
+        <li>Chain through $L$ blocks:
+          $$ \frac{\partial \mathbf{x}_L}{\partial \mathbf{x}_\ell} = \prod_{k=\ell}^{L-1}\left(I + \frac{\partial\mathcal{F}_k}{\partial\mathbf{x}_k}\right) = I + \sum_k \frac{\partial\mathcal{F}_k}{\partial\mathbf{x}_k} + (\text{higher-order terms}). $$
+        </li>
+        <li>The leading identity term means the gradient of the loss with respect to an early layer contains a direct copy of the upstream gradient, undiminished by any product of Jacobians. <span class="qed">∎</span></li>
+        <li><span class="why">Contrast with the plain stack, where the gradient is a pure product $\prod_k \partial\mathcal{F}_k/\partial\mathbf{x}_k$ and can vanish or explode. This is the same mechanism that later lets transformers stack 96 layers.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-pool">2.5 What pooling buys</h3>
+  <p>
+    Max pooling over a $2\times2$ window with stride 2 halves each spatial dimension and makes the representation slightly
+    invariant to small translations: shifting the input by one pixel often leaves the maximum of a window unchanged. It has
+    <strong>no learnable parameters</strong>, and its gradient routes entirely to the arg-max element (everything else gets
+    zero). Average pooling spreads the gradient evenly and is used at the end of networks (global average pooling) to collapse
+    each feature map to a single number.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-conv">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · convolution</span><h4>Sliding a kernel over an image</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>The red square is the kernel window; the panel shows the dot product it produces at the highlighted output cell. Press <strong>Next window</strong> to sweep the kernel across the image and watch the feature map fill in.</p>
+      <p>Switch between kernels. The vertical-edge detector lights up green exactly where intensity changes left-to-right; the horizontal-edge detector lights up on the top and bottom of the square. This is what a <em>learned</em> first-layer filter looks like after training — AlexNet's 64 filters are recognisably oriented edges and colour-opponent blobs. Then set stride to 2 and watch the output shrink to half size.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-shapes">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · architecture arithmetic</span><h4>Output size, parameters, FLOPs</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Every CNN design question starts here. Set $K=5$, $P=2$, $S=1$ and the output size is unchanged — that is "same" padding, $P=(K-1)/2$. Set $P=0$ and the map shrinks by 4. Set $S=2$ and it halves.</p>
+      <p>Now watch the parameter and multiply-add counts. Parameters depend on $C_{\text{in}}C_{\text{out}}K^2$ and do <em>not</em> depend on the image size at all — the whole point of weight sharing. FLOPs, by contrast, scale with $H'W'$. This is why you can apply a trained conv layer to a larger image and get a larger feature map with the same weights.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-residual">
+    <div class="lab-head"><span class="lab-tag">Lab 3 · depth</span><h4>Why residual connections exist</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Each block multiplies the signal by a gain near 1. A plain stack compounds those gains multiplicatively; a residual stack adds the identity, so the signal stays anchored near its input scale.</p>
+      <p>Drop the per-layer gain to $0.6$ and raise the depth to 20: the plain network's signal has collapsed by many orders of magnitude — the vanishing-gradient problem, and the reason a 56-layer plain net underperformed a 20-layer one in the original ResNet paper. The residual curve stays flat, which is exactly what §2.4's leading identity term predicts.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">PyTorch</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 10 — 2-D cross-correlation, pooling and shape arithmetic, no libraries."""
+
+
+def conv2d(X, V, stride=1, pad=0):
+    """X: HxW list of lists, V: KxK kernel. Returns the feature map."""
+    H, W = len(X), len(X[0])
+    K = len(V)
+    if pad:
+        X = [[0.0] * (W + 2 * pad) for _ in range(pad)] + \
+            [[0.0] * pad + row + [0.0] * pad for row in X] + \
+            [[0.0] * (W + 2 * pad) for _ in range(pad)]
+        H, W = H + 2 * pad, W + 2 * pad
+    Ho = (H - K) // stride + 1
+    Wo = (W - K) // stride + 1
+    out = [[0.0] * Wo for _ in range(Ho)]
+    for i in range(Ho):
+        for j in range(Wo):
+            acc = 0.0
+            for a in range(K):
+                for b in range(K):
+                    acc += V[a][b] * X[i * stride + a][j * stride + b]
+            out[i][j] = acc
+    return out
+
+
+def max_pool2d(X, k=2, stride=2):
+    H, W = len(X), len(X[0])
+    Ho, Wo = (H - k) // stride + 1, (W - k) // stride + 1
+    return [[max(X[i * stride + a][j * stride + b]
+                 for a in range(k) for b in range(k))
+             for j in range(Wo)] for i in range(Ho)]
+
+
+def out_size(H, K, P=0, S=1):
+    return (H - K + 2 * P) // S + 1
+
+
+def conv_params(C_in, C_out, K):
+    return C_out * (C_in * K * K + 1)
+
+
+def conv_flops(H, W, C_in, C_out, K, P=0, S=1):
+    return out_size(H, K, P, S) * out_size(W, K, P, S) * C_out * C_in * K * K
+
+
+if __name__ == "__main__":
+    X = [[0, 1, 2],
+         [3, 4, 5],
+         [6, 7, 8]]
+    V = [[0, 1],
+         [2, 3]]
+    print("correlation:", conv2d(X, V))            # [[19, 25], [37, 43]]
+    print("padded same:", conv2d(X, V, pad=1)[0])   # first row includes border effects
+
+    edge = [[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]]
+    img = [[0, 0, 0, 0],
+           [0, 1, 1, 0],
+           [0, 1, 1, 0],
+           [0, 0, 0, 0]]
+    print("vertical edges:", conv2d(img, edge))
+
+    print("shape 32,K=5,P=2,S=1 ->", out_size(32, 5, 2, 1))     # 32
+    print("params (3->10, K=5)   :", conv_params(3, 10, 5))       # 760
+    print("FLOPs                 :", conv_flops(32, 32, 3, 10, 5, 2, 1))
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 10 — vectorised convolution via im2col, plus a tiny CNN forward pass."""
+import numpy as np
+
+
+def im2col(X, K, stride=1, pad=0):
+    """X: (C, H, W) -> (H'*W', C*K*K) matrix of patches."""
+    C, H, W = X.shape
+    if pad:
+        X = np.pad(X, ((0, 0), (pad, pad), (pad, pad)))
+        H, W = H + 2 * pad, W + 2 * pad
+    Ho, Wo = (H - K) // stride + 1, (W - K) // stride + 1
+    cols = np.empty((Ho * Wo, C * K * K))
+    idx = 0
+    for i in range(Ho):
+        for j in range(Wo):
+            cols[idx] = X[:, i * stride:i * stride + K, j * stride:j * stride + K].ravel()
+            idx += 1
+    return cols, Ho, Wo
+
+
+def conv2d(X, W, b, stride=1, pad=0):
+    """X: (C_in,H,W), W: (C_out, C_in*K*K) flattened kernels -> (C_out, H', W')."""
+    cols, Ho, Wo = im2col(X, int(np.sqrt(W.shape[1] // X.shape[0])), stride, pad)
+    out = cols @ W.T + b                      # (H'W', C_out)
+    return out.T.reshape(W.shape[0], Ho, Wo)
+
+
+def max_pool(X, k=2, stride=2):
+    C, H, W = X.shape
+    Ho, Wo = (H - k) // stride + 1, (W - k) // stride + 1
+    out = np.empty((C, Ho, Wo))
+    for i in range(Ho):
+        for j in range(Wo):
+            out[:, i, j] = X[:, i*stride:i*stride+k, j*stride:j*stride+k].max(axis=(1, 2))
+    return out
+
+
+def relu(x):
+    return np.maximum(x, 0)
+
+
+def batch_norm(X, gamma, beta, eps=1e-5):
+    """Normalise each channel over the (H, W) and batch dimensions."""
+    mu = X.mean(axis=(0, 2, 3), keepdims=True)
+    var = X.var(axis=(0, 2, 3), keepdims=True)
+    return gamma.reshape(1, -1, 1, 1) * (X - mu) / np.sqrt(var + eps) + beta.reshape(1, -1, 1, 1)
+
+
+def receptive_field(layers):
+    """layers: list of (kernel, stride). Returns the receptive field and total stride."""
+    rf, jump = 1, 1
+    for K, S in layers:
+        rf += (K - 1) * jump
+        jump *= S
+    return rf, jump
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    X = rng.random((3, 32, 32))
+    W = rng.normal(0, 0.1, (10, 3 * 5 * 5))
+    b = np.zeros(10)
+
+    H = relu(conv2d(X, W, b, stride=1, pad=2))
+    print("conv output:", H.shape)                    # (10, 32, 32)
+    P = max_pool(H)
+    print("after pooling:", P.shape)                  # (10, 16, 16)
+
+    # the identity: three 3x3 convs see a 7x7 region
+    print("receptive field of 3x (3x3,s=1):", receptive_field([(3, 1)] * 3))   # (7, 1)
+    print("receptive field of 5 conv/pool blocks:", receptive_field([(3, 1), (2, 2)] * 5))
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 10 — the same network in PyTorch, with residual blocks and BN."""
+import torch
+import torch.nn as nn
+
+
+class ConvBlock(nn.Module):
+    """conv -> BN -> ReLU, the standard modern ordering."""
+
+    def __init__(self, c_in, c_out, k=3, stride=1, pad=1):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(c_in, c_out, k, stride=stride, padding=pad, bias=False),
+            nn.BatchNorm2d(c_out),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
+class ResidualBlock(nn.Module):
+    """Two 3x3 convs plus an identity shortcut (with a 1x1 projection when shapes change)."""
+
+    def __init__(self, c_in, c_out, stride=1):
+        super().__init__()
+        self.body = nn.Sequential(
+            nn.Conv2d(c_in, c_out, 3, stride=stride, padding=1, bias=False),
+            nn.BatchNorm2d(c_out), nn.ReLU(inplace=True),
+            nn.Conv2d(c_out, c_out, 3, padding=1, bias=False),
+            nn.BatchNorm2d(c_out),
+        )
+        self.shortcut = nn.Sequential()
+        if stride != 1 or c_in != c_out:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(c_in, c_out, 1, stride=stride, bias=False), nn.BatchNorm2d(c_out)
+            )
+
+    def forward(self, x):
+        return torch.relu(self.body(x) + self.shortcut(x))
+
+
+class SmallCNN(nn.Module):
+    def __init__(self, n_classes=10):
+        super().__init__()
+        self.stem = ConvBlock(3, 32)
+        self.blocks = nn.Sequential(
+            ResidualBlock(32, 32),
+            ResidualBlock(32, 64, stride=2),
+            ResidualBlock(64, 64),
+        )
+        self.head = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten(), nn.Linear(64, n_classes))
+
+    def forward(self, x):
+        return self.head(self.blocks(self.stem(x)))
+
+
+if __name__ == "__main__":
+    model = SmallCNN()
+    x = torch.randn(8, 3, 32, 32)
+    print("logits:", model(x).shape)                       # (8, 10)
+    print("parameters:", sum(p.numel() for p in model.parameters()))
+
+    # Shape arithmetic, verified empirically
+    probe = torch.randn(1, 3, 32, 32)
+    for name, layer in model.named_children():
+        probe = layer(probe)
+        print(f"{name:8s} -> {tuple(probe.shape)}")
+
+    # The identity property of a residual block with zeroed weights
+    blk = ResidualBlock(16, 16)
+    for p in blk.body.parameters():
+        nn.init.zeros_(p)
+    inp = torch.randn(2, 16, 8, 8)
+    print("residual block is identity when F=0:", torch.allclose(blk(inp), torch.relu(inp)))
+
+    # Batch norm: train vs eval
+    bn = nn.BatchNorm2d(4)
+    t = torch.randn(16, 4, 8, 8) * 5 + 3
+    print("train mean/std:", bn.train()(t).mean().item(), bn.train()(t).std().item())
+    print("eval mode uses running stats:", bn.eval()(t).mean().item())
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block implements <code>im2col</code>, the trick that turns convolution into one big matrix multiply — the
+      reason cuDNN is fast. The PyTorch block verifies two claims from this module empirically: the residual block computes the
+      identity when its weights are zero, and batch norm behaves differently in train and eval mode.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="10">
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>A conv layer takes $3\times32\times32$ input, uses 10 filters of size $5\times5$, stride 1, padding 2. The output shape and parameter count are:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$10\times28\times28$, 760 parameters</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>$10\times32\times32$, 750 parameters</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>$10\times32\times32$, 760 parameters</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>$3\times32\times32$, 4,800 parameters</span></button></li>
+      </ul>
+      <div class="explain"><p>$H' = (32-5+4)/1+1 = 32$. Parameters $= C_{out}(C_{in}K^2+1) = 10(3\cdot25+1) = 760$.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>Two $3\times3$ convolutions stacked with no activation between them are equivalent to:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>One $3\times3$ convolution</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>One $5\times5$ convolution with a combined kernel</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>A non-linear function</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Nothing — the output is zero</span></button></li>
+      </ul>
+      <div class="explain"><p>Convolution is associative: $X*V_1*V_2 = X*(V_1*V_2)$, and the combined kernel has size $3+3-1 = 5$. Depth without a non-linearity buys no expressiveness — the same lesson as module 06.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>Why does a convolutional layer have so few parameters relative to a fully connected layer on the same input?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Because it uses fewer neurons</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Because it discards most of the image</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Because it has no bias terms</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Because the same kernel weights are shared across every spatial position</span></button></li>
+      </ul>
+      <div class="explain"><p>Weight sharing is the mechanism. A dense layer needs one weight per (input, output) pair; a conv layer needs one per (channel, output channel, kernel position).</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>Batch normalisation at inference time uses:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Running averages of the mean and variance collected during training</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>The statistics of the test batch</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>$\mu=0$, $\sigma^2=1$</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Nothing — BN is disabled at test time</span></button></li>
+      </ul>
+      <div class="explain"><p>A single test sample has no batch statistics, and predictions must be deterministic. The running averages (e.g. $\mu \leftarrow 0.99\mu + 0.01\mu_\mathcal{B}$) are folded into the preceding layer's weights, so BN has zero overhead at test time.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>The residual connection $\mathbf{x}_{\ell+1} = \mathcal{F}(\mathbf{x}_\ell)+\mathbf{x}_\ell$ primarily fixes:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Overfitting in deep networks</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>The number of parameters</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>The degradation problem: deep plain nets underfit because learning an identity map is hard</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The need for batch normalisation</span></button></li>
+      </ul>
+      <div class="explain"><p>A 56-layer plain net had higher <em>training</em> error than a 20-layer one, which is underfitting, not overfitting. Residual blocks make the identity trivially representable (zero the weights) and give gradients an additive path backwards.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Weight sharing</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Reusing one kernel at every spatial position. It gives translation equivariance and cuts parameters from $O(H^2W^2)$ to $O(K^2)$ per channel pair.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Cross-correlation vs. convolution</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Convolution flips the kernel; CNNs skip the flip. Since the kernel is learned, the flip is irrelevant — hence "convolution" in deep learning means cross-correlation.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Output size formula</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$H' = (H-K+2P)/S + 1$ (integer division). "Same" padding uses $P=(K-1)/2$; $S=2$ halves the map.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Receptive field</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">The region of the input that influences one output unit. $L$ stacked $K\times K$ convs give $(K-1)L+1$; strided/pooled layers expand it faster.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">$1\times1$ convolution</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">A per-pixel linear combination across channels. Used as a bottleneck to reduce channel count cheaply, and to mix channels without spatial context.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Global average pooling</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Average each feature map to a single number, then classify. Replaces huge FC layers, cutting parameters by ~50× and reducing overfitting.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Batch norm at test time</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Use running averages of $\mu$ and $\sigma^2$ accumulated during training; the affine transform folds into the previous layer's weights, so there is no test-time cost.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Degradation problem</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Deeper plain networks performing worse on <em>training</em> data. Not overfitting — an optimisation failure that residual connections solve.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+</section>
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Shape arithmetic</h4></div>
+    <p>An input of $224\times224\times3$ passes through: conv ($K=7$, $S=2$, $P=3$, $C_{out}=64$), max pool ($K=3$, $S=2$), conv ($K=3$, $S=1$, $P=1$, $C_{out}=128$). Give the output shape and the parameter count of each conv layer.</p>
+    <button class="btn btn-sm" data-reveal="sol-10-1" type="button">Show solution</button>
+    <div id="sol-10-1" class="solution" hidden>
+      <p>Conv 1: $H' = (224-7+6)/2+1 = 112$, so $64\times112\times112$. Parameters $= 64(3\cdot49+1) = 64\cdot148 = 9{,}472$.</p>
+      <p>Max pool: $(112-3)/2+1 = 55$ (floor), so $64\times55\times55$. Parameters: 0.</p>
+      <p>Conv 2: $H' = (55-3+2)/1+1 = 55$, so $128\times55\times55$. Parameters $= 128(64\cdot9+1) = 128\cdot577 = 73{,}856$.</p>
+      <p class="small muted" style="margin-bottom:0">Note how the second conv has 8× more parameters despite a smaller kernel: the cost scales with $C_{in}C_{out}$.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Prove the receptive-field recurrence</h4></div>
+    <p>Show that $L$ stacked $K\times K$ convolutions with stride 1 have receptive field $(K-1)L+1$, and compute the receptive field of the sequence conv($3\times3$) → pool($2\times2$) repeated 5 times.</p>
+    <button class="btn btn-sm" data-reveal="sol-10-2" type="button">Show solution</button>
+    <div id="sol-10-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>Base case: one conv sees $K$ inputs, i.e. $1+(K-1)$.</li>
+        <li>Induction: adding another conv grows each existing receptive-field position by $K-1$, so $r_{L+1} = r_L + (K-1)$.</li>
+        <li>Solving gives $r_L = 1 + (K-1)L$, and with stride the jump grows: $r_{L+1} = r_L + (K-1)\cdot\text{jump}_L$, $\text{jump}_{L+1} = \text{jump}_L\cdot S_L$. <span class="qed">∎</span></li>
+        <li>For conv(3×3) + pool(2×2) repeated 5 times: $r = 1 + 2(1) + 1(1) = 4$ after the first pair (jump 2); then $4 + 2\cdot2 + 1\cdot2 = 10$ (jump 4); then $10+2\cdot4+1\cdot4=22$ (jump 8); then $22+8+8=38$ (jump 16); then $38+16+16=70$. A 70×70 receptive field from ten layers.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Why 1×1 bottlenecks save compute</h4></div>
+    <p>A $3\times3$ conv maps $256\to256$ channels on a $56\times56$ map. Compare its FLOPs with a bottleneck: $1\times1$ $256\to64$, $3\times3$ $64\to64$, $1\times1$ $64\to256$.</p>
+    <button class="btn btn-sm" data-reveal="sol-10-3" type="button">Show solution</button>
+    <div id="sol-10-3" class="solution" hidden>
+      <p>Direct: $56^2\cdot256\cdot256\cdot9 \approx 1.85\times10^{9}$ multiply-adds; parameters $256\cdot256\cdot9 = 589{,}824$.</p>
+      <p>Bottleneck: $56^2\cdot256\cdot64\cdot1 = 5.1\times10^{7}$, plus $56^2\cdot64\cdot64\cdot9 = 1.16\times10^{8}$, plus $56^2\cdot64\cdot256\cdot1 = 5.1\times10^{7}$ — total $\approx 2.2\times10^{8}$, about 8× fewer FLOPs. Parameters: $16{,}384 + 36{,}864 + 16{,}384 = 69{,}632$, about 8.5× fewer.</p>
+      <p class="small muted" style="margin-bottom:0">This is the ResNet "bottleneck" block. It works because channel mixing is cheap at $1\times1$ and the expensive $3\times3$ convolution runs in a much narrower space.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 10</span>
+    <h3>A CNN from scratch, then a real one</h3>
+    <p>Build convolution, pooling and batch norm yourself, then use a modern architecture — and be able to explain the gap.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Implement <code>conv2d</code>, <code>max_pool2d</code> and <code>batch_norm</code> in NumPy, including the backward pass.</li>
+      <li>Gradient-check the conv backward pass against finite differences on a tiny input.</li>
+      <li>Train a small CNN on MNIST or Fashion-MNIST from scratch and report the learning curve and test accuracy.</li>
+      <li>Verify the identity $H'=(H-K+2P)/S+1$ empirically for five different layer configurations.</li>
+      <li>Train the same architecture in PyTorch and explain the accuracy and speed difference in terms of im2col and GPU parallelism.</li>
+      <li>Visualise the learned first-layer filters and classify them as edge / colour / texture detectors.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li><code>cnn.py</code> with forward and backward passes plus gradient checks</li>
+      <li>Learning curves (NumPy vs. PyTorch) on the same data</li>
+      <li>Figure of learned filters with your interpretation</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Correctness</td><td>Conv and BN backward passes pass gradient checks</td><td>35</td></tr>
+        <tr><td>Experiments</td><td>Same architecture compared fairly across implementations</td><td>25</td></tr>
+        <tr><td>Analysis</td><td>Filter visualisation interpreted, not just plotted</td><td>25</td></tr>
+        <tr><td>Explanation</td><td>Speed gap explained via im2col/GPU rather than hand-waving</td><td>15</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Add a residual block and show that a 20-layer network trains while the plain version does not.</li>
+      <li>Replace max pooling with strided convolution and compare accuracy and FLOPs.</li>
+      <li>Implement data augmentation (flips, crops) and measure the accuracy gain.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/10-cnn-from-scratch/</code>.</p>
+  </div>
+</section>
+
+
+  <nav class="pager" aria-label="Module navigation">
+  <a class="prev" href="clustering.html"><span>← Previous</span><b>09 · Unsupervised Learning: Clustering</b></a>
+  <a class="next" href="sequences.html"><span>Next →</span><b>11 · Sequences: RNNs, LSTMs & Attention</b></a>
+</nav>
+</article>
+</main>
+<footer class="site">
+  <div class="shell">
+    <div>
+      <strong>ML from First Principles</strong><br />
+      An interactive, open-source companion to CSC 74020 (Machine Learning), Fall 2025, taught by Prof. Jonathan Gryak at the CUNY Graduate Center.
+    </div>
+    <div>
+      <a href="../index.html">Home</a> ·
+      <a href="../index.html#curriculum">Curriculum</a> ·
+      <a href="../index.html#python">Python library</a> ·
+      <a href="../index.html#sources">Sources</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

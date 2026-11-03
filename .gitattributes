@@ -1,0 +1,10 @@
+# Normalise line endings: the build writes LF, and CI compares generated pages byte-for-byte.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.tgz binary

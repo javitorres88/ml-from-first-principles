@@ -1,0 +1,833 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>09 · Unsupervised Learning: Clustering — ML from First Principles</title>
+<meta name="description" content="k-means as alternating minimisation of within-cluster variance, k-means++, the elbow method, density-based DBSCAN, and agglomerative clustering with four linkage criteria." />
+<meta property="og:title" content="09 · Unsupervised Learning: Clustering — ML from First Principles" />
+<meta property="og:description" content="k-means as alternating minimisation of within-cluster variance, k-means++, the elbow method, density-based DBSCAN, and agglomerative clustering with four linkage criteria." />
+<meta property="og:type" content="article" />
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css" />
+<link rel="stylesheet" href="../assets/css/site.css" />
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/js/viz.js"></script>
+<script defer src="../assets/js/mla.js"></script>
+<script defer src="../assets/js/site.js"></script>
+<script defer src="../assets/js/labs/09-clustering.js"></script>
+</head>
+<body data-module="clustering">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark">ML</span>
+      <span>ML from First Principles<small>Interactive course · CUNY CSC 74020</small></span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a class="opt" href="../index.html#curriculum">Curriculum</a>
+      <a class="opt" href="../index.html#python">Python library</a>
+      <a class="opt" href="../index.html#projects">Projects</a>
+      <a class="opt" href="../index.html#sources">Sources</a>
+      <button class="icon-btn" data-theme-toggle type="button" aria-label="Toggle theme">☾</button>
+      <button class="icon-btn" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">☰</button>
+    </nav>
+  </div>
+  <div id="navMenu" hidden style="border-top:1px solid var(--line);background:var(--panel)">
+    <div class="shell" style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:.86rem">
+      <a href="../modules/foundations.html" style="padding:4px 0;color:var(--ink-2)">01 · What Machine Learning Actually Is</a>
+      <a href="../modules/knn-evaluation.html" style="padding:4px 0;color:var(--ink-2)">02 · Nearest Neighbours & Honest Evaluation</a>
+      <a href="../modules/linear-regression.html" style="padding:4px 0;color:var(--ink-2)">03 · Linear Models & Least Squares</a>
+      <a href="../modules/logistic-regression.html" style="padding:4px 0;color:var(--ink-2)">04 · Logistic Regression & Classification Loss</a>
+      <a href="../modules/regularization.html" style="padding:4px 0;color:var(--ink-2)">05 · Regularization, Bias–Variance & Model Selection</a>
+      <a href="../modules/neural-networks.html" style="padding:4px 0;color:var(--ink-2)">06 · Artificial Neural Networks</a>
+      <a href="../modules/backpropagation.html" style="padding:4px 0;color:var(--ink-2)">07 · Backpropagation & Training Deep Networks</a>
+      <a href="../modules/trees-ensembles.html" style="padding:4px 0;color:var(--ink-2)">08 · Decision Trees, Bagging & Boosting</a>
+      <a href="../modules/clustering.html" style="padding:4px 0;color:var(--ink-2)">09 · Unsupervised Learning: Clustering</a>
+      <a href="../modules/cnns.html" style="padding:4px 0;color:var(--ink-2)">10 · Convolutional Neural Networks</a>
+      <a href="../modules/sequences.html" style="padding:4px 0;color:var(--ink-2)">11 · Sequences: RNNs, LSTMs & Attention</a>
+      <a href="../modules/transformers.html" style="padding:4px 0;color:var(--ink-2)">12 · Transformers & Large Language Models</a>
+      <a href="../modules/dimensionality-reduction.html" style="padding:4px 0;color:var(--ink-2)">13 · Dimensionality Reduction & Representation Learning</a>
+      <a href="../modules/svm-kernels.html" style="padding:4px 0;color:var(--ink-2)">14 · Support Vector Machines & Kernels</a>
+      <a href="../modules/reinforcement-learning.html" style="padding:4px 0;color:var(--ink-2)">15 · Reinforcement Learning</a>
+      <a href="../modules/interpretation.html" style="padding:4px 0;color:var(--ink-2)">16 · Model Interpretation & What Comes Next</a>
+    </div>
+  </div>
+</header>
+<main id="main" class="shell with-rail">
+<aside class="rail" aria-label="On this page">
+  <h4>09 · Unsupervised</h4>
+  <ol>
+    <li><a href="#objectives">Learning objectives</a></li>
+    <li><a href="#intuition">1 · Intuition</a></li>
+    <li><a href="#math">2 · Mathematical foundations</a></li>
+    <li><a href="#labs">3 · Interactive visualizations</a></li>
+    <li><a href="#code">4 · Coding from scratch</a></li>
+    <li><a href="#assessment">5 · Assessment</a></li>
+    <li><a href="#project">6 · Portfolio project</a></li>
+  </ol>
+  <h4 style="margin-top:22px">All modules</h4>
+  <ol class="rail-sub">
+    <li><a href="foundations.html">01 What Machine Learning Actually Is</a></li>
+    <li><a href="knn-evaluation.html">02 Nearest Neighbours & Honest Evaluation</a></li>
+    <li><a href="linear-regression.html">03 Linear Models & Least Squares</a></li>
+    <li><a href="logistic-regression.html">04 Logistic Regression & Classification Loss</a></li>
+    <li><a href="regularization.html">05 Regularization, Bias–Variance & Model Selection</a></li>
+    <li><a href="neural-networks.html">06 Artificial Neural Networks</a></li>
+    <li><a href="backpropagation.html">07 Backpropagation & Training Deep Networks</a></li>
+    <li><a href="trees-ensembles.html">08 Decision Trees, Bagging & Boosting</a></li>
+    <li><a href="clustering.html" style="color:var(--accent);font-weight:600">09 Unsupervised Learning: Clustering</a></li>
+    <li><a href="cnns.html">10 Convolutional Neural Networks</a></li>
+    <li><a href="sequences.html">11 Sequences: RNNs, LSTMs & Attention</a></li>
+    <li><a href="transformers.html">12 Transformers & Large Language Models</a></li>
+    <li><a href="dimensionality-reduction.html">13 Dimensionality Reduction & Representation Learning</a></li>
+    <li><a href="svm-kernels.html">14 Support Vector Machines & Kernels</a></li>
+    <li><a href="reinforcement-learning.html">15 Reinforcement Learning</a></li>
+    <li><a href="interpretation.html">16 Model Interpretation & What Comes Next</a></li>
+  </ol>
+  <div style="margin-top:22px">
+    <button class="btn btn-sm" data-mark-complete type="button" style="width:100%;justify-content:center">Mark module complete</button>
+  </div>
+</aside>
+<article class="article">
+  <header>
+    <span class="kicker">Module 09 · Unsupervised</span>
+    <h1>Unsupervised Learning: Clustering</h1>
+    <p class="lede">k-means as alternating minimisation of within-cluster variance, k-means++, the elbow method, density-based DBSCAN, and agglomerative clustering with four linkage criteria.</p>
+    <div class="header-meta">
+      <span>📚 Source: Lecture Notes 6</span>
+      <span>⏱ 70 min</span>
+      <span>🧪 3 interactive labs</span>
+      <span>🐍 3 implementations</span>
+    </div>
+  </header>
+
+  <section class="block" id="objectives">
+    <h2><span class="secnum">◎</span> Learning objectives</h2>
+    <div class="card">
+      <p class="small muted" style="margin-top:0">By the end of this module you should be able to:</p>
+      <ul class="tight">
+      <li>State the k-means objective and prove each of the two update steps never increases it.</li>
+      <li>Explain k-means++ seeding and its O(log k) approximation guarantee.</li>
+      <li>Apply the elbow method and silhouette-style reasoning to choose k.</li>
+      <li>Classify points as core, border or noise and run DBSCAN by hand.</li>
+      <li>Build a dendrogram for a small dataset under single, complete, average and Ward linkage.</li>
+      </ul>
+    </div>
+  </section>
+
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-unsup">Learning without labels</h3>
+  <p>
+    In unsupervised learning the training data are not labelled into predefined classes — and we do not even know how many
+    classes there are. Instead, the algorithm uses <strong>similarity and dissimilarity across features</strong> to generate
+    group labels called <strong>clusters</strong>. A model trained this way either reveals useful structure (clusters) or
+    learns a representation of the data.
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Family</th><th>Methods</th><th>What it produces</th></tr></thead>
+      <tbody>
+        <tr><td>Clustering</td><td>k-means, DBSCAN, hierarchical, Gaussian mixtures</td><td>group assignments</td></tr>
+        <tr><td>Representation learning</td><td>self-organising maps, autoencoders (module 13)</td><td>a lower-dimensional embedding</td></tr>
+        <tr><td>Anomaly detection</td><td>local outlier factor, angle-based outlier detection</td><td>outlier scores</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub" id="i-families">Three families of clustering</h3>
+  <ul>
+    <li><strong>Centroid-based</strong> — clusters are sets of points closest to some central point (k-means).</li>
+    <li><strong>Density-based</strong> — clusters are regions of higher density than their surroundings (DBSCAN).</li>
+    <li><strong>Hierarchical</strong> — clusters are nested, with one criterion defining distance between points and another (the <em>linkage</em>) defining distance between clusters.</li>
+  </ul>
+  <p>
+    Clustering may also be <em>fuzzy</em> (no sharp boundaries) or <em>partial</em> (some points left unassigned). The choice of
+    <strong>similarity metric</strong> is as consequential as the algorithm:
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Family</th><th>Metric</th><th>Use when</th></tr></thead>
+      <tbody>
+        <tr><td>Distance</td><td>$\|\mathbf{x}_i-\mathbf{x}_j\|_2^2$, $\|\mathbf{x}_i-\mathbf{x}_j\|_1$</td><td>numeric features, comparable scales</td></tr>
+        <tr><td>Distribution</td><td>$\sqrt{(\mathbf{x}_i-\mathbf{x}_j)^\top S^{-1}(\mathbf{x}_i-\mathbf{x}_j)}$ (Mahalanobis)</td><td>correlated features, $S$ positive definite</td></tr>
+        <tr><td>Angle</td><td>$\cos\theta = \frac{\mathbf{x}_i\cdot\mathbf{x}_j}{\|\mathbf{x}_i\|\|\mathbf{x}_j\|}$</td><td>text, embeddings, high dimension</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub" id="i-kmeans">k-means: alternate, and repeat</h3>
+  <p>
+    Given a dataset $X=\{\mathbf{x}_1,\dots,\mathbf{x}_N\}$ with $\mathbf{x}_i\in\mathbb{R}^M$, k-means finds a partition
+    $P=\{p_1,\dots,p_K\}$ minimising the <strong>within-cluster sum of squares</strong>:
+  </p>
+  <div class="formula">$$ \sum_{j=1}^{K}\sum_{\mathbf{x}\in p_j}\|\mathbf{x} - \mathbf{m}_j\|_2^2, \qquad \mathbf{m}_j = \frac{1}{|p_j|}\sum_{\mathbf{x}\in p_j}\mathbf{x} $$</div>
+  <p>Each centre $\mathbf{m}_j$ is just the arithmetic mean of its partition. The algorithm alternates two steps:</p>
+  <ol class="derivation">
+    <li><strong>Initialise</strong> centres $\mathbf{m}_1,\dots,\mathbf{m}_K$ at random.</li>
+    <li><strong>Assign</strong> every sample to its nearest centre.</li>
+    <li><strong>Update</strong> each centre to the mean of the samples now assigned to it.</li>
+    <li><strong>Repeat</strong> steps 2–3 until no sample changes class.</li>
+  </ol>
+  <p>
+    Both steps provably never increase the objective (section 2.1), and the objective is bounded below by zero, so k-means
+    always terminates. It terminates at a <em>local</em> minimum, which is why initialisation matters so much.
+  </p>
+
+  <div class="callout insight">
+    <span class="label">k-means++</span>
+    <p>
+      Instead of random centres, choose the first uniformly at random, then choose each subsequent centre with probability
+      proportional to $d(\mathbf{x})^2$, the squared distance to the nearest existing centre. Far-away points are very likely to
+      be chosen, which spreads the initial centres out. On average this yields clusters within $O(\log k)$ of the optimal
+      solution. Switch the initialisation in lab 1 and watch the final inertia change.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-k">How many clusters?</h3>
+  <p>
+    Sometimes the problem dictates $k$: will this student graduate (2 groups), or is the weather risk low/medium/high (3
+    groups). Otherwise, too small a $k$ fails to partition the data meaningfully and too large a $k$ overfits. The
+    <strong>elbow method</strong> plots the within-cluster variance against $k$ and looks for the point where additional
+    clusters stop buying much reduction. Lab 2 plots it alongside the silhouette score, which is usually more decisive.
+  </p>
+  <div class="callout trap">
+    <span class="label">The warning in the lecture</span>
+    <p>
+      On the original sample, $k=4$ minimised within-cluster variance; on an expanded dataset containing the same structure,
+      $k=4$ produced errors while $k=2$ was correct. A lower within-cluster variance is <em>always</em> achievable with more
+      clusters — it is a training metric, and it will happily reward overfitting. This is exactly the lesson of module 01,
+      applied to an unsupervised problem.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-limits">Where k-means fails</h3>
+  <ul>
+    <li><strong>Only a local minimum</strong> is guaranteed, and the result depends on initialisation.</li>
+    <li><strong>Outliers</strong> drag centroids, because the mean is not robust.</li>
+    <li><strong>$k$ must be known</strong> in advance.</li>
+    <li><strong>Assumes convex, isotropic, similarly-sized clusters</strong> — it cannot handle heteroscedasticity (different covariances), non-spherical shapes, or nested structures.</li>
+  </ul>
+  <p>
+    Those last failures are what DBSCAN and hierarchical clustering exist to fix, and lab 3 makes them visible.
+  </p>
+
+  <h3 class="sub" id="i-dbscan">DBSCAN</h3>
+  <p>
+    DBSCAN classifies every point by the density of its neighbourhood, using two hyperparameters: a radius <code>Eps</code> and
+    a count <code>MinPts</code>.
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Point type</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Core</strong></td><td>at least MinPts points within Eps — interior of a dense region</td></tr>
+        <tr><td><strong>Border</strong></td><td>fewer than MinPts within Eps, but inside the neighbourhood of a core point</td></tr>
+        <tr><td><strong>Noise</strong></td><td>neither core nor border</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Two core points within Eps of each other are connected by a <em>density edge</em>; a point is <em>density-connected</em> to
+    another if a path of such edges exists. The algorithm: label points, discard noise, then for each unassigned core point
+    start a new cluster containing everything density-connected to it, and finally attach border points to the cluster of their
+    nearest core point.
+  </p>
+  <p>
+    Tuning follows the same logic: within a cluster, each point's $k$-th nearest neighbour is at roughly the same distance,
+    while noise points have a much larger one. Sort every point's $k$-th-neighbour distance and look for a <em>knee</em> — set
+    <code>Eps</code> at the knee and <code>MinPts</code> to $k$.
+  </p>
+
+  <h3 class="sub" id="i-hier">Hierarchical clustering</h3>
+  <ul>
+    <li><strong>Agglomerative (bottom-up)</strong> — each point starts as its own cluster; repeatedly merge the two closest clusters until one remains.</li>
+    <li><strong>Divisive (top-down)</strong> — start with everything; repeatedly split until $k$ clusters or singletons remain.</li>
+  </ul>
+  <p>Both operate on a pairwise <strong>proximity matrix</strong>, and the key design decision is the linkage criterion:</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Linkage</th><th>Distance between clusters</th><th>Strength</th><th>Weakness</th></tr></thead>
+      <tbody>
+        <tr><td>Minimum (single)</td><td>closest pair of points</td><td>handles non-elliptical shapes</td><td>sensitive to noise; chaining</td></tr>
+        <tr><td>Maximum (complete)</td><td>farthest pair</td><td>less sensitive to noise</td><td>breaks large clusters, biased to globular shapes</td></tr>
+        <tr><td>Group average</td><td>average over all cross pairs</td><td>compromise</td><td>biased to globular shapes</td></tr>
+        <tr><td>Centroid (Ward's)</td><td>increase in SSE when merged</td><td>hierarchical analogue of k-means; can initialise k-means</td><td>biased to globular shapes</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The result is visualised as a <strong>dendrogram</strong>, a tree recording the order and height of merges. Complexity is
+    $O(N^2)$ space for the proximity matrix and $O(N^3)$ time in the naive implementation (reducible to $O(N^2\log N)$).
+    Two structural limitations: a merge can never be undone, and no objective function is being directly minimised.
+  </p>
+  <p>
+    <strong>HDBSCAN</strong> removes the need to fix Eps: it runs DBSCAN across a range of epsilons, defining each point's core
+    distance via its $k$-th nearest neighbour, and prunes a minimum spanning tree of the reachability graph. It is
+    scale-invariant and more robust than DBSCAN at the cost of more computation.
+  </p>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Medicine · phenotypes</span>
+      <h4>Patient subgroups</h4>
+      <p>Cluster longitudinal vitals to discover sepsis phenotypes that no one had defined a priori. The clusters then become features (or labels) for supervised models.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Retail · segmentation</span>
+      <h4>Customer groups</h4>
+      <p>k-means on recency/frequency/monetary features produces the segments marketing teams target. Standardisation is mandatory — otherwise revenue outvotes frequency.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Geoscience · hotspots</span>
+      <h4>Earthquake and crime hotspots</h4>
+      <p>DBSCAN on coordinates finds arbitrarily shaped hotspots and explicitly labels isolated events as noise — exactly the behaviour a centroid method cannot provide.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Bioinformatics · gene families</span>
+      <h4>Hierarchical clustering</h4>
+      <p>Expression heatmaps with dendrograms are standard in genomics: the tree shows which genes group together at every scale, and the analyst chooses the cut height.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Vision · colour quantisation</span>
+      <h4>k-means in RGB space</h4>
+      <p>Cluster pixel colours into $k$ centroids to compress an image — the same algorithm as image compression via SVD (module 13), with a different geometry.</p>
+    </div>
+    <div class="example">
+      <span class="tag">NLP · topic discovery</span>
+      <h4>Document clustering</h4>
+      <p>Cluster TF-IDF or embedding vectors with cosine similarity to discover topics. k-means with Euclidean distance on unnormalised vectors behaves very differently.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-descent">2.1 Why k-means never gets worse</h3>
+  <details class="steps" open>
+    <summary>Proof — each step minimises the objective given the other</summary>
+    <div class="steps-body">
+      <p>Write the objective as $J(P, M) = \sum_{j}\sum_{\mathbf{x}\in p_j}\|\mathbf{x}-\mathbf{m}_j\|^2$.</p>
+      <ol class="derivation">
+        <li><strong>Assignment step.</strong> Fix the centres. The objective is a sum over samples, and each sample's term depends only on its own assignment, so minimising jointly means minimising each independently:
+          $$ \mathbf{x}\in p_{j^\*} \text{ where } j^\* = \arg\min_j \|\mathbf{x}-\mathbf{m}_j\|^2. $$
+          Reassigning any point to a different cluster can only increase its term, so $J$ cannot increase. <span class="qed">∎</span>
+        </li>
+        <li><strong>Update step.</strong> Fix the partition. The objective separates across clusters, so minimise each
+          $\sum_{\mathbf{x}\in p_j}\|\mathbf{x}-\mathbf{m}_j\|^2$ independently. Differentiate with respect to $\mathbf{m}_j$:
+          $$ \frac{\partial}{\partial\mathbf{m}_j}\sum_{\mathbf{x}\in p_j}(\mathbf{x}-\mathbf{m}_j)^\top(\mathbf{x}-\mathbf{m}_j) = -2\sum_{\mathbf{x}\in p_j}(\mathbf{x}-\mathbf{m}_j) = 0 \;\Longrightarrow\; \mathbf{m}_j = \frac{1}{|p_j|}\sum_{\mathbf{x}\in p_j}\mathbf{x}. $$
+          <span class="qed">∎</span>
+        </li>
+        <li><span class="why">This is <strong>block coordinate descent</strong>: alternate exact minimisation over one block while holding the other fixed. Every iteration decreases a bounded-below objective, so the sequence converges — to a local minimum, since the joint problem is not convex (the assignment is discrete).</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-variance">2.2 The objective is the total within-cluster variance</h3>
+  <p>Expand the squared distance to the mean:</p>
+  <div class="formula">$$ \sum_{\mathbf{x}\in p_j}\|\mathbf{x}-\mathbf{m}_j\|^2 = \sum_{\mathbf{x}\in p_j}\|\mathbf{x}\|^2 - |p_j|\,\|\mathbf{m}_j\|^2 = \sum_{\mathbf{x}\in p_j}\|\mathbf{x}-\bar{\mathbf{x}}\|^2 $$</div>
+  <p>
+    so minimising the objective is exactly minimising the sum of the per-cluster variances (unnormalised). It is also
+    equivalent to maximising the between-cluster variance, since the total variance decomposes:
+  </p>
+  <div class="formula">$$ \underbrace{\sum_i \|\mathbf{x}_i - \bar{\mathbf{x}}\|^2}_{\text{total}} = \underbrace{\sum_j |p_j|\,\|\mathbf{m}_j - \bar{\mathbf{x}}\|^2}_{\text{between}} + \underbrace{\sum_j\sum_{\mathbf{x}\in p_j}\|\mathbf{x}-\mathbf{m}_j\|^2}_{\text{within}} $$</div>
+  <p>
+    This is the ANOVA decomposition, and it explains the name "variance-based clustering" and why $k$-means is described as
+    minimising intra-cluster variance.
+  </p>
+
+  <h3 class="sub" id="m-kpp">2.3 k-means++ seeding</h3>
+  <p>Let $D(\mathbf{x})$ be the distance from $\mathbf{x}$ to the nearest centre chosen so far. The seeding procedure:</p>
+  <ol class="derivation">
+    <li>Choose $\mathbf{m}_1$ uniformly at random from $X$.</li>
+    <li>For $i = 2,\dots,k$: choose $\mathbf{m}_i = \mathbf{x}'$ with probability $\dfrac{D(\mathbf{x}')^2}{\sum_{\mathbf{x}\in X}D(\mathbf{x})^2}$.</li>
+    <li>Run standard k-means from those centres.</li>
+  </ol>
+  <p>
+    Because the probability is proportional to the <em>squared</em> distance, points far from all existing centres are
+    overwhelmingly likely to be picked, so the initial centres are spread out. Arthur and Vassilvitskii proved that the
+    resulting objective is, in expectation, within $8(\ln k + 2)$ of the optimal — the $O(\log k)$ guarantee quoted in the
+    lecture notes.
+  </p>
+
+  <h3 class="sub" id="m-sil">2.4 Silhouette score</h3>
+  <p>For a point $\mathbf{x}$ in cluster $C_i$, let $a(\mathbf{x})$ be its mean distance to the other members of $C_i$ and $b(\mathbf{x})$ its mean distance to the members of the nearest other cluster. Then</p>
+  <div class="formula">$$ s(\mathbf{x}) = \frac{b(\mathbf{x}) - a(\mathbf{x})}{\max\{a(\mathbf{x}), b(\mathbf{x})\}} \in [-1, 1] $$</div>
+  <p>
+    Values near 1 mean the point is much closer to its own cluster than to any other; near 0 means it sits on a boundary;
+    negative means it is probably in the wrong cluster. Averaging over all points gives a single quality score that — unlike
+    inertia — does not automatically improve as $k$ grows, which is why it is a better guide for choosing $k$.
+  </p>
+
+  <h3 class="sub" id="m-dbscan">2.5 DBSCAN's formal definitions</h3>
+  <p>Let $N_\epsilon(\mathbf{x}) = \{\mathbf{q} : \mathrm{dist}(\mathbf{x},\mathbf{q}) \le \epsilon\}$.</p>
+  <ul>
+    <li>$\mathbf{x}$ is a <strong>core point</strong> if $|N_\epsilon(\mathbf{x})| \ge \text{MinPts}$.</li>
+    <li>$\mathbf{q}$ is <strong>directly density-reachable</strong> from $\mathbf{x}$ if $\mathbf{q}\in N_\epsilon(\mathbf{x})$ and $\mathbf{x}$ is core.</li>
+    <li>$\mathbf{q}$ is <strong>density-reachable</strong> from $\mathbf{x}$ if there is a chain $\mathbf{x}=\mathbf{p}_0,\dots,\mathbf{p}_n=\mathbf{q}$ with each $\mathbf{p}_{i+1}$ directly density-reachable from $\mathbf{p}_i$.</li>
+    <li>$\mathbf{p}$ and $\mathbf{q}$ are <strong>density-connected</strong> if both are density-reachable from a common core point.</li>
+    <li>A <strong>cluster</strong> is a maximal set of density-connected points; everything else is noise.</li>
+  </ul>
+  <p>
+    Two consequences worth remembering: clusters can be any shape (because connectivity, not distance to a centre, defines
+    membership), and a single density threshold cannot handle clusters of very different densities — the reason HDBSCAN exists.
+    Complexity is $O(N\log N)$ with a spatial index and $O(N^2)$ in the worst case.
+  </p>
+
+  <h3 class="sub" id="m-linkage">2.6 Linkage as a recurrence</h3>
+  <p>
+    Agglomerative clustering repeatedly merges the closest pair according to the linkage. Each linkage can be expressed as an
+    update rule on distances (the Lance–Williams recurrence), which is why all four variants share one algorithm:
+  </p>
+  <div class="formula">$$ d(A\cup B, C) = \alpha_A d(A,C) + \alpha_B d(B,C) + \beta\, d(A,B) + \gamma\,|d(A,C) - d(B,C)| $$</div>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Linkage</th><th>$\alpha_A$</th><th>$\alpha_B$</th><th>$\beta$</th><th>$\gamma$</th></tr></thead>
+      <tbody>
+        <tr><td>Single</td><td>1/2</td><td>1/2</td><td>0</td><td>−1/2</td></tr>
+        <tr><td>Complete</td><td>1/2</td><td>1/2</td><td>0</td><td>+1/2</td></tr>
+        <tr><td>Average</td><td>$|A|/(|A|+|B|)$</td><td>$|B|/(|A|+|B|)$</td><td>0</td><td>0</td></tr>
+        <tr><td>Ward</td><td>$(|A|+|C|)/(|A|+|B|+|C|)$</td><td>$(|B|+|C|)/(|A|+|B|+|C|)$</td><td>$-|C|/(\cdot)$</td><td>0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Ward's linkage is the one that pairs naturally with k-means: both minimise within-cluster sum of squares, so a Ward
+    dendrogram cut at $k$ clusters is an excellent initialisation for k-means.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-kmeans">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · k-means</span><h4>Alternating assignment and update</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Press <strong>Step</strong> to advance one iteration: the ✕ marks are centroids, the thin lines connect each point to its centre. Inertia falls at every step and the centroid movement shrinks toward zero — that is the block-coordinate descent of §2.1 converging.</p>
+      <p>Now switch initialisation to <strong>random</strong> and press <strong>New seed</strong> a few times. Different starts land in different local minima with visibly different inertia. k-means++ rarely does this, which is why it is the default everywhere.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-elbow">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · choosing k</span><h4>Elbow, silhouette, and overfitting</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>The upper plot shows inertia (normalised, lower is better) and silhouette (higher is better) against $k$; the lower plot shows the clustering at the chosen $k$.</p>
+      <p>Inertia decreases monotonically forever — it is a training metric and will always reward more clusters. The silhouette peaks at the true $k=3$ and then declines. Use the elbow as a first guess and the silhouette as the decision rule; the verdict readout names the regime.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-dbscan">
+    <div class="lab-head"><span class="lab-tag">Lab 3 · density</span><h4>Core, border and noise on two moons</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>k-means cannot separate two interleaving crescents — no set of centroids works. DBSCAN can, because it follows density connectivity rather than distance to a centre. Filled points are core, hollow points are border, grey points are noise.</p>
+      <p>Shrink <code>eps</code> and the clusters fragment into noise; grow it and the two moons merge into one cluster. This sensitivity is DBSCAN's real weakness — one global density threshold cannot serve clusters of different densities, which is exactly what HDBSCAN addresses.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">scikit-learn</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 09 — k-means, k-means++ and DBSCAN, no libraries."""
+import math
+import random
+
+
+def dist2(a, b):
+    return sum((ai - bi) ** 2 for ai, bi in zip(a, b))
+
+
+def kmeans(X, k, iters=100, seed=0):
+    rng = random.Random(seed)
+    centers = [list(p) for p in rng.sample(X, k)]          # naive init
+    labels = [-1] * len(X)
+    for _ in range(iters):
+        new_labels = [min(range(k), key=lambda j: dist2(x, centers[j])) for x in X]
+        if new_labels == labels:
+            break
+        labels = new_labels
+        for j in range(k):
+            members = [x for x, l in zip(X, labels) if l == j]
+            if members:
+                centers[j] = [sum(c) / len(members) for c in zip(*members)]
+    inertia = sum(dist2(x, centers[l]) for x, l in zip(X, labels))
+    return centers, labels, inertia
+
+
+def kmeans_pp(X, k, iters=100, seed=0):
+    """k-means++ seeding, then standard Lloyd iterations."""
+    rng = random.Random(seed)
+    centers = [list(X[rng.randrange(len(X))])]
+    while len(centers) &lt; k:
+        d2 = [min(dist2(x, c) for c in centers) for x in X]
+        total = sum(d2)
+        r, acc, pick = rng.random() * total, 0.0, 0
+        for i, v in enumerate(d2):
+            acc += v
+            if acc &gt;= r:
+                pick = i
+                break
+        centers.append(list(X[pick]))
+    return kmeans_from(X, centers, iters)
+
+
+def kmeans_from(X, centers, iters=100):
+    k = len(centers)
+    labels = [-1] * len(X)
+    for _ in range(iters):
+        labels = [min(range(k), key=lambda j: dist2(x, centers[j])) for x in X]
+        new = []
+        for j in range(k):
+            members = [x for x, l in zip(X, labels) if l == j]
+            new.append([sum(c) / len(members) for c in zip(*members)] if members else centers[j])
+        if all(dist2(a, b) &lt; 1e-12 for a, b in zip(new, centers)):
+            break
+        centers = new
+    inertia = sum(dist2(x, centers[l]) for x, l in zip(X, labels))
+    return centers, labels, inertia
+
+
+def dbscan(X, eps, min_pts):
+    n = len(X)
+    neighbours = [[j for j in range(n) if j != i and math.dist(X[i], X[j]) &lt;= eps] for i in range(n)]
+    core = [len(nb) + 1 &gt;= min_pts for nb in neighbours]
+    labels = [-1] * n
+    cluster = 0
+    for i in range(n):
+        if not core[i] or labels[i] != -1:
+            continue
+        stack = [i]
+        labels[i] = cluster
+        while stack:
+            cur = stack.pop()
+            if not core[cur]:
+                continue
+            for j in neighbours[cur]:
+                if labels[j] == -1:
+                    labels[j] = cluster
+                    stack.append(j)
+        cluster += 1
+    return labels, cluster
+
+
+if __name__ == "__main__":
+    rng = random.Random(0)
+    X = [[rng.gauss(0, 0.4), rng.gauss(0, 0.4)] for _ in range(40)]
+    X += [[3 + rng.gauss(0, 0.4), rng.gauss(0, 0.4)] for _ in range(40)]
+
+    for name, fn in (("random init", kmeans), ("k-means++", kmeans_pp)):
+        _, _, inertia = fn(X, 2, seed=3)
+        print(f"{name:12s} inertia = {inertia:.3f}")
+
+    labels, k = dbscan(X, eps=1.0, min_pts=4)
+    print("dbscan clusters:", k, " noise:", labels.count(-1))
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 09 — vectorised k-means with k-means++, plus the elbow/silhouette sweep."""
+import numpy as np
+
+
+def kmeans(X, k, iters=300, seed=0, init="++"):
+    X = np.asarray(X, float)
+    rng = np.random.default_rng(seed)
+    n = len(X)
+
+    if init == "++":
+        centers = [X[rng.integers(n)]]
+        for _ in range(k - 1):
+            d2 = ((X[:, None, :] - np.array(centers)[None]) ** 2).sum(-1).min(1)
+            probs = d2 / d2.sum()
+            centers.append(X[rng.choice(n, p=probs)])
+        C = np.array(centers)
+    else:
+        C = X[rng.choice(n, k, replace=False)]
+
+    labels = np.full(n, -1)
+    for _ in range(iters):
+        D = ((X[:, None, :] - C[None]) ** 2).sum(-1)      # (n, k)
+        new = D.argmin(1)
+        if np.array_equal(new, labels):
+            break
+        labels = new
+        for j in range(k):
+            if np.any(labels == j):
+                C[j] = X[labels == j].mean(0)
+    inertia = float(((X - C[labels]) ** 2).sum())
+    return C, labels, inertia
+
+
+def silhouette(X, labels):
+    X = np.asarray(X, float)
+    n = len(X)
+    D = np.sqrt(((X[:, None, :] - X[None]) ** 2).sum(-1))
+    scores = []
+    for i in range(n):
+        same = labels == labels[i]
+        same[i] = False
+        if not same.any():
+            continue
+        a = D[i, same].mean()
+        b = min(D[i, labels == c].mean() for c in np.unique(labels) if c != labels[i])
+        scores.append((b - a) / max(a, b))
+    return float(np.mean(scores))
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    X = np.vstack([rng.normal(c, 0.5, (60, 2)) for c in ([0, 0], [3, 0], [1.5, 2.5])])
+
+    print(" k   inertia   silhouette")
+    for k in range(2, 8):
+        C, labels, inertia = kmeans(X, k, seed=1)
+        print(f"{k:2d}  {inertia:8.2f}  {silhouette(X, labels):10.3f}")
+
+    # Repeated restarts: local minima are real
+    inertias = [kmeans(X, 3, seed=s, init="random")[2] for s in range(10)]
+    print("\nrandom-init inertia over 10 seeds: min %.2f max %.2f" % (min(inertias), max(inertias)))
+    inertias = [kmeans(X, 3, seed=s, init="++")[2] for s in range(10)]
+    print("k-means++ inertia over 10 seeds : min %.2f max %.2f" % (min(inertias), max(inertias)))
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 09 — scikit-learn clustering: k-means, DBSCAN, agglomerative."""
+import numpy as np
+from sklearn.cluster import AgglomerativeClustering, DBSCAN, KMeans
+from sklearn.datasets import make_blobs, make_moons
+from sklearn.metrics import adjusted_rand_score, silhouette_score
+from sklearn.preprocessing import StandardScaler
+
+# ---- k-means on blobs ------------------------------------------------------
+X, y = make_blobs(n_samples=600, centers=4, cluster_std=0.9, random_state=0)
+X = StandardScaler().fit_transform(X)
+
+for k in range(2, 8):
+    km = KMeans(n_clusters=k, n_init=10, random_state=0).fit(X)
+    print(f"k={k}: inertia={km.inertia_:8.2f}  silhouette={silhouette_score(X, km.labels_):.3f}")
+
+km = KMeans(n_clusters=4, n_init=10, random_state=0).fit(X)
+print("\nARI vs. truth:", round(adjusted_rand_score(y, km.labels_), 3))
+print("cluster sizes:", np.bincount(km.labels_))
+
+# ---- the classic failure: two moons ---------------------------------------
+Xm, ym = make_moons(n_samples=400, noise=0.06, random_state=0)
+print("\nk-means on moons   silhouette:", round(silhouette_score(Xm, KMeans(2, n_init=10, random_state=0).fit_predict(Xm)), 3))
+print("DBSCAN on moons    silhouette:", round(silhouette_score(Xm, DBSCAN(eps=0.15, min_samples=5).fit_predict(Xm)), 3))
+
+# ---- DBSCAN hyperparameter sweep ------------------------------------------
+for eps in (0.05, 0.1, 0.15, 0.25, 0.4):
+    lab = DBSCAN(eps=eps, min_samples=5).fit_predict(Xm)
+    print(f"eps={eps:.2f}: clusters={len(set(lab)) - (1 if -1 in lab else 0)}  noise={(lab == -1).sum()}")
+
+# ---- hierarchical clustering with different linkages ----------------------
+for linkage in ("single", "complete", "average", "ward"):
+    lab = AgglomerativeClustering(n_clusters=2, linkage=linkage).fit_predict(Xm)
+    print(f"{linkage:9s} ARI vs. truth = {adjusted_rand_score(ym, lab):.3f}")
+
+# ---- choosing eps from the k-distance curve -------------------------------
+from sklearn.neighbors import NearestNeighbors
+kdist = np.sort(NearestNeighbors(n_neighbors=5).fit(Xm).kneighbors(Xm)[0][:, -1])
+print("\nk-distance at 90th percentile (candidate eps):", round(float(np.percentile(kdist, 90)), 3))
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block prints the experiment that motivates k-means++: across ten random seeds, random initialisation produces
+      a range of final inertias, while k-means++ almost always lands on the same (better) one.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="09">
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>The k-means update $\mathbf{m}_j = \frac{1}{|p_j|}\sum_{\mathbf{x}\in p_j}\mathbf{x}$ is optimal because:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>It makes every cluster the same size</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Setting the derivative of the within-cluster sum of squares with respect to the centre to zero gives the mean</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>It guarantees the global optimum</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>It minimises the number of iterations</span></button></li>
+      </ul>
+      <div class="explain"><p>$\frac{\partial}{\partial\mathbf{m}}\sum(\mathbf{x}-\mathbf{m})^2 = -2\sum(\mathbf{x}-\mathbf{m}) = 0 \Rightarrow \mathbf{m} = \bar{\mathbf{x}}$. The guarantee is only a <em>local</em> minimum of the joint problem.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>Why can k-means not separate two interleaving crescent shapes?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Because it needs labels</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Because $k$ cannot be 2</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Because assigning points to the nearest centroid partitions space into convex Voronoi cells</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Because it minimises variance</span></button></li>
+      </ul>
+      <div class="explain"><p>Centroid-based assignment always produces convex cells. A crescent is not convex, so no set of centroids can recover it — a density-based or hierarchical method is required.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>k-means++ chooses each new centre with probability proportional to:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>The squared distance to the nearest existing centre</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Uniform random selection</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>The local density of the point</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The distance to the global mean</span></button></li>
+      </ul>
+      <div class="explain"><p>Probability $\propto d(\mathbf{x})^2$ spreads the centres out, giving an expected objective within $O(\log k)$ of optimal.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>In DBSCAN, a point with fewer than MinPts neighbours within Eps, but lying inside the Eps-neighbourhood of a core point, is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>A core point</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Noise</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>A new cluster centre</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>A border point, assigned to that core point's cluster</span></button></li>
+      </ul>
+      <div class="explain"><p>Border points sit on the edge of a dense region: not dense enough to be core, but reachable from a core point. They are attached after the clusters have grown from the core points.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>Which linkage is the hierarchical analogue of k-means?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Single linkage</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Ward's linkage</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Complete linkage</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Average linkage</span></button></li>
+      </ul>
+      <div class="explain"><p>Ward's criterion is the increase in within-cluster sum of squares when two clusters merge — the same quantity k-means minimises. Cutting a Ward dendrogram is therefore a good way to initialise k-means.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">k-means objective</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\sum_j\sum_{\mathbf{x}\in p_j}\|\mathbf{x}-\mathbf{m}_j\|^2$: the within-cluster sum of squares (inertia / scatter). Minimising it is equivalent to maximising between-cluster variance.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Block coordinate descent</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Alternate exact minimisation over two blocks of variables. k-means alternates assignment and centroid update, each exactly optimal given the other.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Elbow method</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Plot inertia against $k$ and choose the point where the decrease flattens. A heuristic: inertia always decreases, so it can only suggest, never decide.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Silhouette score</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$s = (b-a)/\max(a,b)$ with $a$ the mean intra-cluster distance and $b$ the mean distance to the nearest other cluster. Ranges $[-1,1]$; unlike inertia it penalises too many clusters.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Core / border / noise</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">DBSCAN's three point types: at least MinPts neighbours within Eps; reachable from a core point; neither.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Dendrogram</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">A tree recording the sequence and height of merges (or splits) in hierarchical clustering. Cutting it at a chosen height gives a flat clustering.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Chaining</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Single linkage's failure mode: a chain of closely spaced points bridges two genuine clusters. The reason single linkage is noise-sensitive.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">HDBSCAN</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Runs DBSCAN over a range of Eps values by building a minimum spanning tree of the mutual-reachability graph and pruning high-weight edges. Scale-invariant and robust to varying density.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+</section>
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">One k-means iteration by hand</h4></div>
+    <p>Points: $(0,0), (0,2), (4,0), (4,2)$. Initial centres $\mathbf{m}_1=(0,0)$, $\mathbf{m}_2=(4,2)$. Run one assignment step and one update step; compute the inertia before and after.</p>
+    <button class="btn btn-sm" data-reveal="sol-09-1" type="button">Show solution</button>
+    <div id="sol-09-1" class="solution" hidden>
+      <p><strong>Assignment.</strong> $(0,0)\to1$ (d=0), $(0,2)\to1$ (d=2), $(4,0)\to2$ (d=2), $(4,2)\to2$ (d=0).</p>
+      <p><strong>Update.</strong> $\mathbf{m}_1 = (0,1)$, $\mathbf{m}_2 = (4,1)$.</p>
+      <p><strong>Inertia before:</strong> $0+4+4+0 = 8$. <strong>After:</strong> $1+1+1+1 = 4$. The objective halved in one iteration, and the next assignment changes nothing — the algorithm has converged.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Prove the variance decomposition</h4></div>
+    <p>Show that $\sum_i\|\mathbf{x}_i-\bar{\mathbf{x}}\|^2 = \sum_j|p_j|\|\mathbf{m}_j-\bar{\mathbf{x}}\|^2 + \sum_j\sum_{\mathbf{x}\in p_j}\|\mathbf{x}-\mathbf{m}_j\|^2$.</p>
+    <button class="btn btn-sm" data-reveal="sol-09-2" type="button">Show solution</button>
+    <div id="sol-09-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>Write $\mathbf{x}_i - \bar{\mathbf{x}} = (\mathbf{x}_i - \mathbf{m}_{j(i)}) + (\mathbf{m}_{j(i)} - \bar{\mathbf{x}})$, where $j(i)$ is the cluster of point $i$.</li>
+        <li>Expand the square and sum: $\sum_i\|\mathbf{x}_i-\mathbf{m}_{j(i)}\|^2 + \sum_i\|\mathbf{m}_{j(i)}-\bar{\mathbf{x}}\|^2 + 2\sum_i(\mathbf{x}_i-\mathbf{m}_{j(i)})^\top(\mathbf{m}_{j(i)}-\bar{\mathbf{x}})$.</li>
+        <li>The cross term vanishes, because grouping by cluster gives $\sum_{\mathbf{x}\in p_j}(\mathbf{x}-\mathbf{m}_j) = |p_j|\mathbf{m}_j - |p_j|\mathbf{m}_j = 0$. <span class="qed">∎</span></li>
+        <li>Regrouping the second term by cluster gives $\sum_j|p_j|\|\mathbf{m}_j-\bar{\mathbf{x}}\|^2$.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Prove that k-means clusters are convex</h4></div>
+    <p>Show that each k-means cluster is contained in the Voronoi cell of its centroid, and conclude that a non-convex cluster can never be recovered exactly.</p>
+    <button class="btn btn-sm" data-reveal="sol-09-3" type="button">Show solution</button>
+    <div id="sol-09-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>The assignment step sets $p_j = \{\mathbf{x} : \|\mathbf{x}-\mathbf{m}_j\| \le \|\mathbf{x}-\mathbf{m}_i\|\;\forall i\}$.</li>
+        <li>Squaring and cancelling $\|\mathbf{x}\|^2$ gives the linear inequality $2\mathbf{x}^\top(\mathbf{m}_i-\mathbf{m}_j) \le \|\mathbf{m}_i\|^2-\|\mathbf{m}_j\|^2$.</li>
+        <li>Each inequality defines a closed half-space, so $p_j$ is an intersection of half-spaces — a convex polytope. <span class="qed">∎</span></li>
+        <li>Hence a crescent, a ring, or two interleaved spirals can never be a single k-means cluster, regardless of initialisation or $k$.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 09</span>
+    <h3>Discovering structure nobody labelled</h3>
+    <p>Run an honest clustering study on real, unlabelled data and defend every choice you make — including the choice of $k$.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Choose an unlabelled dataset with a plausible group structure (customer data, patient vitals, or a public dataset whose labels you reveal only at the end).</li>
+      <li>Implement k-means with random and k-means++ initialisation, plus DBSCAN, from scratch.</li>
+      <li>Standardise features and justify the metric choice; show what changes if you skip standardisation.</li>
+      <li>Sweep $k = 2\ldots10$ and report inertia, silhouette and gap-statistic curves. Choose $k$ with an explicit rule.</li>
+      <li>Compare k-means, DBSCAN and Ward hierarchical clustering; use ARI against withheld labels as a final check, not as a tuning signal.</li>
+      <li>Describe each cluster in domain terms: what distinguishes its members, and how large is it?</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li>Notebook with the selection curves and the comparison table</li>
+      <li>From-scratch implementations with tests against scikit-learn</li>
+      <li>Cluster profile table and a one-page interpretation for a domain reader</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Methodology</td><td>$k$ chosen by a stated rule; metric and scaling justified</td><td>30</td></tr>
+        <tr><td>Implementation</td><td>Both algorithms match scikit-learn on the same inputs</td><td>25</td></tr>
+        <tr><td>Comparison</td><td>Disagreement between algorithms explained, not just reported</td><td>25</td></tr>
+        <tr><td>Interpretation</td><td>Clusters described in domain language with concrete examples</td><td>20</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Add a Gaussian mixture model with BIC-based model selection and compare with k-means.</li>
+      <li>Implement HDBSCAN-style stability selection and show it fixes a varying-density dataset.</li>
+      <li>Measure cluster stability under bootstrap resampling (ARI between runs).</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/09-clustering-study/</code>.</p>
+  </div>
+</section>
+
+
+  <nav class="pager" aria-label="Module navigation">
+  <a class="prev" href="trees-ensembles.html"><span>← Previous</span><b>08 · Decision Trees, Bagging & Boosting</b></a>
+  <a class="next" href="cnns.html"><span>Next →</span><b>10 · Convolutional Neural Networks</b></a>
+</nav>
+</article>
+</main>
+<footer class="site">
+  <div class="shell">
+    <div>
+      <strong>ML from First Principles</strong><br />
+      An interactive, open-source companion to CSC 74020 (Machine Learning), Fall 2025, taught by Prof. Jonathan Gryak at the CUNY Graduate Center.
+    </div>
+    <div>
+      <a href="../index.html">Home</a> ·
+      <a href="../index.html#curriculum">Curriculum</a> ·
+      <a href="../index.html#python">Python library</a> ·
+      <a href="../index.html#sources">Sources</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

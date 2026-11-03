@@ -1,0 +1,664 @@
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-recap">Classification, recapitulated</h3>
+  <p>Every supervised classifier in this course minimises a cost of the same shape:</p>
+  <div class="formula">$$ \min_{\boldsymbol\theta}\; g(\boldsymbol\theta, f) = \sum_{i=1}^{N}\ell\big(f(\boldsymbol\theta,\mathbf{x}_i), y_i\big) + \lambda\cdot\text{Complexity}(f) $$</div>
+  <p>
+    A <strong>linear classifier</strong> uses the decision rule $f(\mathbf{x}) = \langle\mathbf{w},\mathbf{x}\rangle + b$, whose
+    zero set is a hyperplane: a line in 2-D, a plane in 3-D, and a hyperplane beyond that. The vector $\mathbf{w}$ is normal to
+    the plane; $b$ shifts it.
+  </p>
+  <p>
+    But infinitely many lines separate two separable classes. Which one should we pick? The support vector machine answers:
+    the one with the <strong>largest margin</strong> — the widest empty band between the classes. The intuition is that a
+    boundary with room to spare on both sides is the one least likely to be wrong about a new point near the edge.
+  </p>
+
+  <figure style="margin:1.6em 0">
+    <svg viewBox="0 0 700 240" role="img" aria-label="Maximum margin classifier with support vectors" style="width:100%;height:auto;font-family:ui-sans-serif,system-ui,sans-serif">
+      <g stroke="#e3e5ec" stroke-width="1"><line x1="40" y1="200" x2="660" y2="200"/><line x1="40" y1="20" x2="40" y2="200"/></g>
+      <g fill="none" stroke="currentColor" stroke-width="1.4" color="#0f9d58" stroke-dasharray="6 5">
+        <line x1="90" y1="40" x2="590" y2="170"/>
+        <line x1="150" y1="24" x2="640" y2="150"/>
+      </g>
+      <line x1="60" y1="160" x2="620" y2="14" stroke="#12141a" stroke-width="2.4"/>
+      <g fill="#4f46e5"><circle cx="210" cy="132" r="6"/><circle cx="260" cy="150" r="6"/><circle cx="160" cy="112" r="6"/></g>
+      <g fill="#f59e0b"><circle cx="380" cy="88" r="6"/><circle cx="430" cy="72" r="6"/><circle cx="330" cy="104" r="6"/></g>
+      <g fill="none" stroke="#dc2626" stroke-width="2"><circle cx="210" cy="132" r="12"/><circle cx="330" cy="104" r="12"/></g>
+      <g font-size="12" fill="#3d4351">
+        <text x="470" y="42">decision boundary  w·x + b = 0</text>
+        <text x="470" y="62" fill="#0f9d58">margins  w·x + b = ±1</text>
+        <text x="200" y="222" fill="#dc2626" font-weight="600">circled = support vectors</text>
+        <text x="60" y="36" font-weight="600">margin width 2 / ‖w‖</text>
+      </g>
+    </svg>
+    <figcaption class="small muted">Only the points on the margin — the support vectors — determine the boundary. Move an interior point and the answer does not change; move a support vector and it does.</figcaption>
+  </figure>
+
+  <h3 class="sub" id="i-margin">The geometry of the margin</h3>
+  <p>
+    Take the two parallel supporting hyperplanes $\langle\mathbf{w},\mathbf{x}\rangle + b = \pm 1$. Since $\mathbf{w}$ is normal
+    to both, the perpendicular distance between them is $2/\|\mathbf{w}\|$. Maximising the margin means minimising $\|\mathbf{w}\|$:
+  </p>
+  <div class="formula">$$ \max_{\mathbf{w},b}\frac{1}{\|\mathbf{w}\|} \quad\text{subject to}\quad y_i\big(\langle\mathbf{x}_i,\mathbf{w}\rangle + b\big) \ge 1 $$</div>
+  <p>
+    Squaring and halving gives the standard convex form
+    $\min \frac12\|\mathbf{w}\|^2$ subject to the same constraints. The quadratic objective matters: it is convex, so any local
+    minimum is global, and there is no local-minimum trap as in neural networks.
+  </p>
+
+  <h3 class="sub" id="i-dual">Primal and dual</h3>
+  <p>
+    Rather than solving the constrained primal directly, we solve its Lagrangian dual, which involves the data only through
+    <strong>inner products</strong>:
+  </p>
+  <div class="formula">$$ \max_{\boldsymbol\alpha}\; -\frac12\sum_{i}\sum_{j}\alpha_i\alpha_jy_iy_j\langle\mathbf{x}_i,\mathbf{x}_j\rangle + \sum_i\alpha_i \quad\text{subject to}\quad \sum_i\alpha_iy_i = 0,\;\; \alpha_i \ge 0 $$</div>
+  <p>
+    The Karush–Kuhn–Tucker (KKT) conditions guarantee the saddle point is optimal. Two consequences are the whole point of the
+    module:
+  </p>
+  <ul>
+    <li><strong>Sparsity.</strong> Complementary slackness says $\alpha_i\big[y_i(\langle\mathbf{w},\mathbf{x}_i\rangle+b)-1\big] = 0$, so $\alpha_i \gt 0$ only for points exactly on the margin. Those are the <em>support vectors</em>; every other point has $\alpha_i = 0$ and could be deleted without changing the model.</li>
+    <li><strong>Kernels.</strong> Because the data enters only as $\langle\mathbf{x}_i,\mathbf{x}_j\rangle$, we can replace that inner product with any kernel $K(\mathbf{x}_i,\mathbf{x}_j)$ — implicitly working in a much higher-dimensional feature space without ever computing the mapping.</li>
+  </ul>
+
+  <h3 class="sub" id="i-soft">Soft margins</h3>
+  <p>
+    Real data overlaps. The hard-margin problem then has no feasible solution, so we introduce <strong>slack variables</strong>
+    $\xi_i \ge 0$ that allow individual points to violate the margin, and charge for them:
+  </p>
+  <div class="formula">$$ \min_{\mathbf{w},b,\boldsymbol\xi}\; \frac12\|\mathbf{w}\|^2 + C\sum_i\xi_i \quad\text{subject to}\quad y_i\big(\langle\mathbf{x}_i,\mathbf{w}\rangle+b\big) \ge 1-\xi_i,\;\; \xi_i\ge0 $$</div>
+  <p>
+    The <strong>box constraint</strong> $C$ sets the exchange rate between a wide margin and tolerated violations. Large $C$: few
+    violations allowed, narrow margin, risk of overfitting. Small $C$: wide margin, more violations, more regularization. The
+    soft-margin problem is always feasible — $w = b = 0$, $\xi_i = 1$ is a valid (bad) solution — which is why it always returns
+    a model.
+  </p>
+
+  <h3 class="sub" id="i-kernel">The kernel trick</h3>
+  <p>
+    If the data is not linearly separable in the input space, map it into a higher-dimensional space where it is, find a
+    separating hyperplane there, and project the boundary back. The trick is that you never compute the mapping $\phi$: you
+    only need the kernel $K(\mathbf{x},\mathbf{z}) = \langle\phi(\mathbf{x}),\phi(\mathbf{z})\rangle$.
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Kernel</th><th>$K(\mathbf{x},\mathbf{z})$</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Linear</td><td>$\langle\mathbf{x},\mathbf{z}\rangle$</td><td>ordinary SVM; good for text with many features</td></tr>
+        <tr><td>Polynomial</td><td>$(\langle\mathbf{x},\mathbf{z}\rangle + c)^d$</td><td>explicit feature interactions up to degree $d$</td></tr>
+        <tr><td>RBF / Gaussian</td><td>$\exp(-\gamma\|\mathbf{x}-\mathbf{z}\|^2)$</td><td>infinite-dimensional feature space; the default for dense numeric data</td></tr>
+        <tr><td>Sigmoid</td><td>$\tanh(\kappa\langle\mathbf{x},\mathbf{z}\rangle + \theta)$</td><td>not always positive definite; historically linked to neural nets</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Validity requires <strong>Mercer's condition</strong>: the kernel matrix $K_{ij} = K(\mathbf{x}_i,\mathbf{x}_j)$ must be
+    positive semi-definite for any set of inputs. If it is, the kernel corresponds to a genuine inner product in some feature
+    space.
+  </p>
+
+  <h3 class="sub" id="i-hyper">The two hyperparameters</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Hyperparameter</th><th>Effect</th><th>Symptom when wrong</th></tr></thead>
+      <tbody>
+        <tr><td>Box constraint $C$</td><td>tolerance for misclassification</td><td>too small → underfits (wide margin, many errors); too large → overfits (narrow margin, brittle)</td></tr>
+        <tr><td>Kernel width $\gamma$</td><td>radius of influence of each support vector</td><td>too small → each point becomes its own island; too large → the boundary approaches a linear one</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Together they control the non-linearity of the boundary, and they interact: the useful region is a diagonal band in the
+    $(C,\gamma)$ plane, which is why a grid search over both (with cross-validation) is standard practice.
+  </p>
+
+  <h3 class="sub" id="i-uses">Beyond classification, and limitations</h3>
+  <p>
+    SVMs also do regression (support vector regression, with an $\epsilon$-insensitive tube) and anomaly detection
+    (one-class SVM, which encloses the data in a small region of feature space). Their weaknesses are practical:
+  </p>
+  <ul>
+    <li>Sensitive to non-uniform feature scaling — always standardise.</li>
+    <li>Cannot handle non-numeric data without an explicit kernel.</li>
+    <li>Training is $O(N^2)$–$O(N^3)$, so it does not scale out of the box to millions of samples.</li>
+    <li>Highly non-linear kernels produce brittle boundaries with poor calibration.</li>
+  </ul>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Text · the classic win</span>
+      <h4>Linear SVM on TF-IDF</h4>
+      <p>With tens of thousands of sparse features and few samples, a linear SVM was the standard text classifier for a decade and remains a strong baseline.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Bioinformatics · $p \gg n$</span>
+      <h4>Gene expression classification</h4>
+      <p>SVMs handle the small-$n$, large-$p$ regime gracefully because the dual depends on inner products between samples, and support vectors provide a sparse summary.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Medicine · label uncertainty</span>
+      <h4>The ARDS case study</h4>
+      <p>The lecture's case study modifies the SVM objective to encode per-sample label confidence ($C_i = C_0z_i$) and to use privileged information available only at training time (LULUPAPI).</p>
+    </div>
+    <div class="example">
+      <span class="tag">Vision · pre-deep-learning</span>
+      <h4>HOG + SVM</h4>
+      <p>Histogram-of-oriented-gradients features with a linear SVM were the state of the art for pedestrian detection before CNNs.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Anomaly detection</span>
+      <h4>One-class SVM</h4>
+      <p>Learn a boundary around normal data; anything outside is anomalous. Used for intrusion detection and equipment monitoring.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Modern relevance</span>
+      <h4>Small-data, high-dimension</h4>
+      <p>Where deep learning needs thousands of examples, a well-tuned RBF SVM can still win — and its convex objective means no seed lottery.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-width">2.1 The margin width is 2/‖w‖</h3>
+  <details class="steps" open>
+    <summary>Derivation — distance from a point to a hyperplane, then the gap between the margins</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Take a point $\mathbf{x}_0$ on the boundary $\langle\mathbf{w},\mathbf{x}\rangle + b = 0$ and a point $\mathbf{x}$ on the margin $\langle\mathbf{w},\mathbf{x}\rangle + b = 1$. Their difference is orthogonal to the hyperplane.</li>
+        <li>Project the difference onto the unit normal $\mathbf{w}/\|\mathbf{w}\|$:
+          $$ d = \frac{\langle\mathbf{w},\mathbf{x}-\mathbf{x}_0\rangle}{\|\mathbf{w}\|} = \frac{\big(\langle\mathbf{w},\mathbf{x}\rangle+b\big) - \big(\langle\mathbf{w},\mathbf{x}_0\rangle+b\big)}{\|\mathbf{w}\|} = \frac{1 - 0}{\|\mathbf{w}\|} = \frac{1}{\|\mathbf{w}\|}. $$
+        </li>
+        <li>There are two such margins, one on each side, so the total width is $2/\|\mathbf{w}\|$. <span class="qed">∎</span></li>
+        <li>Maximising $2/\|\mathbf{w}\|$ is the same as minimising $\|\mathbf{w}\|$, and since the square root is monotone, the same as minimising $\frac12\|\mathbf{w}\|^2$ — which is convex and differentiable. The $\frac12$ makes the derivative $\mathbf{w}$ rather than $2\mathbf{w}$.</li>
+        <li><span class="why">The constraint $y_i(\langle\mathbf{w},\mathbf{x}_i\rangle+b)\ge1$ is a compact way to write "correct side <em>and</em> outside the margin" for both classes: for $y_i=+1$ it requires the score to be at least $+1$; for $y_i=-1$ at most $-1$.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-dual">2.2 From primal to dual</h3>
+  <details class="steps">
+    <summary>Derivation — the Lagrangian, stationarity, and the dual objective</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Introduce multipliers $\alpha_i \ge 0$ for the margin constraints:
+          $$ \mathcal{L}(\mathbf{w},b,\boldsymbol\alpha) = \frac12\|\mathbf{w}\|^2 - \sum_i\alpha_i\big[y_i(\langle\mathbf{w},\mathbf{x}_i\rangle+b)-1\big]. $$
+        </li>
+        <li>Stationarity with respect to the primal variables:
+          $$ \frac{\partial\mathcal{L}}{\partial\mathbf{w}} = \mathbf{w} - \sum_i\alpha_iy_i\mathbf{x}_i = 0 \;\Longrightarrow\; \mathbf{w} = \sum_i\alpha_iy_i\mathbf{x}_i, \qquad \frac{\partial\mathcal{L}}{\partial b} = -\sum_i\alpha_iy_i = 0. $$
+        </li>
+        <li>Substituting back eliminates $\mathbf{w}$ and $b$:
+          $$ \mathcal{L} = \frac12\Big\|\sum_i\alpha_iy_i\mathbf{x}_i\Big\|^2 - \sum_i\alpha_iy_i\Big\langle\sum_j\alpha_jy_j\mathbf{x}_j,\mathbf{x}_i\Big\rangle + \sum_i\alpha_i = \sum_i\alpha_i - \frac12\sum_{i,j}\alpha_i\alpha_jy_iy_j\langle\mathbf{x}_i,\mathbf{x}_j\rangle. $$
+        </li>
+        <li>So the dual is to maximise that expression subject to $\alpha_i\ge0$ and $\sum_i\alpha_iy_i = 0$. <span class="qed">∎</span></li>
+        <li><strong>KKT conditions.</strong> At the optimum: (i) stationarity, as above; (ii) primal feasibility $y_i(\langle\mathbf{w},\mathbf{x}_i\rangle+b)\ge1$; (iii) dual feasibility $\alpha_i\ge0$; (iv) complementary slackness $\alpha_i[y_i(\langle\mathbf{w},\mathbf{x}_i\rangle+b)-1]=0$.</li>
+        <li>Condition (iv) is the sparsity result: if a point is strictly outside the margin, the bracket is positive, so $\alpha_i$ must be zero. Only margin points — the support vectors — have non-zero multipliers.</li>
+        <li><span class="why">Recovering $b$: for any support vector, $y_i(\langle\mathbf{w},\mathbf{x}_i\rangle+b)=1$, so $b = y_i - \langle\mathbf{w},\mathbf{x}_i\rangle$; averaging over all support vectors is numerically safer.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-soft">2.3 Soft margin and the box constraint</h3>
+  <p>
+    With slacks, the Lagrangian gains multipliers $\mu_i\ge0$ for $\xi_i\ge0$. Stationarity with respect to $\xi_i$ gives
+    $C - \alpha_i - \mu_i = 0$, and since $\mu_i\ge0$ this forces
+  </p>
+  <div class="formula">$$ 0 \le \alpha_i \le C $$</div>
+  <p>
+    Hence the name <strong>box constraint</strong>: each multiplier is confined to a box. Three regimes follow from complementary
+    slackness:
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>$\alpha_i$</th><th>Position of the point</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td>$0$</td><td>outside the margin, correctly classified</td><td>ignored entirely</td></tr>
+        <tr><td>$0 \lt \alpha_i \lt C$</td><td>exactly on the margin</td><td>support vector</td></tr>
+        <tr><td>$\alpha_i = C$</td><td>inside the margin or misclassified</td><td>bounded support vector; the slack is active</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The dual objective is unchanged in form; only the constraint set changed from $\alpha_i\ge0$ to $0\le\alpha_i\le C$. A
+    larger $C$ allows larger multipliers, which means individual points can pull harder on the boundary.
+  </p>
+
+  <h3 class="sub" id="m-kernel">2.4 Kernels and Mercer's condition</h3>
+  <p>
+    A function $K:\mathcal{X}\times\mathcal{X}\to\mathbb{R}$ is a valid kernel if there exists a feature map $\phi$ with
+    $K(\mathbf{x},\mathbf{z}) = \langle\phi(\mathbf{x}),\phi(\mathbf{z})\rangle$. Mercer's theorem makes this checkable without
+    constructing $\phi$: $K$ is valid iff for every finite set $\{\mathbf{x}_1,\dots,\mathbf{x}_n\}$ the Gram matrix
+    $G_{ij} = K(\mathbf{x}_i,\mathbf{x}_j)$ is positive semi-definite.
+  </p>
+  <details class="steps">
+    <summary>Worked example — the RBF kernel corresponds to an infinite-dimensional feature space</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Expand $\exp(-\gamma\|\mathbf{x}-\mathbf{z}\|^2) = \exp(-\gamma\|\mathbf{x}\|^2)\exp(-\gamma\|\mathbf{z}\|^2)\exp(2\gamma\langle\mathbf{x},\mathbf{z}\rangle)$.</li>
+        <li>Expand the last factor as a power series:
+          $$ \exp(2\gamma\langle\mathbf{x},\mathbf{z}\rangle) = \sum_{k=0}^{\infty}\frac{(2\gamma)^k}{k!}\langle\mathbf{x},\mathbf{z}\rangle^k. $$
+        </li>
+        <li>Each $\langle\mathbf{x},\mathbf{z}\rangle^k$ is an inner product in the space of degree-$k$ monomials, so the whole
+          expansion is an inner product in the direct sum of all degrees — an infinite-dimensional space. <span class="qed">∎</span></li>
+        <li><span class="why">The kernel never materialises that space: computing $K(\mathbf{x},\mathbf{z})$ costs one squared distance. This is the entire value of the kernel trick, and why the RBF kernel can produce boundaries of arbitrary complexity.</span></li>
+        <li>The role of $\gamma$ is now clear: it is the inverse of the length scale over which the kernel considers two points similar. Small $\gamma$ → long-range influence → nearly linear boundaries. Large $\gamma$ → each point only "sees" its immediate neighbourhood → islands around every support vector.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-hinge">2.5 The hinge loss view</h3>
+  <p>
+    The soft-margin problem can be rewritten as unconstrained regularised loss minimisation:
+  </p>
+  <div class="formula">$$ \min_{\mathbf{w},b}\;\frac12\|\mathbf{w}\|^2 + C\sum_i\max\big(0,\;1 - y_i(\langle\mathbf{w},\mathbf{x}_i\rangle+b)\big) $$</div>
+  <p>
+    The second term is the <strong>hinge loss</strong>: zero once a point is correctly classified and outside the margin, and
+    growing linearly with the violation otherwise. Compare with logistic loss, which never reaches exactly zero — that is why
+    SVMs produce sparse solutions (points beyond the margin contribute nothing) while logistic regression uses every point.
+    Both are convex surrogates for the 0/1 loss; neither is the 0/1 loss itself, which is what we would actually like to
+    minimise but cannot optimise directly.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-margin">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · margins</span><h4>Many separating lines, one maximum margin</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Rotate the boundary and shift it with the offset slider. The dashed lines are the margins $\mathbf{w}^\top\mathbf{x}+b=\pm1$, and points with a black ring are violating them. Watch the margin-width readout: it is $2/\|\mathbf{w}\|$, maximised when the boundary is as far as possible from both classes.</p>
+      <p>Find the orientation that maximises the margin while keeping violations at zero. That is the SVM solution, and the points that end up exactly on the dashed lines are the support vectors — the only points the model actually depends on.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-kernel">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · kernels</span><h4>The kernel trick, and what γ does</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Concentric rings: no straight line separates them, so the linear kernel (switch to it) fails no matter how it is oriented. The RBF kernel succeeds without ever computing a feature map — the Gram matrix replaces every inner product.</p>
+      <p>Now sweep $\gamma$. At $\gamma \approx 0.2$ the boundary is almost linear and underfits. Around $\gamma \approx 1$ it is a clean annulus. At $\gamma = 6$ the boundary fragments into islands around individual support vectors — the classic overfitting regime. Note also how the support-vector count grows with $\gamma$: more of the data is needed to describe a wigglier boundary.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">scikit-learn</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 14 — margin geometry, hinge loss, and a kernel perceptron."""
+import math
+
+
+def dot(a, b):
+    return sum(x * y for x, y in zip(a, b))
+
+
+def margin_width(w):
+    return 2.0 / math.sqrt(dot(w, w))
+
+
+def violations(X, y, w, b):
+    return sum(1 for xi, yi in zip(X, y) if yi * (dot(w, xi) + b) &lt; 1)
+
+
+def hinge_loss(X, y, w, b, C=1.0):
+    reg = 0.5 * dot(w, w)
+    loss = sum(max(0.0, 1 - yi * (dot(w, xi) + b)) for xi, yi in zip(X, y))
+    return reg + C * loss
+
+
+def svm_sgd(X, y, C=1.0, lr=0.01, epochs=2000):
+    """Subgradient descent on the soft-margin objective (the hinge-loss form)."""
+    d = len(X[0])
+    w, b = [0.0] * d, 0.0
+    n = len(X)
+    for _ in range(epochs):
+        for xi, yi in zip(X, y):
+            if yi * (dot(w, xi) + b) &lt; 1:
+                # subgradient of the hinge term is active
+                w = [wj - lr * (wj - C * yi * xij) for wj, xij in zip(w, xi)]
+                b -= lr * (-C * yi)
+            else:
+                w = [wj - lr * wj for wj in w]
+    return w, b
+
+
+def rbf(a, b, gamma=1.0):
+    return math.exp(-gamma * sum((ai - bi) ** 2 for ai, bi in zip(a, b)))
+
+
+def kernel_perceptron(X, y, gamma=1.0, epochs=30):
+    """Dual-form perceptron: only inner products are needed, so any kernel works."""
+    n = len(X)
+    alpha = [0.0] * n
+    for _ in range(epochs):
+        errors = 0
+        for i in range(n):
+            f = sum(alpha[j] * y[j] * rbf(X[j], X[i], gamma) for j in range(n))
+            if (1 if f &gt;= 0 else -1) != y[i]:
+                alpha[i] += 1
+                errors += 1
+        if errors == 0:
+            break
+    return alpha
+
+
+def kernel_predict(X, y, alpha, x, gamma=1.0):
+    return sum(alpha[j] * y[j] * rbf(X[j], x, gamma) for j in range(len(X)))
+
+
+if __name__ == "__main__":
+    w = [1.0, 2.0]
+    print("margin width for w=(1,2):", round(margin_width(w), 4))     # 2/sqrt(5)
+
+    X = [[2, 2], [2, 3], [-2, -1], [-2, -2]]
+    y = [1, 1, -1, -1]
+    w_s, b_s = svm_sgd(X, y, C=1.0, lr=0.01, epochs=400)
+    print("learned w:", [round(v, 3) for v in w_s], " b:", round(b_s, 3))
+    print("violations:", violations(X, y, w_s, b_s), " hinge loss:", round(hinge_loss(X, y, w_s, b_s), 3))
+
+    # Non-linearly separable: concentric rings
+    Xr = [[math.cos(t) * r, math.sin(t) * r]
+          for r in (0.5, 1.5) for t in [i * 2 * math.pi / 12 for i in range(12)]]
+    yr = [1] * 12 + [-1] * 12
+    alpha = kernel_perceptron(Xr, yr, gamma=2.0)
+    acc = sum(1 for xi, yi in zip(Xr, yr) if (1 if kernel_predict(Xr, yr, alpha, xi, 2.0) &gt;= 0 else -1) == yi) / len(yr)
+    print("rbf kernel perceptron accuracy on rings:", round(acc, 3))
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 14 — vectorised hinge-loss SVM, kernel matrices, and the dual objective."""
+import numpy as np
+
+
+def rbf_kernel(X, Z, gamma=1.0):
+    """(n, m) Gram matrix via the expanded squared distance."""
+    d2 = (X ** 2).sum(1)[:, None] - 2 * X @ Z.T + (Z ** 2).sum(1)[None, :]
+    return np.exp(-gamma * np.clip(d2, 0, None))
+
+
+def poly_kernel(X, Z, degree=3, c=1.0):
+    return (X @ Z.T + c) ** degree
+
+
+def svm_hinge_sgd(X, y, C=1.0, lr=1e-2, epochs=3000, seed=0):
+    """Subgradient descent on 0.5||w||^2 + C * sum hinge."""
+    X = np.asarray(X, float)
+    y = np.asarray(y, float)
+    n, d = X.shape
+    w, b = np.zeros(d), 0.0
+    rng = np.random.default_rng(seed)
+    for epoch in range(epochs):
+        order = rng.permutation(n)
+        for i in order:
+            margin = y[i] * (X[i] @ w + b)
+            if margin &lt; 1:
+                w -= lr * (w - C * y[i] * X[i])
+                b += lr * C * y[i]
+            else:
+                w -= lr * w
+    return w, b
+
+
+def decision_function(X, w, b):
+    return X @ w + b
+
+
+def dual_objective(K, y, alpha):
+    """The quantity maximised by the SVM dual."""
+    return alpha.sum() - 0.5 * (alpha * y) @ K @ (alpha * y)
+
+
+def is_psd(K, tol=1e-8):
+    """Mercer check: all eigenvalues non-negative."""
+    return bool(np.min(np.linalg.eigvalsh(K)) &gt;= -tol)
+
+
+def kernel_matrix_checks(X, gamma=1.0):
+    K = rbf_kernel(X, X, gamma)
+    return {"symmetric": bool(np.allclose(K, K.T)),
+            "psd": is_psd(K),
+            "diagonal_ones": bool(np.allclose(np.diag(K), 1.0))}
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    X = np.vstack([rng.normal(1.0, 0.7, (50, 2)), rng.normal(-1.0, 0.7, (50, 2))])
+    y = np.array([1] * 50 + [-1] * 50, float)
+
+    w, b = svm_hinge_sgd(X, y, C=1.0, lr=0.01, epochs=600)
+    print("accuracy:", round(float(((decision_function(X, w, b) &gt; 0) == (y &gt; 0)).mean()), 3))
+    print("margin width 2/||w||:", round(2 / np.linalg.norm(w), 3))
+
+    print("RBF kernel checks:", kernel_matrix_checks(X[:20], gamma=0.5))
+
+    # Kernel vs. explicit feature map: the polynomial kernel in 2-D
+    x1, x2 = np.array([[1.0, 2.0]]), np.array([[3.0, -1.0]])
+    phi = lambda v: np.array([v[0]**2, np.sqrt(2) * v[0] * v[1], v[1]**2])
+    print("poly kernel        :", float(poly_kernel(x1, x2, 2)[0, 0]))
+    print("explicit phi inner :", float(phi(x1[0]) @ phi(x2[0])))   # identical
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 14 — scikit-learn SVMs: kernels, C/gamma tuning, support vectors."""
+import numpy as np
+from sklearn.datasets import make_circles, load_breast_cancer
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC, SVR, OneClassSVM
+
+# ---- the rings dataset -----------------------------------------------------
+X, y = make_circles(n_samples=400, noise=0.08, factor=0.4, random_state=0)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.3, stratify=y, random_state=0)
+
+for kernel in ("linear", "rbf"):
+    m = make_pipeline(StandardScaler(), SVC(kernel=kernel, C=1.0, gamma="scale")).fit(X_tr, y_tr)
+    print(f"{kernel:7s} test accuracy: {m.score(X_te, y_te):.3f}  support vectors: {m[-1].n_support_.sum()}")
+
+# ---- C and gamma interact: search the diagonal band -----------------------
+cv = StratifiedKFold(5, shuffle=True, random_state=0)
+grid = {"svc__C": [0.1, 1, 10, 100], "svc__gamma": [0.01, 0.1, 1, 10]}
+search = GridSearchCV(make_pipeline(StandardScaler(), SVC(kernel="rbf")), grid, cv=cv, scoring="accuracy")
+search.fit(X_tr, y_tr)
+print("\nbest (C, gamma):", search.best_params_, " CV accuracy:", round(search.best_score_, 3))
+print("grid:")
+for c in grid["svc__C"]:
+    row = []
+    for g in grid["svc__gamma"]:
+        idx = np.where((search.cv_results_["param_svc__C"] == c) &amp;
+                       (search.cv_results_["param_svc__gamma"] == g))[0][0]
+        row.append(f"{search.cv_results_['mean_test_score'][idx]:.2f}")
+    print(f"  C={c:5}: " + "  ".join(row))
+
+# ---- a real dataset, and the effect of scaling ---------------------------
+Xb, yb = load_breast_cancer(return_X_y=True)
+Xb_tr, Xb_te, yb_tr, yb_te = train_test_split(Xb, yb, test_size=0.2, stratify=yb, random_state=0)
+scaled = make_pipeline(StandardScaler(), SVC(kernel="rbf", C=10, gamma="scale")).fit(Xb_tr, yb_tr)
+raw = SVC(kernel="rbf", C=10, gamma="scale").fit(Xb_tr, yb_tr)
+print(f"\nbreast cancer  scaled: {scaled.score(Xb_te, yb_te):.3f}   unscaled: {raw.score(Xb_te, yb_te):.3f}")
+
+# ---- support vectors are a small fraction of the data -------------------
+sv = scaled[-1]
+print(f"support vectors: {sv.n_support_.sum()} of {len(Xb_tr)} training points")
+print("dual coefficients at the box constraint:", int((np.abs(sv.dual_coef_) &gt;= 10 - 1e-6).sum()))
+
+# ---- SVM beyond classification -----------------------------------------
+print("\nSVR on a 1-D regression:", round(float(SVR(kernel="rbf").fit(np.arange(20)[:, None], np.sin(np.arange(20) / 3)).predict([[5.0]])[0]), 3))
+print("one-class SVM outliers:", int((OneClassSVM(nu=0.05).fit(Xb_tr).predict(Xb_te) == -1).sum()))
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block verifies the kernel-trick identity numerically: the polynomial kernel of degree 2 evaluated on two
+      points equals the explicit inner product of their degree-2 feature maps. That equality, generalised to infinite
+      dimensions, is what makes the RBF kernel work.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="14">
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>For the hyperplane $\mathbf{w}^\top\mathbf{x}+b=0$, the margin width between $\mathbf{w}^\top\mathbf{x}+b=\pm1$ is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$1/\|\mathbf{w}\|$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>$2/\|\mathbf{w}\|$</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>$\|\mathbf{w}\|/2$</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>$\|\mathbf{w}\|^2$</span></button></li>
+      </ul>
+      <div class="explain"><p>The distance from the boundary to one margin is $1/\|\mathbf{w}\|$, and there are two margins — hence $2/\|\mathbf{w}\|$. Maximising it means minimising $\|\mathbf{w}\|$.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>Why are only the support vectors needed to define the SVM decision boundary?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Because they are the hardest to classify</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Because the kernel matrix is sparse</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Complementary slackness forces $\alpha_i=0$ for points strictly outside the margin</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Because interior points are usually mislabelled</span></button></li>
+      </ul>
+      <div class="explain"><p>$\alpha_i[y_i(\mathbf{w}^\top\mathbf{x}_i+b)-1]=0$: if the bracket is positive (outside the margin), $\alpha_i$ must vanish, so those points contribute nothing to $\mathbf{w}=\sum_i\alpha_iy_i\mathbf{x}_i$.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>Increasing the box constraint $C$ in a soft-margin SVM:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Penalises violations more, narrowing the margin and risking overfitting</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Widens the margin and increases regularization</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Has no effect on the boundary</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Removes the need for a kernel</span></button></li>
+      </ul>
+      <div class="explain"><p>$C$ trades margin width against tolerated slack. Small $C$ behaves like strong regularization; large $C$ approaches the hard-margin solution.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>The kernel trick works because:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Kernels reduce the number of parameters</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Kernels are faster than dot products</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Kernels avoid the need for a loss function</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The dual objective depends on the data only through inner products, which a kernel can supply implicitly in a higher-dimensional space</span></button></li>
+      </ul>
+      <div class="explain"><p>Replace every $\langle\mathbf{x}_i,\mathbf{x}_j\rangle$ with $K(\mathbf{x}_i,\mathbf{x}_j)$ and you get a non-linear classifier in the input space for the cost of one kernel evaluation per pair.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>A very large $\gamma$ in an RBF kernel produces:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>A nearly linear boundary</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Islands around individual support vectors — overfitting</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>A wider margin</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Fewer support vectors</span></button></li>
+      </ul>
+      <div class="explain"><p>$\gamma$ is an inverse length scale: large $\gamma$ means each point only influences its immediate neighbourhood, so the boundary fragments. Small $\gamma$ gives long-range influence and an almost linear boundary.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Hard-margin primal</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\min\frac12\|\mathbf{w}\|^2$ s.t. $y_i(\mathbf{w}^\top\mathbf{x}_i+b)\ge1$. Convex quadratic program with a unique optimum when the data is separable.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Support vector</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">A training point with $\alpha_i\gt0$, lying on or inside the margin. Only these determine $\mathbf{w}=\sum_i\alpha_iy_i\mathbf{x}_i$.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">KKT complementary slackness</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\alpha_i\times(\text{constraint slack})_i = 0$. Either a constraint is tight or its multiplier is zero — never both non-zero.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Slack variables</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\xi_i\ge0$ measure how far a point violates the margin; the soft-margin objective charges $C\sum_i\xi_i$ for them.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Hinge loss</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\max(0, 1-y(\mathbf{w}^\top\mathbf{x}+b))$. Zero beyond the margin, linear inside it — which is why SVM solutions are sparse.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Mercer's condition</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">A kernel is valid iff its Gram matrix is positive semi-definite for every finite set of inputs — the checkable form of "it is an inner product in some feature space".</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Why standardise for SVMs</div></div></div><div class="flashface back"><span class="side">Definition</span><div class="content">The margin is a Euclidean distance in feature space, so a feature with a large range dominates it. Unscaled inputs can cost tens of accuracy points.</div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">One-class SVM</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Learns a boundary enclosing the training distribution in feature space; points outside are anomalies. Used for novelty detection.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+</section>
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Margin arithmetic</h4></div>
+    <p>For $\mathbf{w}=(3,4)$ and $b=-6$: compute $\|\mathbf{w}\|$, the margin width, and the signed distance of the point $(2,2)$ from the boundary.</p>
+    <button class="btn btn-sm" data-reveal="sol-14-1" type="button">Show solution</button>
+    <div id="sol-14-1" class="solution" hidden>
+      <p>$\|\mathbf{w}\| = \sqrt{9+16} = 5$, so the margin width is $2/5 = 0.4$.</p>
+      <p>$\mathbf{w}^\top\mathbf{x}+b = 3(2)+4(2)-6 = 8$. The signed distance is $8/\|\mathbf{w}\| = 1.6$, so the point is outside the positive margin (which sits at distance 0.2).</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Derive the dual</h4></div>
+    <p>Starting from $\min\frac12\|\mathbf{w}\|^2$ s.t. $y_i(\mathbf{w}^\top\mathbf{x}_i+b)\ge1$, derive the Lagrangian dual and show that $\mathbf{w}=\sum_i\alpha_iy_i\mathbf{x}_i$.</p>
+    <button class="btn btn-sm" data-reveal="sol-14-2" type="button">Show solution</button>
+    <div id="sol-14-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>$\mathcal{L} = \frac12\|\mathbf{w}\|^2 - \sum_i\alpha_i[y_i(\mathbf{w}^\top\mathbf{x}_i+b)-1]$ with $\alpha_i\ge0$.</li>
+        <li>$\partial\mathcal{L}/\partial\mathbf{w} = \mathbf{w}-\sum_i\alpha_iy_i\mathbf{x}_i = 0 \Rightarrow \mathbf{w}=\sum_i\alpha_iy_i\mathbf{x}_i$.</li>
+        <li>$\partial\mathcal{L}/\partial b = -\sum_i\alpha_iy_i = 0 \Rightarrow \sum_i\alpha_iy_i = 0$.</li>
+        <li>Substituting back gives $\max_{\boldsymbol\alpha}\sum_i\alpha_i - \frac12\sum_{i,j}\alpha_i\alpha_jy_iy_j\langle\mathbf{x}_i,\mathbf{x}_j\rangle$ subject to $\alpha_i\ge0$, $\sum_i\alpha_iy_i=0$. <span class="qed">∎</span></li>
+        <li><span class="why">The data now appears only inside $\langle\mathbf{x}_i,\mathbf{x}_j\rangle$ — the hook on which the kernel trick hangs.</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Show the RBF kernel's feature space is infinite-dimensional</h4></div>
+    <p>Expand $K(\mathbf{x},\mathbf{z})=\exp(-\gamma\|\mathbf{x}-\mathbf{z}\|^2)$ as a power series and argue that it corresponds to an inner product in an infinite-dimensional space.</p>
+    <button class="btn btn-sm" data-reveal="sol-14-3" type="button">Show solution</button>
+    <div id="sol-14-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>Factor: $K = e^{-\gamma\|\mathbf{x}\|^2}e^{-\gamma\|\mathbf{z}\|^2}e^{2\gamma\langle\mathbf{x},\mathbf{z}\rangle}$.</li>
+        <li>Expand the third factor: $e^{2\gamma\langle\mathbf{x},\mathbf{z}\rangle} = \sum_{k\ge0}\frac{(2\gamma)^k}{k!}\langle\mathbf{x},\mathbf{z}\rangle^k$.</li>
+        <li>For each $k$, $\langle\mathbf{x},\mathbf{z}\rangle^k = \langle \mathbf{x}^{\otimes k}, \mathbf{z}^{\otimes k}\rangle$ is an inner product in the space of degree-$k$ symmetric tensors (dimension $\binom{d+k-1}{k}$).</li>
+        <li>The full kernel is therefore an inner product in the direct sum over all $k$, which has infinitely many dimensions. <span class="qed">∎</span></li>
+        <li><span class="why">Because the sum converges absolutely for all $\mathbf{x},\mathbf{z}$, the kernel is well defined even though the feature vector is not computable — and evaluating it costs one squared distance.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 14</span>
+    <h3>SVMs on small, high-dimensional data</h3>
+    <p>Find the regime where SVMs still beat deep learning, and quantify the effect of every hyperparameter.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Choose a dataset with many features and few samples (gene expression, text, or spectra).</li>
+      <li>Implement a hinge-loss SVM by subgradient descent and a kernel perceptron; compare with scikit-learn's SVC.</li>
+      <li>Produce a $C\times\gamma$ heat map of CV accuracy and identify the diagonal band of good values.</li>
+      <li>Show the effect of standardisation: report accuracy with and without scaling on the same folds.</li>
+      <li>Report the number of support vectors as a fraction of the training set, and explain the sparsity using the KKT conditions.</li>
+      <li>Compare against logistic regression and a small MLP at the same data size.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li>Notebook with the heat map and the scaling experiment</li>
+      <li>From-scratch hinge-loss SVM with a gradient check</li>
+      <li>Report explaining sparsity and the $C$/$\gamma$ interaction</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Hyperparameter study</td><td>Full grid with CV, band identified and explained</td><td>30</td></tr>
+        <tr><td>Implementation</td><td>From-scratch SVM converges and matches scikit-learn closely</td><td>25</td></tr>
+        <tr><td>Scaling experiment</td><td>Quantified, same folds, correct pipeline</td><td>25</td></tr>
+        <tr><td>Sparsity analysis</td><td>Support-vector fraction tied to KKT conditions</td><td>20</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Implement a custom kernel (e.g. string kernel or spectrum kernel) and show it beats RBF on your data.</li>
+      <li>Compare training time of SVC with <code>kernel="precomputed"</code> against the default.</li>
+      <li>Use an SVM as the base learner inside a bagging ensemble and report the change.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/14-svm-small-data/</code>.</p>
+  </div>
+</section>

@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>04 · Logistic Regression & Classification Loss — ML from First Principles</title>
+<meta name="description" content="Why a threshold is not differentiable, how the logistic function fixes it, why squared error fails for probabilities, and how cross-entropy gives us log-odds we can actually interpret." />
+<meta property="og:title" content="04 · Logistic Regression & Classification Loss — ML from First Principles" />
+<meta property="og:description" content="Why a threshold is not differentiable, how the logistic function fixes it, why squared error fails for probabilities, and how cross-entropy gives us log-odds we can actually interpret." />
+<meta property="og:type" content="article" />
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css" />
+<link rel="stylesheet" href="../assets/css/site.css" />
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/js/viz.js"></script>
+<script defer src="../assets/js/mla.js"></script>
+<script defer src="../assets/js/site.js"></script>
+<script defer src="../assets/js/labs/04-logistic-regression.js"></script>
+</head>
+<body data-module="logistic-regression">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark">ML</span>
+      <span>ML from First Principles<small>Interactive course · CUNY CSC 74020</small></span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a class="opt" href="../index.html#curriculum">Curriculum</a>
+      <a class="opt" href="../index.html#python">Python library</a>
+      <a class="opt" href="../index.html#projects">Projects</a>
+      <a class="opt" href="../index.html#sources">Sources</a>
+      <button class="icon-btn" data-theme-toggle type="button" aria-label="Toggle theme">☾</button>
+      <button class="icon-btn" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">☰</button>
+    </nav>
+  </div>
+  <div id="navMenu" hidden style="border-top:1px solid var(--line);background:var(--panel)">
+    <div class="shell" style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:.86rem">
+      <a href="../modules/foundations.html" style="padding:4px 0;color:var(--ink-2)">01 · What Machine Learning Actually Is</a>
+      <a href="../modules/knn-evaluation.html" style="padding:4px 0;color:var(--ink-2)">02 · Nearest Neighbours & Honest Evaluation</a>
+      <a href="../modules/linear-regression.html" style="padding:4px 0;color:var(--ink-2)">03 · Linear Models & Least Squares</a>
+      <a href="../modules/logistic-regression.html" style="padding:4px 0;color:var(--ink-2)">04 · Logistic Regression & Classification Loss</a>
+      <a href="../modules/regularization.html" style="padding:4px 0;color:var(--ink-2)">05 · Regularization, Bias–Variance & Model Selection</a>
+      <a href="../modules/neural-networks.html" style="padding:4px 0;color:var(--ink-2)">06 · Artificial Neural Networks</a>
+      <a href="../modules/backpropagation.html" style="padding:4px 0;color:var(--ink-2)">07 · Backpropagation & Training Deep Networks</a>
+      <a href="../modules/trees-ensembles.html" style="padding:4px 0;color:var(--ink-2)">08 · Decision Trees, Bagging & Boosting</a>
+      <a href="../modules/clustering.html" style="padding:4px 0;color:var(--ink-2)">09 · Unsupervised Learning: Clustering</a>
+      <a href="../modules/cnns.html" style="padding:4px 0;color:var(--ink-2)">10 · Convolutional Neural Networks</a>
+      <a href="../modules/sequences.html" style="padding:4px 0;color:var(--ink-2)">11 · Sequences: RNNs, LSTMs & Attention</a>
+      <a href="../modules/transformers.html" style="padding:4px 0;color:var(--ink-2)">12 · Transformers & Large Language Models</a>
+      <a href="../modules/dimensionality-reduction.html" style="padding:4px 0;color:var(--ink-2)">13 · Dimensionality Reduction & Representation Learning</a>
+      <a href="../modules/svm-kernels.html" style="padding:4px 0;color:var(--ink-2)">14 · Support Vector Machines & Kernels</a>
+      <a href="../modules/reinforcement-learning.html" style="padding:4px 0;color:var(--ink-2)">15 · Reinforcement Learning</a>
+      <a href="../modules/interpretation.html" style="padding:4px 0;color:var(--ink-2)">16 · Model Interpretation & What Comes Next</a>
+    </div>
+  </div>
+</header>
+<main id="main" class="shell with-rail">
+<aside class="rail" aria-label="On this page">
+  <h4>04 · Classification</h4>
+  <ol>
+    <li><a href="#objectives">Learning objectives</a></li>
+    <li><a href="#intuition">1 · Intuition</a></li>
+    <li><a href="#math">2 · Mathematical foundations</a></li>
+    <li><a href="#labs">3 · Interactive visualizations</a></li>
+    <li><a href="#code">4 · Coding from scratch</a></li>
+    <li><a href="#assessment">5 · Assessment</a></li>
+    <li><a href="#project">6 · Portfolio project</a></li>
+  </ol>
+  <h4 style="margin-top:22px">All modules</h4>
+  <ol class="rail-sub">
+    <li><a href="foundations.html">01 What Machine Learning Actually Is</a></li>
+    <li><a href="knn-evaluation.html">02 Nearest Neighbours & Honest Evaluation</a></li>
+    <li><a href="linear-regression.html">03 Linear Models & Least Squares</a></li>
+    <li><a href="logistic-regression.html" style="color:var(--accent);font-weight:600">04 Logistic Regression & Classification Loss</a></li>
+    <li><a href="regularization.html">05 Regularization, Bias–Variance & Model Selection</a></li>
+    <li><a href="neural-networks.html">06 Artificial Neural Networks</a></li>
+    <li><a href="backpropagation.html">07 Backpropagation & Training Deep Networks</a></li>
+    <li><a href="trees-ensembles.html">08 Decision Trees, Bagging & Boosting</a></li>
+    <li><a href="clustering.html">09 Unsupervised Learning: Clustering</a></li>
+    <li><a href="cnns.html">10 Convolutional Neural Networks</a></li>
+    <li><a href="sequences.html">11 Sequences: RNNs, LSTMs & Attention</a></li>
+    <li><a href="transformers.html">12 Transformers & Large Language Models</a></li>
+    <li><a href="dimensionality-reduction.html">13 Dimensionality Reduction & Representation Learning</a></li>
+    <li><a href="svm-kernels.html">14 Support Vector Machines & Kernels</a></li>
+    <li><a href="reinforcement-learning.html">15 Reinforcement Learning</a></li>
+    <li><a href="interpretation.html">16 Model Interpretation & What Comes Next</a></li>
+  </ol>
+  <div style="margin-top:22px">
+    <button class="btn btn-sm" data-mark-complete type="button" style="width:100%;justify-content:center">Mark module complete</button>
+  </div>
+</aside>
+<article class="article">
+  <header>
+    <span class="kicker">Module 04 · Classification</span>
+    <h1>Logistic Regression & Classification Loss</h1>
+    <p class="lede">Why a threshold is not differentiable, how the logistic function fixes it, why squared error fails for probabilities, and how cross-entropy gives us log-odds we can actually interpret.</p>
+    <div class="header-meta">
+      <span>📚 Source: Lecture Notes 2</span>
+      <span>⏱ 65 min</span>
+      <span>🧪 3 interactive labs</span>
+      <span>🐍 3 implementations</span>
+    </div>
+  </header>
+
+  <section class="block" id="objectives">
+    <h2><span class="secnum">◎</span> Learning objectives</h2>
+    <div class="card">
+      <p class="small muted" style="margin-top:0">By the end of this module you should be able to:</p>
+      <ul class="tight">
+      <li>Explain why a hard threshold function cannot be trained with gradient descent.</li>
+      <li>Derive the logistic (sigmoid) function, its derivative σ′(z) = σ(z)(1 − σ(z)), and its inverse the logit.</li>
+      <li>Derive binary cross-entropy from maximum likelihood under a Bernoulli model.</li>
+      <li>Interpret coefficients as log-odds ratios and translate them into plain language.</li>
+      <li>Extend to k classes with softmax and the multi-class cross-entropy loss.</li>
+      </ul>
+    </div>
+  </section>
+
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-threshold">The problem with a hard threshold</h3>
+  <p>
+    We already have a linear model, $y = \mathbf{w}^\top\mathbf{x} + b$. The obvious way to turn it into a classifier is to
+    threshold it:
+  </p>
+  <div class="formula">$$ \text{output} = \begin{cases} 1 &amp; \text{if } y \ge 0 \\ 0 &amp; \text{if } y \lt 0\end{cases} $$</div>
+  <p>
+    This works as a <em>predictor</em> but fails as a <em>learner</em>. The threshold function is flat almost everywhere — its
+    derivative is zero — and undefined at $y=0$. Gradient descent needs a gradient: with a step function, nudging a weight
+    slightly changes nothing until it suddenly flips a prediction. There is no direction to descend in.
+  </p>
+  <p>
+    What we want is a smooth, monotone function that agrees with the step function at the extremes but gives usable gradients
+    in between, and whose output can be read as a probability.
+  </p>
+
+  <h3 class="sub" id="i-sigmoid">The logistic function</h3>
+  <div class="formula">$$ \sigma(z) = \frac{1}{1 + e^{-z}} $$</div>
+  <p>
+    It maps any real number to $(0,1)$: $\sigma(-\infty)=0$, $\sigma(0)=0.5$, $\sigma(+\infty)=1$. Combined with the linear
+    model it gives <strong>logistic regression</strong>:
+  </p>
+  <div class="formula">$$ z = \mathbf{w}^\top\mathbf{x} + b, \qquad y = \sigma(z), \qquad \text{output} = \begin{cases}1 &amp; y \ge 0.5\\ 0 &amp; y \lt 0.5\end{cases} $$</div>
+  <p>
+    Here $\sigma$ is called an <strong>activation function</strong> — the same word we will use for ReLU and tanh in module 06.
+    Because $y\in[0,1]$ we can interpret $y$ as the estimated probability that $t=1$, and $1-y$ as the probability that $t=0$.
+  </p>
+
+  <figure style="margin:1.6em 0">
+    <svg viewBox="0 0 720 210" role="img" aria-label="Logistic regression maps a linear score to a probability" style="width:100%;height:auto;font-family:ui-sans-serif,system-ui,sans-serif">
+      <g fill="none" stroke="currentColor" stroke-width="1.3" color="#cfd3de">
+        <line x1="40" y1="170" x2="300" y2="170"/>
+        <line x1="300" y1="30" x2="300" y2="170" stroke-dasharray="4 4"/>
+        <path d="M320 170 C 370 170, 380 60, 430 40 L 680 40" stroke="#4f46e5" stroke-width="2.6"/>
+      </g>
+      <g font-size="12" fill="currentColor" color="#3d4351">
+        <text x="40" y="188">z &lt; 0</text><text x="250" y="188">z = 0</text><text x="600" y="188">z &gt; 0</text>
+        <text x="40" y="26" font-weight="600">σ(z)</text>
+        <text x="310" y="60">1.0</text><text x="310" y="112">0.5</text>
+        <text x="318" y="176" font-size="11" fill="#6b7280">decision boundary</text>
+        <text x="470" y="100" font-size="11.5">p(y=1 | x)</text>
+      </g>
+      <g font-size="12" fill="currentColor" color="#12141a">
+        <text x="470" y="130" font-weight="600">output = 1 if σ(z) ≥ 0.5, i.e. if z ≥ 0</text>
+        <text x="470" y="150" font-size="11.5" fill="#6b7280">the boundary is still the line z = 0 — only the confidence is new</text>
+      </g>
+    </svg>
+    <figcaption class="small muted">Logistic regression does not move the decision boundary; it turns the distance from the boundary into a probability. Points far on the positive side get $p\to1$, points near the line get $p\approx0.5$.</figcaption>
+  </figure>
+
+  <h3 class="sub" id="i-ce">Cross-entropy: the right loss for probabilities</h3>
+  <p>
+    Since $y$ is a probability, we should score it as one. <strong>Cross-entropy</strong> measures the difference between two
+    distributions — here, between our predicted $y$ and the truth $t$:
+  </p>
+  <div class="formula">$$ L_{\text{CE}}(y,t) = \begin{cases} -\log y &amp; t = 1\\ -\log(1-y) &amp; t = 0\end{cases} \;=\; -t\log y - (1-t)\log(1-y) $$</div>
+  <p>
+    The behaviour is exactly what intuition demands. If $t=1$ and we predict $y=0.99$, the loss is $-\log 0.99 \approx 0.01$.
+    If we predict $y = 0.01$ — confidently wrong — the loss is $-\log 0.01 \approx 4.6$. The penalty for confident errors grows
+    without bound, which is what forces the model to be honest rather than merely directionally correct.
+  </p>
+  <div class="callout trap">
+    <span class="label">Why not squared error?</span>
+    <p>
+      Squared error on a sigmoid output still has a minimum in the right place, but the gradient is multiplied by
+      $\sigma'(z) = \sigma(z)(1-\sigma(z))$, which is at most $0.25$ and shrinks toward zero exactly when the model is
+      confidently <em>wrong</em>. Training stalls. With cross-entropy the sigmoid derivative cancels algebraically and the
+      gradient becomes $(\hat{y}-t)\mathbf{x}$ — large when the error is large. Section 2.4 derives this.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-logodds">Log-odds: the interpretation superpower</h3>
+  <p>
+    Invert the logistic function and you get the <strong>logit</strong>:
+  </p>
+  <div class="formula">$$ \text{logit}(p) = \log\frac{p}{1-p} = z = \mathbf{w}^\top\mathbf{x} + b $$</div>
+  <p>
+    The quantity $p/(1-p)$ is the <strong>odds</strong>, and its logarithm is the <strong>log-odds</strong> (log odds ratio).
+    This is why logistic regression remains the default in medicine, epidemiology and credit risk: each coefficient has a
+    direct reading.
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Odds ratio $e^{w_i}$</th><th>Meaning</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td>$\gt 1$</td><td>positive association: increasing $x_i$ raises the probability of $y=1$</td><td>$e^{w}=1.8$: each additional year of age multiplies the odds of the event by 1.8</td></tr>
+        <tr><td>$= 1$</td><td>no association</td><td>$w = 0$</td></tr>
+        <tr><td>$\lt 1$</td><td>negative association</td><td>$e^{w}=0.6$: a 40% reduction in odds per unit</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    This is a textbook example of <strong>model interpretability</strong>: how the model makes its decision is legible to a
+    human without any post-hoc tooling. Module 16 will contrast this with SHAP, which is what you need when the model is a
+    random forest or a neural network.
+  </p>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Medicine · risk scores</span>
+      <h4>Clinical prediction rules</h4>
+      <p>Logistic regression underlies most published clinical risk scores because the coefficients are auditable: "each extra point of lactate raises the odds of mortality by 1.3×".</p>
+    </div>
+    <div class="example">
+      <span class="tag">Finance · credit decisions</span>
+      <h4>Explainable lending</h4>
+      <p>Fair-lending law requires credit decisions to be explainable. A logistic scorecard with per-feature contributions satisfies that requirement in a way a deep network does not.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Epidemiology · case-control</span>
+      <h4>Odds ratios</h4>
+      <p>Case-control studies report odds ratios directly; logistic regression is the natural estimator, which is why the log-odds parameterisation exists at all.</p>
+    </div>
+    <div class="example">
+      <span class="tag">NLP · the final layer</span>
+      <h4>Every language model's last step</h4>
+      <p>GPT outputs a vector of logits over the vocabulary, then applies softmax to get next-token probabilities. The multi-class version of this module is literally the final operation of every LLM.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Vision · CIFAR-10</span>
+      <h4>Ten-way classification</h4>
+      <p>A linear model with $10\times3072$ weights plus softmax is the baseline every image classifier must beat — and the "template" interpretation of its rows explains what a linear model can and cannot see.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Public health · screening</span>
+      <h4>Probability, not just a label</h4>
+      <p>Because logistic regression outputs calibrated probabilities, thresholds can be chosen per-deployment to trade sensitivity against specificity (module 02, lab 3) rather than baked in at 0.5.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-sigmoid">2.1 Properties of the logistic function</h3>
+  <details class="steps" open>
+    <summary>Derivation — the derivative and the inverse</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Write $\sigma(z) = (1+e^{-z})^{-1}$ and differentiate with the chain rule:
+          $$ \sigma'(z) = -(1+e^{-z})^{-2}\cdot(-e^{-z}) = \frac{e^{-z}}{(1+e^{-z})^2}. $$
+        </li>
+        <li>Rewrite in terms of $\sigma$ itself. Since $e^{-z} = \frac{1-\sigma}{\sigma}$ (from $\sigma = \frac{1}{1+e^{-z}}$) and $1+e^{-z} = \frac{1}{\sigma}$:
+          $$ \sigma'(z) = \frac{(1-\sigma)/\sigma}{1/\sigma^2} = \sigma(1-\sigma). $$
+          <span class="why">The derivative is maximal at $z=0$, where $\sigma = 1/2$ and $\sigma' = 1/4$. That single fact explains both the vanishing-gradient problem in deep sigmoid networks and the bias-correction step in Adam (module 07).</span>
+        </li>
+        <li>Invert: solve $p = \frac{1}{1+e^{-z}}$ for $z$.
+          $$ \frac{1}{p} = 1+e^{-z} \;\Rightarrow\; e^{-z} = \frac{1-p}{p} \;\Rightarrow\; z = \log\frac{p}{1-p} = \text{logit}(p). $$
+        </li>
+        <li><span class="qed">∎</span> So $\sigma$ and the logit are inverse functions: the linear model lives in log-odds space, and $\sigma$ converts log-odds to probability.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-mle">2.2 Cross-entropy from maximum likelihood</h3>
+  <details class="steps">
+    <summary>Derivation — the Bernoulli likelihood gives cross-entropy</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Model the label as a Bernoulli draw with success probability $\hat{y} = \sigma(\mathbf{w}^\top\mathbf{x}+b)$:
+          $$ p(t\mid\mathbf{x}) = \hat{y}^{\,t}(1-\hat{y})^{\,1-t}, \qquad t\in\{0,1\}. $$
+          <span class="why">Check: $t=1$ gives $\hat{y}$, $t=0$ gives $1-\hat{y}$. One expression, both cases.</span>
+        </li>
+        <li>Over $N$ independent samples the likelihood is a product; take the log:
+          $$ \log L(\mathbf{w},b) = \sum_{i=1}^{N}\Big[t_i\log\hat{y}_i + (1-t_i)\log(1-\hat{y}_i)\Big]. $$
+        </li>
+        <li>Maximising the log-likelihood = minimising its negative, averaged:
+          $$ J(\mathbf{w},b) = -\frac{1}{N}\sum_{i=1}^{N}\Big[t_i\log\hat{y}_i + (1-t_i)\log(1-\hat{y}_i)\Big] = \frac{1}{N}\sum_i L_{\text{CE}}(\hat{y}_i, t_i). $$
+        </li>
+        <li><span class="qed">∎</span> Cross-entropy is not an arbitrary choice; it is the negative log-likelihood of the model
+          we assumed. Equivalently, it is the KL divergence $D_{\text{KL}}(t\,\|\,\hat{y})$ plus the entropy of $t$ — and the
+          entropy term does not depend on the parameters, so minimising cross-entropy minimises the divergence between the
+          true and predicted label distributions.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-gradient">2.3 The gradient is (prediction − truth) × input</h3>
+  <details class="steps">
+    <summary>Derivation — the sigmoid derivative cancels</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>For one sample, with $z = \mathbf{w}^\top\mathbf{x}+b$ and $\hat{y}=\sigma(z)$, the loss is
+          $L = -t\log\hat{y} - (1-t)\log(1-\hat{y})$.</li>
+        <li>Differentiate with respect to $z$ using the chain rule:
+          $$ \frac{\partial L}{\partial \hat{y}} = -\frac{t}{\hat{y}} + \frac{1-t}{1-\hat{y}} = \frac{\hat{y}-t}{\hat{y}(1-\hat{y})}. $$
+        </li>
+        <li>Multiply by $\frac{\partial \hat{y}}{\partial z} = \hat{y}(1-\hat{y})$:
+          $$ \frac{\partial L}{\partial z} = \frac{\hat{y}-t}{\hat{y}(1-\hat{y})}\cdot\hat{y}(1-\hat{y}) = \hat{y} - t. $$
+          <span class="why">The awkward $\hat{y}(1-\hat{y})$ cancels exactly. This is the entire reason cross-entropy is preferred to squared error on a sigmoid output.</span>
+        </li>
+        <li>Propagate to the parameters with $\frac{\partial z}{\partial w_j} = x_j$ and $\frac{\partial z}{\partial b} = 1$:
+          $$ \boxed{\;\frac{\partial L}{\partial \mathbf{w}} = (\hat{y}-t)\,\mathbf{x}, \qquad \frac{\partial L}{\partial b} = \hat{y}-t\;} $$
+        </li>
+        <li><span class="qed">∎</span> The gradient is zero only when the prediction equals the label, and its magnitude grows
+          with the error — no saturation. Vectorised over the dataset:
+          $\nabla_{\mathbf{w}} J = \frac{1}{N}X^\top(\hat{\mathbf{y}}-\mathbf{t})$.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-convex">2.4 Convexity</h3>
+  <p>
+    The Hessian of the logistic cost with respect to $\mathbf{w}$ is
+  </p>
+  <div class="formula">$$ H = \frac{1}{N}\sum_{i=1}^{N}\hat{y}_i(1-\hat{y}_i)\,\mathbf{x}_i\mathbf{x}_i^\top = \frac{1}{N}X^\top S X, \qquad S = \mathrm{diag}\big(\hat{y}_i(1-\hat{y}_i)\big) $$</div>
+  <p>
+    Since $\hat{y}_i(1-\hat{y}_i) \gt 0$ and $S$ is diagonal positive, $H$ is positive semi-definite:
+    $\mathbf{v}^\top H\mathbf{v} = \frac1N\sum_i \hat{y}_i(1-\hat{y}_i)(\mathbf{v}^\top\mathbf{x}_i)^2 \ge 0$. The logistic
+    cost is therefore <strong>convex</strong> — gradient descent converges to the global optimum, and there are no local minima
+    to escape. (Note the difference from a neural network, where this convexity is lost the moment a hidden layer is added.)
+  </p>
+
+  <h3 class="sub" id="m-interpret">2.5 Reading coefficients as odds ratios</h3>
+  <p>
+    Increase feature $x_j$ by one unit, holding everything else fixed. Then $z$ increases by $w_j$ and the odds are multiplied by
+    $e^{w_j}$:
+  </p>
+  <div class="formula">$$ \frac{\text{odds}(x_j+1)}{\text{odds}(x_j)} = \frac{e^{z + w_j}}{e^{z}} = e^{w_j} $$</div>
+  <p>
+    So $w_j$ is the <em>additive</em> change in log-odds and $e^{w_j}$ is the <em>multiplicative</em> change in odds. Because the
+    model is linear in log-odds, the effect of a feature does not depend on the values of the other features — a strong
+    assumption (no interaction) and a frequent source of misinterpretation. Always state the units and the reference range.
+  </p>
+
+  <h3 class="sub" id="m-softmax">2.6 From two classes to $k$ classes</h3>
+  <p>
+    With $d$ inputs and $k \ge 3$ classes we need $k\times d$ weights arranged as a matrix $W$ and a $k$-vector of biases
+    $\mathbf{b}$:
+  </p>
+  <div class="formula">$$ \mathbf{z} = W\mathbf{x} + \mathbf{b}, \qquad y_k = \text{softmax}(\mathbf{z})_k = \frac{e^{z_k}}{\sum_{k'} e^{z_{k'}}} $$</div>
+  <p>
+    Each $y_k\in(0,1)$ and $\sum_k y_k = 1$, so the output is a probability distribution over classes. The loss is the
+    multi-class cross-entropy
+  </p>
+  <div class="formula">$$ L_{\text{CE}}(\mathbf{y},\mathbf{t}) = -\sum_{k=1}^{K} t_k\log y_k = -\mathbf{t}^\top\log\mathbf{y} $$</div>
+  <p>with the logarithm applied element-wise, and $\mathbf{t}$ a one-hot vector.</p>
+  <details class="steps">
+    <summary>Derivation — the softmax gradient is again (prediction − truth)</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Differentiate the softmax: for $j = k$, $\frac{\partial y_k}{\partial z_k} = y_k(1-y_k)$; for $j\ne k$, $\frac{\partial y_k}{\partial z_j} = -y_ky_j$.
+          In matrix form this is the Jacobian $\mathrm{diag}(\mathbf{y}) - \mathbf{y}\mathbf{y}^\top$.</li>
+        <li>For a one-hot target with true class $c$, $L = -\log y_c$, so
+          $$ \frac{\partial L}{\partial z_j} = -\frac{1}{y_c}\frac{\partial y_c}{\partial z_j} = -\frac{1}{y_c}\big(\mathbb{1}[j=c]\,y_c - y_cy_j\big) = y_j - \mathbb{1}[j=c]. $$
+        </li>
+        <li>In vector form: $\frac{\partial L}{\partial \mathbf{z}} = \mathbf{y} - \mathbf{t}$. <span class="qed">∎</span></li>
+        <li>Hence $\frac{\partial L}{\partial W} = (\mathbf{y}-\mathbf{t})\mathbf{x}^\top$ — structurally identical to the binary
+          case. This is why the same code path handles 2 or 200 classes.</li>
+      </ol>
+    </div>
+  </details>
+  <div class="callout insight">
+    <span class="label">A useful invariant</span>
+    <p>
+      Softmax is invariant to adding a constant to all logits: $\text{softmax}(\mathbf{z}+c) = \text{softmax}(\mathbf{z})$. In
+      code you exploit this by subtracting the maximum logit before exponentiating, which prevents overflow:
+      <code>e = np.exp(z - z.max()); p = e / e.sum()</code>. The temperature in lab 3 is exactly this idea in reverse —
+      dividing logits by $T \gt 1$ flattens the distribution, $T \lt 1$ sharpens it.
+    </p>
+  </div>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-sigmoid">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · the activation</span><h4>Inside the sigmoid</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Drag the point along the curve. Three numbers deserve attention. At $z=0$ the probability is exactly $0.5$ and the slope $\sigma'(z)$ is maximal at $0.25$. By $z=4$ the slope has collapsed to about $0.018$ — a gradient nearly $14\times$ smaller — which is the vanishing-gradient problem in miniature.</p>
+      <p>Watch the odds readout: at $z=0$ odds are 1:1; at $z=2.2$ they are 9:1. Log-odds are linear in $z$, probabilities are not.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-logistic-fit">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · training</span><h4>Fitting the boundary by gradient descent</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Two overlapping classes, one linear boundary, learned by gradient descent on the cross-entropy. Press <strong>Run</strong> and watch the boundary rotate into place while the shading becomes more confident. The loss is convex, so the only thing the learning rate controls is <em>how fast</em> you arrive — try $0.05$ versus $2.5$.</p>
+      <p>Notice that the boundary never fully separates the classes: they overlap by construction, and the model settles on the line that maximises the likelihood of the observed labels. Also notice that the shading is smooth near the boundary and saturates far from it — that is $\sigma$ doing its job.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-softmax">
+    <div class="lab-head"><span class="lab-tag">Lab 3 · multi-class</span><h4>Softmax, temperature and cross-entropy</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Three logits in, three probabilities out. Raise the true class's logit and watch its probability approach 1 while the loss falls toward 0. Now push a <em>wrong</em> class's logit up: the loss climbs steeply — confident errors are expensive, exactly as the $ -\log p$ curve says.</p>
+      <p>Finally sweep the temperature. $T \to 4$ flattens the distribution toward uniform; $T \to 0.25$ sharpens it into a near one-hot. Every language model you have used exposes this same knob.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">scikit-learn</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 04 — logistic regression from scratch: sigmoid, cross-entropy, GD."""
+import math
+
+
+def sigmoid(z):
+    # numerically stable: never exponentiate a large positive number
+    if z &gt;= 0:
+        return 1.0 / (1.0 + math.exp(-z))
+    e = math.exp(z)
+    return e / (1.0 + e)
+
+
+def logit(p):
+    return math.log(p / (1.0 - p))
+
+
+def bce(y_hat, t):
+    """Binary cross-entropy for one sample (clipped to avoid log(0))."""
+    eps = 1e-12
+    y_hat = min(max(y_hat, eps), 1 - eps)
+    return -(t * math.log(y_hat) + (1 - t) * math.log(1 - y_hat))
+
+
+def predict_proba(X, w, b):
+    return [sigmoid(sum(wj * xj for wj, xj in zip(w, x)) + b) for x in X]
+
+
+def fit_logistic(X, t, lr=0.5, epochs=500, l2=0.0):
+    """Full-batch gradient descent. Gradient is (y_hat - t) * x."""
+    n, m = len(X), len(X[0])
+    w, b = [0.0] * m, 0.0
+    for _ in range(epochs):
+        p = predict_proba(X, w, b)
+        err = [pi - ti for pi, ti in zip(p, t)]
+        gw = [sum(err[i] * X[i][j] for i in range(n)) / n + l2 * w[j] for j in range(m)]
+        gb = sum(err) / n
+        w = [wj - lr * g for wj, g in zip(w, gw)]
+        b -= lr * gb
+    return w, b
+
+
+def accuracy(X, t, w, b):
+    p = predict_proba(X, w, b)
+    return sum((pi &gt;= 0.5) == ti for pi, ti in zip(p, t)) / len(t)
+
+
+if __name__ == "__main__":
+    # y = 1 when x1 + x2 &gt; 0 (separable, so the fit should be confident)
+    X = [[2, 1], [1, 2], [2, 2], [-1, -1], [-2, -1], [-1, -2]]
+    t = [1, 1, 1, 0, 0, 0]
+    w, b = fit_logistic(X, t, lr=0.5, epochs=2000)
+    print("w =", [round(v, 2) for v in w], "b =", round(b, 2))     # roughly [2.4, 2.4], 0
+    print("accuracy =", accuracy(X, t, w, b))                       # 1.0
+    print("odds ratio per unit of x1 =", round(math.exp(w[0]), 2))
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 04 — vectorised logistic regression + stable softmax."""
+import numpy as np
+
+
+def sigmoid(z):
+    return 1.0 / (1.0 + np.exp(-z))
+
+
+def softmax(Z):
+    """Rows are samples. Subtracting the row max keeps exp() in range."""
+    Z = np.atleast_2d(Z)
+    Z = Z - Z.max(axis=1, keepdims=True)
+    E = np.exp(Z)
+    return E / E.sum(axis=1, keepdims=True)
+
+
+def cross_entropy(P, T):
+    """Mean cross-entropy for binary (1-D P) or multi-class (2-D P) predictions."""
+    P = np.clip(np.asarray(P, float), 1e-12, 1 - 1e-12)
+    T = np.asarray(T, float)
+    if P.ndim == 1:
+        return float(-np.mean(T * np.log(P) + (1 - T) * np.log(1 - P)))
+    return float(-np.mean(np.sum(T * np.log(P), axis=1)))
+
+
+def fit_logistic(X, t, lr=0.5, epochs=2000, l2=0.0):
+    X = np.asarray(X, float)
+    t = np.asarray(t, float)
+    n, m = X.shape
+    w, b = np.zeros(m), 0.0
+    losses = []
+    for _ in range(epochs):
+        p = sigmoid(X @ w + b)
+        err = p - t
+        w -= lr * (X.T @ err / n + l2 * w)
+        b -= lr * err.mean()
+        losses.append(cross_entropy(p, t))
+    return w, b, losses
+
+
+def fit_softmax(X, T, lr=0.5, epochs=2000):
+    """Multi-class logistic regression; T is one-hot (n, k)."""
+    X = np.asarray(X, float)
+    T = np.asarray(T, float)
+    n, m = X.shape
+    k = T.shape[1]
+    W, b = np.zeros((m, k)), np.zeros(k)
+    for _ in range(epochs):
+        Y = softmax(X @ W + b)
+        G = (Y - T) / n                      # the whole gradient, one line
+        W -= lr * (X.T @ G)
+        b -= lr * G.sum(axis=0)
+    return W, b
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    X = np.vstack([rng.normal(-1, 1, (100, 2)), rng.normal(1, 1, (100, 2))])
+    t = np.array([0] * 100 + [1] * 100)
+    w, b, losses = fit_logistic(X, t, lr=0.5)
+    print("loss", round(losses[0], 3), "->", round(losses[-1], 3))
+    print("accuracy", ((sigmoid(X @ w + b) &gt;= 0.5) == t).mean())
+    print("softmax demo:", np.round(softmax([[1.0, 2.0, 3.0]]), 3))
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 04 — scikit-learn logistic regression, odds ratios, and calibration."""
+import numpy as np
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, roc_auc_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_breast_cancer(return_X_y=True)
+names = load_breast_cancer().feature_names
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, stratify=y, random_state=0)
+
+clf = make_pipeline(StandardScaler(), LogisticRegression(max_iter=2000, C=1.0))
+clf.fit(X_tr, y_tr)
+
+# Cross-validated AUC (a threshold-free view of the ranking quality)
+cv = StratifiedKFold(5, shuffle=True, random_state=0)
+print("CV AUC:", np.round(cross_val_score(clf, X_tr, y_tr, cv=cv, scoring="roc_auc").mean(), 3))
+
+prob = clf.predict_proba(X_te)[:, 1]
+print("test AUC:", round(roc_auc_score(y_te, prob), 3))
+print(classification_report(y_te, clf.predict(X_te), digits=3))
+
+# Odds ratios: with standardised features, exp(w) is the odds multiplier per 1 SD.
+w = clf[-1].coef_[0]
+odds = np.exp(w)
+order = np.argsort(-np.abs(w))[:6]
+print("\nfeature                 coef    odds ratio")
+for i in order:
+    print(f"{names[i]:22s} {w[i]:6.3f}   {odds[i]:8.3f}")
+
+# The threshold is a deployment decision, not a property of the model.
+for thr in (0.2, 0.5, 0.8):
+    pred = (prob &gt;= thr).astype(int)
+    tp = ((pred == 1) &amp; (y_te == 1)).sum()
+    fn = ((pred == 0) &amp; (y_te == 1)).sum()
+    fp = ((pred == 1) &amp; (y_te == 0)).sum()
+    tn = ((pred == 0) &amp; (y_te == 0)).sum()
+    print(f"thr={thr}: sens={tp/(tp+fn):.3f} spec={tn/(tn+fp):.3f} prec={tp/max(tp+fp,1):.3f}")
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block contains the single most reused line in deep learning: <code>G = (Y - T) / n</code>. Whether the output is
+      a sigmoid or a softmax, with cross-entropy the gradient of the logits is prediction minus truth.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="04">
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>Why can't we train a linear classifier with a hard threshold using gradient descent?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>The threshold makes the model non-linear</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>The derivative of a step function is zero almost everywhere and undefined at the jump</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>The threshold has no parameters</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>It always overfits</span></button></li>
+      </ul>
+      <div class="explain"><p>A step function gives no gradient signal: perturbing a weight changes nothing until a prediction flips. The sigmoid is a smooth surrogate with a usable derivative.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>For $z = \mathbf{w}^\top\mathbf{x} + b$ and $\hat{y}=\sigma(z)$, the derivative $\partial L_{\text{CE}}/\partial z$ equals:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$\hat{y}(1-\hat{y})$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>$(\hat{y}-t)\,\hat{y}(1-\hat{y})$</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>$\hat{y}-t$</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>$(\hat{y}-t)^2$</span></button></li>
+      </ul>
+      <div class="explain"><p>The factor $\hat y(1-\hat y)$ from the sigmoid derivative cancels with the $1/(\hat y(1-\hat y))$ from the log. Answer B is what you get with squared error — and it saturates.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>A fitted coefficient is $w_j = 0.7$ for a feature measured in years. How should this be reported?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Each additional year multiplies the odds of the outcome by $e^{0.7}\approx 2.01$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Each additional year raises the probability by 0.7</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Each additional year raises the probability by 70%</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The feature contributes 0.7 of the variance</span></button></li>
+      </ul>
+      <div class="explain"><p>Logistic regression is linear in <em>log-odds</em>, so $w_j$ is an additive change in log-odds and $e^{w_j}$ a multiplicative change in odds. The change in probability depends on the baseline risk.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>Why subtract the maximum logit before exponentiating in softmax?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>It changes the resulting probabilities to be better calibrated</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>It removes the need to normalise</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>It makes the loss convex</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Softmax is shift-invariant, so it leaves the answer unchanged while preventing floating-point overflow</span></button></li>
+      </ul>
+      <div class="explain"><p>$\text{softmax}(\mathbf{z}+c) = \text{softmax}(\mathbf{z})$. Subtracting the max guarantees the largest exponent is $e^0=1$, so no overflow, with identical probabilities.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>The logistic loss is convex in $\mathbf{w}$ because:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>The sigmoid is monotone</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Its Hessian is $\frac1N X^\top S X$ with $S = \mathrm{diag}(\hat y_i(1-\hat y_i)) \succ 0$, hence positive semi-definite</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Cross-entropy is bounded</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>There are only two classes</span></button></li>
+      </ul>
+      <div class="explain"><p>Positive semi-definite Hessian ⟺ convex ⟺ any local minimum is global. This property is lost as soon as a hidden layer is inserted, which is the subject of module 07.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Logit</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\log\frac{p}{1-p}$, the inverse of the sigmoid. Logistic regression is a linear model in logit space.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Odds ratio</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$e^{w_j}$: the factor by which the odds of $y=1$ change per one-unit increase in $x_j$. $\gt 1$ positive association, $\lt 1$ negative.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Cross-entropy</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$-t\log\hat y - (1-t)\log(1-\hat y)$: the negative log-likelihood of a Bernoulli model. Unbounded penalty for confident errors.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Activation function</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">A fixed non-linear function applied to a linear score. In logistic regression it is $\sigma$; in hidden layers it is usually ReLU.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Softmax</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$e^{z_k}/\sum_j e^{z_j}$: maps $k$ logits to a probability distribution. Shift-invariant, so code subtracts the max.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Why not MSE on a sigmoid?</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">The gradient is multiplied by $\sigma'(z)\le 0.25$, which shrinks exactly when the model is confidently wrong, so training stalls. Cross-entropy cancels that factor.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Calibration</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">A model is calibrated if, among samples it scores at $p$, roughly a fraction $p$ are positive. Logistic regression is often reasonably calibrated out of the box; deep nets usually are not.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Decision threshold</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">The probability above which you predict 1. It is a deployment choice, not a model parameter: 0.5 minimises error under equal costs, but screening usually wants a lower threshold.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Logit arithmetic</h4></div>
+    <p>For $\mathbf{w} = (1.5, -0.5)$, $b = -0.2$, and $\mathbf{x} = (2, 4)$: compute $z$, the predicted probability, and the odds. Then find the change in $x_1$ needed to double the odds.</p>
+    <button class="btn btn-sm" data-reveal="sol-04-1" type="button">Show solution</button>
+    <div id="sol-04-1" class="solution" hidden>
+      <p>$z = 1.5(2) - 0.5(4) - 0.2 = 3 - 2 - 0.2 = 0.8$.</p>
+      <p>$\hat y = \sigma(0.8) = 1/(1+e^{-0.8}) = 0.690$. Odds $= 0.690/0.310 = 2.226$.</p>
+      <p>Doubling the odds means adding $\log 2 \approx 0.693$ to the log-odds, i.e. $\Delta x_1 = 0.693/1.5 = 0.462$.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Show that squared error saturates</h4></div>
+    <p>Let $L_{\text{MSE}} = \frac12(\hat y - t)^2$ with $\hat y = \sigma(\mathbf{w}^\top\mathbf{x}+b)$. Derive $\partial L_{\text{MSE}}/\partial \mathbf{w}$ and explain why it vanishes for confident errors. Compare with the cross-entropy gradient at $\hat y = 0.01$, $t=1$.</p>
+    <button class="btn btn-sm" data-reveal="sol-04-2" type="button">Show solution</button>
+    <div id="sol-04-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>$\partial L/\partial \mathbf{w} = (\hat y - t)\,\sigma'(z)\,\mathbf{x} = (\hat y - t)\,\hat y(1-\hat y)\,\mathbf{x}$.</li>
+        <li>At $\hat y = 0.01$, $t=1$: $(0.01-1)\cdot 0.01 \cdot 0.99 = -0.0098$. The gradient magnitude is below $0.01$ — essentially no signal, even though the prediction is maximally wrong.</li>
+        <li>Cross-entropy at the same point: $\hat y - t = -0.99$ — a gradient two orders of magnitude larger. <span class="qed">∎</span></li>
+        <li><span class="why">Squared error is not <em>wrong</em> here (the minimum is the same), it is merely badly conditioned: the region where the model needs the most correction is the region where it learns slowest.</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Cross-entropy, entropy and KL divergence</h4></div>
+    <p>Show that for a true distribution $q$ and model distribution $p$, minimising the cross-entropy $H(q,p) = -\sum_k q_k\log p_k$ over $p$ is equivalent to minimising $D_{\text{KL}}(q\|p)$. When does the cross-entropy equal the entropy?</p>
+    <button class="btn btn-sm" data-reveal="sol-04-3" type="button">Show solution</button>
+    <div id="sol-04-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>By definition $D_{\text{KL}}(q\|p) = \sum_k q_k\log\frac{q_k}{p_k} = \sum_k q_k\log q_k - \sum_k q_k\log p_k$.</li>
+        <li>Recognise the two terms: $\sum_k q_k\log q_k = -H(q)$ (negative entropy) and $\sum_k q_k\log p_k = -H(q,p)$.</li>
+        <li>So $D_{\text{KL}}(q\|p) = H(q,p) - H(q)$. Since $H(q)$ does not depend on the model, minimising $H(q,p)$ over $p$ minimises $D_{\text{KL}}$. <span class="qed">∎</span></li>
+        <li>Cross-entropy equals entropy exactly when $p = q$ (KL $=0$). For one-hot targets, $H(q) = 0$, so the cross-entropy is the KL divergence itself — and its minimum value is 0.</li>
+        <li><span class="why">Practical consequence: cross-entropy loss is not comparable across datasets with different label distributions, because its zero point depends on $H(q)$. Comparing losses across models on the same dataset is fine; across datasets it is not.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 04</span>
+    <h3>A clinical risk score with odds ratios you can defend</h3>
+    <p>Build a binary classifier whose coefficients you can explain to a clinician, and quantify the difference between a model that ranks well and a model whose probabilities you can trust.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Choose a binary outcome dataset with interpretable features (breast cancer, heart disease, or your own).</li>
+      <li>Implement logistic regression from scratch (gradient descent), and compare coefficients with scikit-learn on standardised data — they should agree to 3 decimals.</li>
+      <li>Report the odds ratio table with 95% confidence intervals from a bootstrap or from the covariance $\sigma^2(A^\top A)^{-1}$-style approximation. Flag features whose intervals cross 1.</li>
+      <li>Plot a calibration curve (predicted probability bins vs. observed frequency) and discuss whether the probabilities are trustworthy.</li>
+      <li>Pick an operating threshold justified by a stated cost ratio between false negatives and false positives, and report the resulting confusion matrix.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li>Notebook with the odds-ratio table, calibration curve and threshold analysis</li>
+      <li>From-scratch implementation plus parity tests</li>
+      <li>One-page memo for a clinical audience: what the score means, what it does not mean</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Interpretation</td><td>Odds ratios correctly stated with units, reference ranges and intervals</td><td>30</td></tr>
+        <tr><td>Calibration</td><td>Calibration curve plotted and interpreted, not just accuracy reported</td><td>25</td></tr>
+        <tr><td>Threshold</td><td>Cost-driven choice, explicitly justified, with the confusion matrix at that threshold</td><td>25</td></tr>
+        <tr><td>Honesty</td><td>Limitations of a linear-in-log-odds model stated (no interactions, monotone effects)</td><td>20</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Add interaction terms and show whether they improve calibration.</li>
+      <li>Compare with a random forest and explain what you lose in interpretability.</li>
+      <li>Implement Platt scaling or isotonic regression to recalibrate a deliberately over-confident model.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/04-risk-score/</code>.</p>
+  </div>
+</section>
+
+
+  <nav class="pager" aria-label="Module navigation">
+  <a class="prev" href="linear-regression.html"><span>← Previous</span><b>03 · Linear Models & Least Squares</b></a>
+  <a class="next" href="regularization.html"><span>Next →</span><b>05 · Regularization, Bias–Variance & Model Selection</b></a>
+</nav>
+</article>
+</main>
+<footer class="site">
+  <div class="shell">
+    <div>
+      <strong>ML from First Principles</strong><br />
+      An interactive, open-source companion to CSC 74020 (Machine Learning), Fall 2025, taught by Prof. Jonathan Gryak at the CUNY Graduate Center.
+    </div>
+    <div>
+      <a href="../index.html">Home</a> ·
+      <a href="../index.html#curriculum">Curriculum</a> ·
+      <a href="../index.html#python">Python library</a> ·
+      <a href="../index.html#sources">Sources</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

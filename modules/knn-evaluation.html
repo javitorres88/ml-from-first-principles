@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>02 · Nearest Neighbours & Honest Evaluation — ML from First Principles</title>
+<meta name="description" content="k-nearest neighbours as the simplest possible classifier, hyperparameters versus parameters, distance metrics, and the bias–variance–prevalence effects that make naive evaluation lie to you." />
+<meta property="og:title" content="02 · Nearest Neighbours & Honest Evaluation — ML from First Principles" />
+<meta property="og:description" content="k-nearest neighbours as the simplest possible classifier, hyperparameters versus parameters, distance metrics, and the bias–variance–prevalence effects that make naive evaluation lie to you." />
+<meta property="og:type" content="article" />
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css" />
+<link rel="stylesheet" href="../assets/css/site.css" />
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/js/viz.js"></script>
+<script defer src="../assets/js/mla.js"></script>
+<script defer src="../assets/js/site.js"></script>
+<script defer src="../assets/js/labs/02-knn-evaluation.js"></script>
+</head>
+<body data-module="knn-evaluation">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark">ML</span>
+      <span>ML from First Principles<small>Interactive course · CUNY CSC 74020</small></span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a class="opt" href="../index.html#curriculum">Curriculum</a>
+      <a class="opt" href="../index.html#python">Python library</a>
+      <a class="opt" href="../index.html#projects">Projects</a>
+      <a class="opt" href="../index.html#sources">Sources</a>
+      <button class="icon-btn" data-theme-toggle type="button" aria-label="Toggle theme">☾</button>
+      <button class="icon-btn" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">☰</button>
+    </nav>
+  </div>
+  <div id="navMenu" hidden style="border-top:1px solid var(--line);background:var(--panel)">
+    <div class="shell" style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:.86rem">
+      <a href="../modules/foundations.html" style="padding:4px 0;color:var(--ink-2)">01 · What Machine Learning Actually Is</a>
+      <a href="../modules/knn-evaluation.html" style="padding:4px 0;color:var(--ink-2)">02 · Nearest Neighbours & Honest Evaluation</a>
+      <a href="../modules/linear-regression.html" style="padding:4px 0;color:var(--ink-2)">03 · Linear Models & Least Squares</a>
+      <a href="../modules/logistic-regression.html" style="padding:4px 0;color:var(--ink-2)">04 · Logistic Regression & Classification Loss</a>
+      <a href="../modules/regularization.html" style="padding:4px 0;color:var(--ink-2)">05 · Regularization, Bias–Variance & Model Selection</a>
+      <a href="../modules/neural-networks.html" style="padding:4px 0;color:var(--ink-2)">06 · Artificial Neural Networks</a>
+      <a href="../modules/backpropagation.html" style="padding:4px 0;color:var(--ink-2)">07 · Backpropagation & Training Deep Networks</a>
+      <a href="../modules/trees-ensembles.html" style="padding:4px 0;color:var(--ink-2)">08 · Decision Trees, Bagging & Boosting</a>
+      <a href="../modules/clustering.html" style="padding:4px 0;color:var(--ink-2)">09 · Unsupervised Learning: Clustering</a>
+      <a href="../modules/cnns.html" style="padding:4px 0;color:var(--ink-2)">10 · Convolutional Neural Networks</a>
+      <a href="../modules/sequences.html" style="padding:4px 0;color:var(--ink-2)">11 · Sequences: RNNs, LSTMs & Attention</a>
+      <a href="../modules/transformers.html" style="padding:4px 0;color:var(--ink-2)">12 · Transformers & Large Language Models</a>
+      <a href="../modules/dimensionality-reduction.html" style="padding:4px 0;color:var(--ink-2)">13 · Dimensionality Reduction & Representation Learning</a>
+      <a href="../modules/svm-kernels.html" style="padding:4px 0;color:var(--ink-2)">14 · Support Vector Machines & Kernels</a>
+      <a href="../modules/reinforcement-learning.html" style="padding:4px 0;color:var(--ink-2)">15 · Reinforcement Learning</a>
+      <a href="../modules/interpretation.html" style="padding:4px 0;color:var(--ink-2)">16 · Model Interpretation & What Comes Next</a>
+    </div>
+  </div>
+</header>
+<main id="main" class="shell with-rail">
+<aside class="rail" aria-label="On this page">
+  <h4>02 · Classification</h4>
+  <ol>
+    <li><a href="#objectives">Learning objectives</a></li>
+    <li><a href="#intuition">1 · Intuition</a></li>
+    <li><a href="#math">2 · Mathematical foundations</a></li>
+    <li><a href="#labs">3 · Interactive visualizations</a></li>
+    <li><a href="#code">4 · Coding from scratch</a></li>
+    <li><a href="#assessment">5 · Assessment</a></li>
+    <li><a href="#project">6 · Portfolio project</a></li>
+  </ol>
+  <h4 style="margin-top:22px">All modules</h4>
+  <ol class="rail-sub">
+    <li><a href="foundations.html">01 What Machine Learning Actually Is</a></li>
+    <li><a href="knn-evaluation.html" style="color:var(--accent);font-weight:600">02 Nearest Neighbours & Honest Evaluation</a></li>
+    <li><a href="linear-regression.html">03 Linear Models & Least Squares</a></li>
+    <li><a href="logistic-regression.html">04 Logistic Regression & Classification Loss</a></li>
+    <li><a href="regularization.html">05 Regularization, Bias–Variance & Model Selection</a></li>
+    <li><a href="neural-networks.html">06 Artificial Neural Networks</a></li>
+    <li><a href="backpropagation.html">07 Backpropagation & Training Deep Networks</a></li>
+    <li><a href="trees-ensembles.html">08 Decision Trees, Bagging & Boosting</a></li>
+    <li><a href="clustering.html">09 Unsupervised Learning: Clustering</a></li>
+    <li><a href="cnns.html">10 Convolutional Neural Networks</a></li>
+    <li><a href="sequences.html">11 Sequences: RNNs, LSTMs & Attention</a></li>
+    <li><a href="transformers.html">12 Transformers & Large Language Models</a></li>
+    <li><a href="dimensionality-reduction.html">13 Dimensionality Reduction & Representation Learning</a></li>
+    <li><a href="svm-kernels.html">14 Support Vector Machines & Kernels</a></li>
+    <li><a href="reinforcement-learning.html">15 Reinforcement Learning</a></li>
+    <li><a href="interpretation.html">16 Model Interpretation & What Comes Next</a></li>
+  </ol>
+  <div style="margin-top:22px">
+    <button class="btn btn-sm" data-mark-complete type="button" style="width:100%;justify-content:center">Mark module complete</button>
+  </div>
+</aside>
+<article class="article">
+  <header>
+    <span class="kicker">Module 02 · Classification</span>
+    <h1>Nearest Neighbours & Honest Evaluation</h1>
+    <p class="lede">k-nearest neighbours as the simplest possible classifier, hyperparameters versus parameters, distance metrics, and the bias–variance–prevalence effects that make naive evaluation lie to you.</p>
+    <div class="header-meta">
+      <span>📚 Source: Lecture Notes 2</span>
+      <span>⏱ 50 min</span>
+      <span>🧪 3 interactive labs</span>
+      <span>🐍 3 implementations</span>
+    </div>
+  </header>
+
+  <section class="block" id="objectives">
+    <h2><span class="secnum">◎</span> Learning objectives</h2>
+    <div class="card">
+      <p class="small muted" style="margin-top:0">By the end of this module you should be able to:</p>
+      <ul class="tight">
+      <li>Implement k-NN classification by hand and state the algorithm's four steps.</li>
+      <li>Predict how k changes the decision boundary, from jagged interpolation to smooth majority regions.</li>
+      <li>Explain what a hyperparameter is and why it must be chosen with validation data, not training data.</li>
+      <li>Derive Euclidean, Manhattan, Mahalanobis and cosine similarity and choose one for a given data type.</li>
+      <li>Diagnose a classifier that achieves 100% accuracy while being useless.</li>
+      </ul>
+    </div>
+  </section>
+
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-classification">Classification, stated plainly</h3>
+  <p>
+    Given a training set $\{(\mathbf{x}^{(j)}, y^{(j)})\}$ with $\mathbf{x}\in\mathbb{R}^d$ and $y\in S$, supervised learning
+    looks for a function $f:\mathbb{R}^d\to S$ that "performs well" on future inputs. In <strong>classification</strong> the
+    range is a discrete set of values called <em>classes</em> or <em>labels</em>, so $S\subset\mathbb{N}=\{0,1,2,\dots\}$.
+  </p>
+  <ul>
+    <li>$|S| = 2$ → <strong>binary classification</strong> (positive/negative, spam/ham, ARDS/no-ARDS).</li>
+    <li>$|S| \ge 3$ → <strong>multi-class classification</strong> (the ten CIFAR-10 categories).</li>
+    <li>$S\subset\mathbb{N}^K$ → <strong>multi-label classification</strong>: one sample, several simultaneous labels (an X-ray with both pneumonia and effusion).</li>
+  </ul>
+
+  <h3 class="sub" id="i-knn">The nearest-neighbour idea</h3>
+  <p>
+    k-nearest neighbours is the most direct possible classifier: it assumes nothing about the shape of $f$, and answers every
+    question by looking at the most similar training samples it has ever seen. Given a training set of $N$ points and a new
+    point $\mathbf{x}^\*$:
+  </p>
+  <ol class="derivation">
+    <li><strong>Choose a value $k$</strong> — how many neighbours get a vote.</li>
+    <li><strong>Measure the distance</strong> $\mathrm{dist}(\mathbf{x}^\*, \mathbf{x}^{(j)})$ to every training point, e.g. Euclidean distance for real-valued data.</li>
+    <li><strong>Sort</strong> them from closest to farthest: $\mathrm{dist}(\mathbf{x}^\*, \mathbf{x}^{(1)}) \lt \mathrm{dist}(\mathbf{x}^\*, \mathbf{x}^{(2)}) \lt \cdots$</li>
+    <li><strong>Take the closest $k$</strong> and assign $\mathbf{x}^\*$ to the majority label among them.</li>
+  </ol>
+
+  <figure style="margin:1.6em 0">
+    <svg viewBox="0 0 720 200" role="img" aria-label="Majority voting with k equals 5" style="width:100%;height:auto;font-family:ui-sans-serif,system-ui,sans-serif">
+      <g stroke="currentColor" stroke-width="1.2" color="#cfd3de" fill="none">
+        <circle cx="250" cy="100" r="86" stroke-dasharray="5 5"/>
+      </g>
+      <g>
+        <circle cx="250" cy="100" r="8" fill="#12141a"/>
+        <circle cx="200" cy="60" r="6" fill="#4f46e5"/><circle cx="292" cy="58" r="6" fill="#4f46e5"/>
+        <circle cx="310" cy="132" r="6" fill="#4f46e5"/>
+        <circle cx="206" cy="146" r="6" fill="#0ea5e9"/><circle cx="262" cy="40" r="6" fill="#0ea5e9"/>
+        <circle cx="150" cy="120" r="6" fill="#0ea5e9" opacity=".45"/>
+        <circle cx="360" cy="80" r="6" fill="#0ea5e9" opacity=".45"/>
+      </g>
+      <g font-size="13" fill="currentColor" color="#12141a">
+        <text x="392" y="58" font-weight="600">k = 5</text>
+        <text x="392" y="80" font-size="12">3 votes for class A (indigo)</text>
+        <text x="392" y="98" font-size="12">2 votes for class B (sky)</text>
+        <text x="392" y="122" font-weight="600">prediction: class A</text>
+        <text x="392" y="146" font-size="11.5" fill="#6b7280">the dashed ball is the k-th neighbour distance</text>
+      </g>
+    </svg>
+    <figcaption class="small muted">The prediction is a vote among the $k$ points inside the dashed ball. The radius of that ball is a distance in the chosen metric — which is why the metric matters as much as $k$.</figcaption>
+  </figure>
+
+  <p>
+    On the Iris data, $k=1$ produces a jagged boundary that threads between individual flowers, $k=3$ smooths it slightly, and
+    $k=11$ produces broad regions that ignore isolated points. That progression — from memorisation to smoothing — is the
+    entire bias–variance trade-off compressed into one hyperparameter.
+  </p>
+
+  <h3 class="sub" id="i-hyper">Parameters vs. hyperparameters</h3>
+  <p>
+    What is the best value of $k$? What is the best distance? These are <strong>hyperparameters</strong>: choices about the
+    learning algorithm that we do <em>not</em> learn from the training data, but set before the learning process begins. In
+    k-NN the "parameters" are the training set itself — the model has no compact parameter vector at all, which is why k-NN
+    is called a <em>non-parametric</em>, <em>instance-based</em> or <em>lazy</em> learner.
+  </p>
+  <p>
+    The best hyperparameters are problem-dependent. In general you must try them and see what works for your data and task,
+    using a validation set or cross-validation. This is the practical consequence of the no-free-lunch theorem.
+  </p>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Botany · the canonical dataset</span>
+      <h4>Iris (Fisher, 1936)</h4>
+      <p>150 measurements of sepal and petal length/width across three species. A feature vector is $\mathbf{x}_1=\langle 5.1, 3.5, 1.4, 0.2\rangle$ with label $y_1 = $ <em>I. setosa</em>. k-NN gets ~96% with $k=3$ after scaling.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Vision · the hard version</span>
+      <h4>Chihuahua vs. muffin</h4>
+      <p>Images as raw pixels: $I\in\mathbb{Z}^{m\times n\times 3}$. k-NN on raw pixels fails badly — every "distance" is dominated by background and lighting. Feature engineering (or a CNN) is what makes neighbours meaningful.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Text · sparse similarity</span>
+      <h4>Document and item retrieval</h4>
+      <p>For high-dimensional sparse vectors, cosine similarity $\cos\theta = \frac{\mathbf{x}\cdot\mathbf{y}}{\|\mathbf{x}\|\|\mathbf{y}\|}$ is preferred to Euclidean distance: it ignores magnitude and compares direction, so a long document is not automatically "far" from a short one.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Medicine · cost asymmetry</span>
+      <h4>Screening and triage</h4>
+      <p>In a screening task, missing a sick patient (FN) costs far more than a false alarm (FP). k-NN is a poor fit for that unless the decision rule is re-weighted — which is exactly why we study thresholds and metrics, not just accuracy.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Recommendation · mixed types</span>
+      <h4>Gower distance</h4>
+      <p>When features mix numeric and categorical values (age, income bracket, favourite genre), Gower distance averages per-feature dissimilarities in $[0,1]$. Learned metrics such as Mahalanobis distance adapt to the data's covariance instead.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Anomaly detection · local density</span>
+      <h4>Local Outlier Factor</h4>
+      <p>Compare each point's neighbourhood density to its neighbours' densities. k-NN is the substrate of many anomaly detectors — the same distance computations, a different question.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="label">The evaluation warning, restated</span>
+    <p>
+      A classifier that says "chihuahua" for every image scores 100% on a test set containing only chihuahuas, and 50% on the
+      balanced version of the same problem. Accuracy is a prevalence-weighted average; the previous module derived
+      $\text{Acc} = \pi\,\text{Sens} + (1-\pi)\,\text{Spec}$. Keep that formula in mind for the whole of this module.
+    </p>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-distance">2.1 Distances are norms, and norms have geometry</h3>
+  <p>
+    A distance is a function $d:\mathbb{R}^d\times\mathbb{R}^d\to\mathbb{R}_{\ge 0}$ that is symmetric, zero exactly on the
+    diagonal, and satisfies the triangle inequality. The Minkowski family is defined by a norm on the difference:
+  </p>
+  <div class="formula">$$ d_p(\mathbf{x},\mathbf{y}) = \|\mathbf{x}-\mathbf{y}\|_p = \left(\sum_{i=1}^{d}|x_i-y_i|^p\right)^{1/p} $$</div>
+  <p>
+    with three special cases that matter in practice: $p=2$ (Euclidean), $p=1$ (Manhattan), and $p\to\infty$ (Chebyshev,
+    $\max_i|x_i-y_i|$).
+  </p>
+
+  <details class="steps">
+    <summary>Derivation — Euclidean distance from the Pythagorean theorem, in any dimension</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>In two dimensions, the displacement $\mathbf{r} = \mathbf{x}-\mathbf{y} = (r_1, r_2)$ has length by Pythagoras: $\|\mathbf{r}\|^2 = r_1^2 + r_2^2$.</li>
+        <li>Add a third, orthogonal axis. The new displacement decomposes into the old length plus an orthogonal component, so lengths still add in quadrature: $\|\mathbf{r}\|^2 = r_1^2+r_2^2+r_3^2$.</li>
+        <li>Induct: because the coordinate axes are mutually orthogonal, repeated application gives
+          $$ \|\mathbf{r}\|_2^2 = \sum_{i=1}^{d} r_i^2 = \mathbf{r}^\top\mathbf{r}. $$
+          <span class="why">This is why the Euclidean norm is the one induced by the standard inner product: $\|\mathbf{x}-\mathbf{y}\|_2^2 = \langle \mathbf{x}-\mathbf{y}, \mathbf{x}-\mathbf{y}\rangle$.</span>
+        </li>
+        <li><span class="qed">∎</span> The <em>unit ball</em> $\{\mathbf{r} : \|\mathbf{r}\|_p \le 1\}$ is a circle for $p=2$, a diamond for $p=1$, and a square for $p=\infty$. Lab 2 draws this ball around the query point: the neighbours are exactly the points inside it.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-mahal">2.2 Mahalanobis distance: divide out the covariance</h3>
+  <p>
+    Euclidean distance treats every feature as equally important and independent. If one feature is measured in millimetres
+    and another in litres, or if two features are strongly correlated, Euclidean distance is dominated by the wrong thing.
+    The Mahalanobis distance fixes both problems at once:
+  </p>
+  <div class="formula">$$ d_M(\mathbf{x},\mathbf{y}) = \sqrt{(\mathbf{x}-\mathbf{y})^\top S^{-1}(\mathbf{x}-\mathbf{y})}, \qquad S = \text{positive-definite covariance matrix} $$</div>
+
+  <details class="steps">
+    <summary>Derivation — Mahalanobis distance is Euclidean distance after whitening</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Let $S$ be the (symmetric, positive-definite) covariance matrix of the data. A symmetric positive-definite matrix has a Cholesky factorisation $S = LL^\top$ with $L$ lower-triangular and invertible.</li>
+        <li>Define the whitening transform $\mathbf{z} = L^{-1}(\mathbf{x}-\mathbf{y})$. Then
+          $$ \|\mathbf{z}\|_2^2 = \mathbf{z}^\top\mathbf{z} = (\mathbf{x}-\mathbf{y})^\top L^{-\top}L^{-1}(\mathbf{x}-\mathbf{y}) = (\mathbf{x}-\mathbf{y})^\top (LL^\top)^{-1}(\mathbf{x}-\mathbf{y}) = (\mathbf{x}-\mathbf{y})^\top S^{-1}(\mathbf{x}-\mathbf{y}). $$
+          <span class="why">So Mahalanobis distance is ordinary Euclidean distance measured in a coordinate system where the data has identity covariance.</span>
+        </li>
+        <li>Equivalently, diagonalise $S = Q\Lambda Q^\top$. Then $S^{-1} = Q\Lambda^{-1}Q^\top$, and the distance becomes
+          $$ d_M^2 = \sum_{k} \frac{\big(\mathbf{q}_k^\top(\mathbf{x}-\mathbf{y})\big)^2}{\lambda_k}, $$
+          i.e. a sum of squared projections onto the principal axes, each divided by its variance. Directions with large variance are discounted; directions with small variance are amplified.
+        </li>
+        <li><span class="qed">∎</span> Setting $S = I$ recovers Euclidean distance; setting $S = \mathrm{diag}(\sigma_1^2,\dots,\sigma_d^2)$ recovers per-feature standardisation.</li>
+      </ol>
+    </div>
+  </details>
+
+  <div class="callout">
+    <span class="label">Linear algebra concept</span>
+    <p>
+      $S$ must be positive definite, which is exactly the statement $\mathbf{v}^\top S\mathbf{v} \gt 0$ for every $\mathbf{v}\ne 0$ — the
+      quadratic form is a genuine squared length. If $S$ is singular (perfectly correlated features, or $d \gt N$), invert it only
+      after regularising, $S + \epsilon I$.
+    </p>
+  </div>
+
+  <h3 class="sub" id="m-consistency">2.3 Why k-NN works at all</h3>
+  <p>
+    Fix a query point $\mathbf{x}$. Let $\eta(\mathbf{x}) = \Pr(y=1\mid \mathbf{x})$ be the true posterior and let
+    $R^\* = \mathbb{E}[\min(\eta, 1-\eta)]$ be the error of the <strong>Bayes-optimal</strong> classifier (predict 1 when
+    $\eta \gt 1/2$). No classifier can beat $R^\*$; it is the noise floor of the problem.
+  </p>
+  <p>
+    As $N\to\infty$ in a fixed dimension, the $k$-th nearest neighbour of $\mathbf{x}$ converges to $\mathbf{x}$ itself, so its
+    label is a draw from the same posterior $\eta(\mathbf{x})$. Majority voting over $k$ such draws is a binomial estimate.
+    Cover and Hart (1967) made this precise:
+  </p>
+  <div class="formula">$$ R^\* \;\le\; R_{1\text{-NN}} \;\le\; 2R^\*\left(1 - \tfrac{1}{2}R^\*\right) \;\le\; 2R^\* $$</div>
+  <p>
+    So the 1-NN error never exceeds <em>twice</em> the Bayes error, no matter how hard the problem is, and it converges to
+    $R^\*$ as $N\to\infty$. This is a remarkable guarantee for an algorithm that does no training at all.
+  </p>
+
+  <details class="steps">
+    <summary>Sketch — where the factor 2 comes from</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>In the limit $N\to\infty$, the nearest neighbour $\mathbf{x}^{(1)}$ satisfies $\mathbf{x}^{(1)}\to\mathbf{x}$, so its label $y^{(1)}$ is Bernoulli$(\eta(\mathbf{x}))$.</li>
+        <li>1-NN errs with probability $\Pr(y^{(1)} \ne y) = \eta(1-\eta) + (1-\eta)\eta = 2\eta(1-\eta)$.</li>
+        <li>The Bayes error at that point is $\min(\eta, 1-\eta)$. Suppose $\eta \le 1/2$, so $R^\* = \eta$. Then
+          $$ \frac{R_{1\text{-NN}}}{R^\*} = \frac{2\eta(1-\eta)}{\eta} = 2(1-\eta) \le 2. $$
+        </li>
+        <li>By symmetry the same bound holds when $\eta \gt 1/2$. Averaging over $\mathbf{x}$ gives the result. <span class="qed">∎</span></li>
+        <li><span class="why">Reading the bound: when the problem is nearly deterministic ($\eta \approx 0$ or $1$), the ratio is close to 2 but both errors are tiny; when the problem is pure noise ($\eta = 1/2$), 1-NN errs 50% of the time and so does Bayes.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-curse">2.4 The curse of dimensionality</h3>
+  <p>
+    The proof above needs $\mathbf{x}^{(1)}\to\mathbf{x}$, which requires the sample to be dense <em>near every point</em>. In
+    high dimensions, "near" stops meaning anything: to cover a unit cube with points spaced $0.1$ apart you need $10^d$ of
+    them — 1,000 in 3-D, $10^{10}$ in 10-D, more than the number of atoms in a person in 30-D.
+  </p>
+
+  <details class="steps">
+    <summary>Derivation — distances concentrate as $d$ grows</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Sample $\mathbf{x}$ uniformly from $[0,1]^d$ and consider squared Euclidean distances to a fixed origin point: $D^2 = \sum_{i=1}^d x_i^2$.</li>
+        <li>Each $x_i^2$ has mean $\mathbb{E}[x_i^2] = \int_0^1 t^2\,dt = 1/3$ and variance $\mathbb{E}[x_i^4] - (1/3)^2 = 1/5 - 1/9 = 4/45$.</li>
+        <li>By independence, $\mathbb{E}[D^2] = d/3$ and $\mathrm{Var}(D^2) = 4d/45$, so the standard deviation grows like $\sqrt{d}$ — <em>slower</em> than the mean, which grows like $d$.</li>
+        <li>The coefficient of variation therefore decays:
+          $$ \frac{\mathrm{sd}(D^2)}{\mathbb{E}[D^2]} = \frac{\sqrt{4d/45}}{d/3} = \frac{2}{\sqrt{d}}\cdot\frac{3}{\sqrt{45}} \;\propto\; \frac{1}{\sqrt{d}} \xrightarrow[d\to\infty]{} 0. $$
+        </li>
+        <li><span class="qed">∎</span> All points end up at approximately the same distance from the origin, so "nearest" and
+          "farthest" become indistinguishable and the neighbour vote is essentially random. This is why k-NN needs feature
+          scaling, dimensionality reduction (module 13), or a learned metric.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-vote">2.5 The vote, ties, and weighting</h3>
+  <p>
+    For $K$ classes, the plain majority rule assigns
+  </p>
+  <div class="formula">$$ \hat{y} = \arg\max_{c\in\{1,\dots,K\}} \sum_{j \in \mathcal{N}_k(\mathbf{x}^\*)} \mathbb{1}\big[y^{(j)} = c\big] $$</div>
+  <p>
+    which is the maximum-likelihood estimate of the class probability from the neighbourhood's empirical distribution
+    $\hat{p}_c = \frac{1}{k}\sum_j \mathbb{1}[y^{(j)}=c]$. Two refinements matter:
+  </p>
+  <ul>
+    <li><strong>Ties.</strong> With even $k$ or $K \gt 2$, ties happen. Break them deterministically (lowest index) or use an odd $k$ in the binary case.</li>
+    <li><strong>Distance weighting.</strong> Replace each vote by $w_j = 1/(\mathrm{dist}_j + \epsilon)$, so that the closest neighbour counts most:
+      $$ \hat{y} = \arg\max_c \sum_{j\in\mathcal{N}_k} w_j\,\mathbb{1}[y^{(j)} = c]. $$
+      This reduces the bias of large $k$ while keeping its variance reduction.</li>
+  </ul>
+  <p>
+    Interpreted probabilistically, k-NN estimates the posterior by a local average:
+    $\hat{\eta}(\mathbf{x}^\*) = \frac{1}{k}\sum_{j\in\mathcal{N}_k} y^{(j)}$ — a kernel smoother with a top-hat kernel whose
+    bandwidth is set by the $k$-th neighbour distance. Growing $k$ widens the kernel: more bias, less variance.
+  </p>
+
+  <h3 class="sub" id="m-scaling">2.6 Feature scaling is not optional</h3>
+  <p>
+    Euclidean distance sums squared differences across features, so a feature measured in a range of thousands outvotes one
+    measured in a range of units. Standardising each feature,
+  </p>
+  <div class="formula">$$ \hat{x}_i = \frac{x_i - \mu_i}{\sigma_i}, $$</div>
+  <p>
+    puts every feature on the same footing. Fit $\mu_i,\sigma_i$ on the <em>training</em> fold only, then apply the same
+    transformation to validation and test data — the leakage rule from module 01. For mixed numeric/categorical data use Gower
+    distance instead of forcing everything into $\mathbb{R}^d$.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-knn">
+    <div class="lab-head">
+      <span class="lab-tag">Lab 1 · the algorithm</span>
+      <h4>Drag the query point, change k</h4>
+    </div>
+    <div class="lab-body">
+      <div class="lab-stage"></div>
+      <div class="lab-panel"></div>
+    </div>
+    <div class="lab-note">
+      <p>The faint background is the decision region — the label k-NN would assign to <em>every</em> point in the plane. Drag the black query point around and watch the dashed ball grow to reach the $k$-th neighbour; the votes come only from inside that ball.</p>
+      <p>Now set $k=1$: the regions become a Voronoi tessellation, and every isolated point carves out its own island. Push $k$ up to 21 and the islands dissolve into smooth regions — but notice that the boundary near the class-3 cluster (amber) starts to be swallowed by its neighbours. That is bias creeping in.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-distance">
+    <div class="lab-head">
+      <span class="lab-tag">Lab 2 · the metric</span>
+      <h4>The shape of a distance</h4>
+    </div>
+    <div class="lab-body">
+      <div class="lab-stage"></div>
+      <div class="lab-panel"></div>
+    </div>
+    <div class="lab-note">
+      <p>The dashed curve is the set of points at exactly the $k$-th neighbour distance from the query — the boundary of the neighbourhood. Switch between $\ell_2$, $\ell_1$ and the scaled metric and watch the neighbourhood change shape: a circle, a diamond, and an ellipse elongated along the low-variance direction.</p>
+      <p>Watch the neighbour list in the panel as you switch. Same data, same $k$, different prediction: the metric is a modelling choice, not a detail.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-threshold">
+    <div class="lab-head">
+      <span class="lab-tag">Lab 3 · decisions</span>
+      <h4>Thresholds, prevalence and what "accurate" means</h4>
+    </div>
+    <div class="lab-body">
+      <div class="lab-stage"></div>
+      <div class="lab-panel"></div>
+    </div>
+    <div class="lab-note">
+      <p>Two overlapping score distributions: hollow bars are negatives, solid bars are positives. Everything left of the threshold is predicted negative, everything right predicted positive. Drag the threshold line and watch sensitivity and specificity move in opposite directions — this is the fundamental trade-off of every classifier.</p>
+      <p>Now set the separation $d'$ to 0 (pure noise) and prevalence to 5%. Accuracy stays high for almost any threshold, because 95% of the sample is negative — yet sensitivity is near zero. Then set $d' = 3$ and prevalence to 50% and see how easy the problem becomes. Prevalence is a property of the world; sensitivity and specificity are properties of the classifier; precision depends on both.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+  <p>Same three implementations: no libraries, then vectorised NumPy, then scikit-learn.</p>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">scikit-learn</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 02 — k-nearest neighbours from scratch, no libraries."""
+import math
+from collections import Counter
+
+
+def euclidean(a, b):
+    return math.sqrt(sum((ai - bi) ** 2 for ai, bi in zip(a, b)))
+
+
+def manhattan(a, b):
+    return sum(abs(ai - bi) for ai, bi in zip(a, b))
+
+
+def knn_predict(X_train, y_train, x_query, k=3, dist=euclidean, weighted=False):
+    """Majority (or distance-weighted) vote among the k nearest training points."""
+    distances = [(dist(x_query, x), label) for x, label in zip(X_train, y_train)]
+    distances.sort(key=lambda pair: pair[0])
+    neighbours = distances[:k]
+
+    if weighted:
+        votes = {}
+        for d, label in neighbours:
+            votes[label] = votes.get(label, 0.0) + 1.0 / (d + 1e-12)
+        return max(votes, key=votes.get), neighbours
+
+    counts = Counter(label for _, label in neighbours)
+    # tie-break deterministically: highest count, then smallest label
+    best = max(counts.items(), key=lambda kv: (kv[1], -kv[0]))[0]
+    return best, neighbours
+
+
+def standardize(train, other):
+    """Fit mean/std on train, apply the SAME transform to other."""
+    d = len(train[0])
+    n = len(train)
+    mu = [sum(row[j] for row in train) / n for j in range(d)]
+    sd = [math.sqrt(sum((row[j] - mu[j]) ** 2 for row in train) / n) or 1.0 for j in range(d)]
+    scale = lambda rows: [[(row[j] - mu[j]) / sd[j] for j in range(d)] for row in rows]
+    return scale(train), scale(other), mu, sd
+
+
+if __name__ == "__main__":
+    X = [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [5.0, 5.0]]
+    y = ["a", "a", "a", "b"]
+    label, nb = knn_predict(X, y, [0.2, 0.2], k=3)
+    print(label, [round(d, 3) for d, _ in nb])     # a [0.283 0.8   0.8  ]
+    label_w, _ = knn_predict(X, y, [0.2, 0.2], k=3, weighted=True)
+    print(label_w)                                  # a
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 02 — vectorised k-NN with NumPy."""
+import numpy as np
+
+
+def pairwise_distances(X, Q, metric="euclidean"):
+    """Distances between every row of Q (n_q, d) and every row of X (n, d)."""
+    if metric == "euclidean":
+        # ||q - x||^2 = ||q||^2 - 2 q.x + ||x||^2   (broadcast, no python loop)
+        return np.sqrt(
+            (Q**2).sum(1)[:, None] - 2 * Q @ X.T + (X**2).sum(1)[None, :]
+        ).clip(min=0.0)
+    if metric == "manhattan":
+        return np.abs(Q[:, None, :] - X[None, :, :]).sum(axis=2)
+    if metric == "cosine":
+        Qn = Q / np.linalg.norm(Q, axis=1, keepdims=True)
+        Xn = X / np.linalg.norm(X, axis=1, keepdims=True)
+        return 1.0 - Qn @ Xn.T
+    raise ValueError(f"unknown metric {metric}")
+
+
+def knn_predict(X, y, Q, k=3, metric="euclidean", weighted=False):
+    """Return (predictions, neighbour indices) for every query row of Q."""
+    D = pairwise_distances(X, Q, metric)
+    idx = np.argsort(D, axis=1)[:, :k]              # (n_q, k) neighbour indices
+    nb_labels = y[idx]                              # (n_q, k)
+    classes = np.unique(y)
+
+    if weighted:
+        w = 1.0 / (np.take_along_axis(D, idx, axis=1) + 1e-12)
+        scores = np.stack([(w * (nb_labels == c)).sum(1) for c in classes], axis=1)
+    else:
+        scores = np.stack([(nb_labels == c).sum(1) for c in classes], axis=1)
+    return classes[scores.argmax(1)], idx
+
+
+def standardize(X, mu=None, sd=None):
+    if mu is None:
+        mu, sd = X.mean(0), X.std(0)
+    sd = np.where(sd == 0, 1.0, sd)
+    return (X - mu) / sd, mu, sd
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    X = np.vstack([rng.normal(0, 1, (40, 2)), rng.normal(3, 1, (40, 2))])
+    y = np.array([0] * 40 + [1] * 40)
+    Xs, mu, sd = standardize(X)
+    pred, idx = knn_predict(Xs, y, np.array([[0.5, 0.5]]), k=5)
+    print(pred, idx.shape)      # [0] (1, 5)
+    assert pairwise_distances(Xs, Xs)[0, 0] == 0.0
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 02 — k-NN in scikit-learn, with a proper hyperparameter search."""
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_score
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_iris(return_X_y=True)
+
+# Scaling MUST be inside the pipeline, otherwise it is fitted on the test folds.
+pipe = make_pipeline(StandardScaler(), KNeighborsClassifier())
+
+param_grid = {
+    "kneighborsclassifier__n_neighbors": [1, 3, 5, 7, 11, 15, 21],
+    "kneighborsclassifier__weights": ["uniform", "distance"],
+    "kneighborsclassifier__metric": ["euclidean", "manhattan"],
+}
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+search = GridSearchCV(pipe, param_grid, cv=cv, scoring="accuracy", n_jobs=-1)
+search.fit(X, y)
+
+print("best params:", search.best_params_)
+print(f"best CV accuracy: {search.best_score_:.4f}")
+
+# Compare against a scaled-only baseline for one fixed k.
+for k in (1, 3, 11):
+    model = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=k))
+    scores = cross_val_score(model, X, y, cv=cv)
+    print(f"k={k:2d}  accuracy = {scores.mean():.4f} +/- {scores.std():.4f}")
+
+# Note: without StandardScaler, iris accuracy drops by several points, because
+# petal length (0.1-6.9 cm) outvotes petal width (0.1-2.5 cm) in Euclidean distance.
+</code></pre></div>
+    <div class="code-caption">
+      Three levels of the same idea. The pure-Python version shows the four steps literally; the NumPy version replaces the
+      loop with an <code>argsort</code> over a distance matrix; the scikit-learn version shows the hyperparameter grid you
+      would actually run — including both <code>weights</code> and <code>metric</code>, which students often forget.
+    </div>
+  </div>
+
+  <div class="callout trap">
+    <span class="label">Two mistakes that cost marks</span>
+    <ul class="tight" style="margin-bottom:0">
+      <li>Forgetting to scale: on iris, unscaled Euclidean k-NN loses several accuracy points because sepal length dominates petal width.</li>
+      <li>Tuning <code>k</code> on the test set: use <code>GridSearchCV</code> with a CV object, then refit and evaluate once.</li>
+    </ul>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="02">
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>Which statement about $k$ in k-NN is correct?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$k$ is a parameter learned by minimising training loss</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>$k$ is a hyperparameter; increasing it raises bias and lowers variance</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>$k$ is a hyperparameter; increasing it lowers bias and raises variance</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>$k$ has no effect on the bias–variance trade-off</span></button></li>
+      </ul>
+      <div class="explain"><p>k-NN has no learned parameter vector — the training set <em>is</em> the model. $k$ is chosen before training by cross-validation. Large $k$ averages over more points (lower variance) but blurs real structure (higher bias); $k=1$ memorises (zero training error, high variance).</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>Two features: income in dollars (10,000–200,000) and years of education (8–22). Euclidean k-NN on the raw values will:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Weight both features equally, as intended</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Be dominated by education</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Be dominated by income, because its squared differences are $10^4$ times larger</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Fail because the features are correlated</span></button></li>
+      </ul>
+      <div class="explain"><p>The squared difference in income can be on the order of $10^{10}$ while the squared difference in education is under $10^{2}$ — eight orders of magnitude. Standardise, or use Mahalanobis distance, which rescales by the covariance.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>Cover and Hart's result says the 1-NN error rate is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>At most twice the Bayes error, in the infinite-data limit</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Always smaller than the Bayes error</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Equal to the Bayes error for any finite sample</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Unbounded above relative to Bayes error</span></button></li>
+      </ul>
+      <div class="explain"><p>$R^\* \le R_{1\text{-NN}} \le 2R^\*(1 - R^\*/2) \le 2R^\*$ as $N\to\infty$. No classifier can beat $R^\*$, and 1-NN is never worse than twice it — but the guarantee is asymptotic and degrades badly in high dimensions.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>As dimensionality $d$ grows with $N$ fixed, what happens to the ratio of the largest to smallest distance from a query point to the data?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>It grows without bound</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>It stays constant</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>It oscillates randomly</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>It tends to 1 — distances concentrate and "nearest" loses meaning</span></button></li>
+      </ul>
+      <div class="explain"><p>The coefficient of variation of $D^2$ decays like $1/\sqrt{d}$, so all points become equidistant. This is the curse of dimensionality; k-NN degrades gracefully only when the data lies on a lower-dimensional manifold.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>Mahalanobis distance $d_M = \sqrt{(\mathbf{x}-\mathbf{y})^\top S^{-1}(\mathbf{x}-\mathbf{y})}$ is equivalent to:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Manhattan distance after log-transforming the data</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Euclidean distance after whitening (decorrelating and rescaling) the data</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Cosine distance after centering</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The $\ell_\infty$ norm of the residual</span></button></li>
+      </ul>
+      <div class="explain"><p>With $S = LL^\top$, the transform $\mathbf{z} = L^{-1}(\mathbf{x}-\mathbf{y})$ gives $\|\mathbf{z}\|_2^2 = (\mathbf{x}-\mathbf{y})^\top S^{-1}(\mathbf{x}-\mathbf{y})$. Mahalanobis distance is Euclidean distance in the coordinate system where the covariance is the identity.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Lazy learner</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">A model that stores the training data and does all its work at prediction time. k-NN is the canonical example: training is O(1), prediction is O(Nd) per query.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Voronoi tessellation</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">The partition of space produced by 1-NN: each training point owns the region of points closer to it than to any other. Boundaries are perpendicular bisectors.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Minkowski distance</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">$d_p(\mathbf{x},\mathbf{y}) = (\sum_i |x_i-y_i|^p)^{1/p}$. $p=2$ is Euclidean, $p=1$ Manhattan, $p\to\infty$ Chebyshev. The unit ball is a circle, diamond, or square.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Cosine similarity</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">$\cos\theta = \frac{\mathbf{x}\cdot\mathbf{y}}{\|\mathbf{x}\|\|\mathbf{y}\|}$: compares direction, ignores magnitude. The default for text and embedding vectors.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Bayes error $R^\*$</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">The error of the best possible classifier, $\mathbb{E}[\min(\eta, 1-\eta)]$. It is irreducible: no model can do better, so it bounds how much a better algorithm can help.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Curse of dimensionality</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">In high dimensions the data needed for local methods grows exponentially, and distances concentrate so all points look equally far. Remedies: scaling, feature selection, dimensionality reduction, learned metrics.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Distance-weighted k-NN</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">Each neighbour votes with weight $1/(d+\epsilon)$ instead of 1. Keeps the variance reduction of a large $k$ while restoring some local sensitivity.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Why $k$-NN is not used for large-scale production inference</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">Prediction cost is linear in $N$ and memory is the whole dataset. Approximate nearest-neighbour indexes (KD-trees, HNSW, FAISS) exist precisely to fix this.</div></div>
+    </div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Run k-NN by hand</h4></div>
+    <p>Training points: $(0,0)\mapsto A$, $(1,0)\mapsto A$, $(0,1)\mapsto B$, $(2,2)\mapsto B$, $(3,1)\mapsto B$. Classify $\mathbf{x}^\*=(1,1)$ with $k=3$ under (a) Euclidean distance, (b) Manhattan distance. Break ties toward the smaller label.</p>
+    <button class="btn btn-sm" data-reveal="sol-02-1" type="button">Show solution</button>
+    <div id="sol-02-1" class="solution" hidden>
+      <p><strong>(a) Euclidean.</strong> Distances from $(1,1)$: $(0,0)\to\sqrt2\approx1.414$, $(1,0)\to1$, $(0,1)\to1$, $(2,2)\to\sqrt2\approx1.414$, $(3,1)\to2$. Sorted: 1, 1, 1.414, 1.414, 2. The 3 nearest are $(1,0)$ [A], $(0,1)$ [B], and one of the two $\sqrt2$ points — a tie. Taking $(0,0)$ [A] gives 2 votes A, 1 vote B → <strong>A</strong>; taking $(2,2)$ [B] gives 1 A, 2 B → <strong>B</strong>. The prediction is genuinely ambiguous: this is why ties need an explicit rule.</p>
+      <p><strong>(b) Manhattan.</strong> Distances: $(0,0)\to2$, $(1,0)\to1$, $(0,1)\to1$, $(2,2)\to2$, $(3,1)\to2$. The 3 nearest are $(1,0)$ [A], $(0,1)$ [B], and a tie among three points at distance 2: $(0,0)$ [A], $(2,2)$ [B], $(3,1)$ [B]. Again ambiguous — the lesson is that $k=3$ with 5 points leaves little room.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Prove the 2× bound for 1-NN</h4></div>
+    <p>Let $\eta(\mathbf{x}) = \Pr(y=1\mid\mathbf{x})$ and $R^\* = \mathbb{E}[\min(\eta,1-\eta)]$. Assuming the nearest neighbour converges to $\mathbf{x}$ as $N\to\infty$, show $R_{1\text{-NN}} \le 2R^\*(1 - R^\*/2)$.</p>
+    <button class="btn btn-sm" data-reveal="sol-02-2" type="button">Show solution</button>
+    <div id="sol-02-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>Condition on $\mathbf{x}$. The neighbour's label $y^{(1)}$ is Bernoulli$(\eta)$, so the 1-NN error at $\mathbf{x}$ is $P_e(\mathbf{x}) = \eta(1-\eta) + (1-\eta)\eta = 2\eta(1-\eta)$.</li>
+        <li>Take $\eta \le 1/2$ (the other case is symmetric), so $R^\*(\mathbf{x}) = \eta$.</li>
+        <li>Then $P_e(\mathbf{x}) = 2\eta(1-\eta) = 2R^\*(\mathbf{x})\big(1 - R^\*(\mathbf{x})\big)$.</li>
+        <li>Average over $\mathbf{x}$: $R_{1\text{-NN}} = 2\,\mathbb{E}[R^\*(1-R^\*)] \le 2R^\*$ because $1 - R^\* \le 1$. <span class="qed">∎</span></li>
+        <li><span class="why">The function $2r(1-r)$ is maximised at $r=1/2$ with value $1/2$, which is why the bound is informative: it says the excess error is at most the noise itself.</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Distance concentration, quantified</h4></div>
+    <p>Points are drawn uniformly from $[0,1]^d$. Let $D_{\min}$ and $D_{\max}$ be the smallest and largest Euclidean distances from a query point to $N$ such samples. Argue that $\mathbb{E}[D_{\max}]/\mathbb{E}[D_{\min}]\to1$ as $d\to\infty$ for fixed $N$, and estimate the $d$ at which the ratio drops below 1.1 for $N=100$.</p>
+    <button class="btn btn-sm" data-reveal="sol-02-3" type="button">Show solution</button>
+    <div id="sol-02-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>For one point, $D^2 = \sum_i x_i^2$ has mean $d/3$ and standard deviation $\sqrt{4d/45}$.</li>
+        <li>The maximum over $N$ i.i.d. draws is roughly $\mathbb{E}[D^2_{\max}] \approx d/3 + c_N\sqrt{4d/45}$ where $c_N$ is the expected maximum of $N$ standard normals (about 2.5 for $N=100$). Similarly the minimum is $d/3 - c_N\sqrt{4d/45}$.</li>
+        <li>Then $D_{\max}/D_{\min} \approx \sqrt{(1+c)/(1-c)}$ with $c = c_N\sqrt{4d/45}/(d/3) = 2c_N/\sqrt{5d}$. Requiring the ratio $\le 1.1$ means $c \le 0.09$, so $\sqrt{d} \ge 2c_N/(0.09\sqrt5) \approx 2(2.5)/0.20 \approx 25$, i.e. $d \gtrsim 600$.</li>
+        <li><span class="qed">∎</span> For 100 samples, beyond a few hundred dimensions the nearest and farthest neighbours are within 10% of each other — local methods have no locality left to exploit.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 02</span>
+    <h3>The classifier bake-off: how far does a neighbour get you?</h3>
+    <p>
+      Establish the baseline every fancier model must beat. On a tabular classification dataset, quantify exactly how much
+      performance comes from the algorithm, how much from the distance metric, and how much from preprocessing.
+    </p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Pick a tabular dataset with at least 4 features and 3 classes (iris, wine, or a UCI dataset).</li>
+      <li>Implement k-NN from scratch with <em>three</em> metrics (ℓ2, ℓ1, cosine) and both uniform and distance weighting.</li>
+      <li>Produce a 7×2×3 grid of 5-fold stratified CV accuracies (k × weights × metric), once with and once without standardisation. Present it as a heatmap or table.</li>
+      <li>Answer in writing: which factor changed accuracy most? Is the best $k$ stable across metrics? Does weighting help or hurt?</li>
+      <li>Add a learning curve (accuracy vs. training-set size) and compare against a majority-class baseline and logistic regression.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li>Notebook with the full grid and figures</li>
+      <li><code>knn.py</code> module with tests against scikit-learn</li>
+      <li>Short report (1–2 pages) with the three answers and the learning curve</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Experimental design</td><td>CV used for every number; scaler fitted inside folds; one random seed fixed and reported</td><td>30</td></tr>
+        <tr><td>Implementation</td><td>From-scratch k-NN matches scikit-learn to 4 decimals on all metrics</td><td>25</td></tr>
+        <tr><td>Analysis</td><td>Quantifies the effect of each factor; identifies the curse of dimensionality if visible</td><td>30</td></tr>
+        <tr><td>Presentation</td><td>Readable table/heatmap, honest error bars, no cherry-picking</td><td>15</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Implement Mahalanobis k-NN and show it beats standardisation on a dataset with correlated features.</li>
+      <li>Build a KD-tree and plot query time vs. $N$ against brute force.</li>
+      <li>Repeat on a text dataset (TF-IDF vectors) to show why cosine similarity wins there.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/02-classifier-bakeoff/</code>.</p>
+  </div>
+</section>
+
+
+  <nav class="pager" aria-label="Module navigation">
+  <a class="prev" href="foundations.html"><span>← Previous</span><b>01 · What Machine Learning Actually Is</b></a>
+  <a class="next" href="linear-regression.html"><span>Next →</span><b>03 · Linear Models & Least Squares</b></a>
+</nav>
+</article>
+</main>
+<footer class="site">
+  <div class="shell">
+    <div>
+      <strong>ML from First Principles</strong><br />
+      An interactive, open-source companion to CSC 74020 (Machine Learning), Fall 2025, taught by Prof. Jonathan Gryak at the CUNY Graduate Center.
+    </div>
+    <div>
+      <a href="../index.html">Home</a> ·
+      <a href="../index.html#curriculum">Curriculum</a> ·
+      <a href="../index.html#python">Python library</a> ·
+      <a href="../index.html#sources">Sources</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

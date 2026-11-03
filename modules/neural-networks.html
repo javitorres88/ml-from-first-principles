@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>06 · Artificial Neural Networks — ML from First Principles</title>
+<meta name="description" content="From the McCulloch–Pitts neuron to the multilayer perceptron: linear layers are affine maps, composition without activations collapses, and one hidden layer is a universal approximator." />
+<meta property="og:title" content="06 · Artificial Neural Networks — ML from First Principles" />
+<meta property="og:description" content="From the McCulloch–Pitts neuron to the multilayer perceptron: linear layers are affine maps, composition without activations collapses, and one hidden layer is a universal approximator." />
+<meta property="og:type" content="article" />
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css" />
+<link rel="stylesheet" href="../assets/css/site.css" />
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/js/viz.js"></script>
+<script defer src="../assets/js/mla.js"></script>
+<script defer src="../assets/js/site.js"></script>
+<script defer src="../assets/js/labs/06-neural-networks.js"></script>
+</head>
+<body data-module="neural-networks">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark">ML</span>
+      <span>ML from First Principles<small>Interactive course · CUNY CSC 74020</small></span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a class="opt" href="../index.html#curriculum">Curriculum</a>
+      <a class="opt" href="../index.html#python">Python library</a>
+      <a class="opt" href="../index.html#projects">Projects</a>
+      <a class="opt" href="../index.html#sources">Sources</a>
+      <button class="icon-btn" data-theme-toggle type="button" aria-label="Toggle theme">☾</button>
+      <button class="icon-btn" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">☰</button>
+    </nav>
+  </div>
+  <div id="navMenu" hidden style="border-top:1px solid var(--line);background:var(--panel)">
+    <div class="shell" style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:.86rem">
+      <a href="../modules/foundations.html" style="padding:4px 0;color:var(--ink-2)">01 · What Machine Learning Actually Is</a>
+      <a href="../modules/knn-evaluation.html" style="padding:4px 0;color:var(--ink-2)">02 · Nearest Neighbours & Honest Evaluation</a>
+      <a href="../modules/linear-regression.html" style="padding:4px 0;color:var(--ink-2)">03 · Linear Models & Least Squares</a>
+      <a href="../modules/logistic-regression.html" style="padding:4px 0;color:var(--ink-2)">04 · Logistic Regression & Classification Loss</a>
+      <a href="../modules/regularization.html" style="padding:4px 0;color:var(--ink-2)">05 · Regularization, Bias–Variance & Model Selection</a>
+      <a href="../modules/neural-networks.html" style="padding:4px 0;color:var(--ink-2)">06 · Artificial Neural Networks</a>
+      <a href="../modules/backpropagation.html" style="padding:4px 0;color:var(--ink-2)">07 · Backpropagation & Training Deep Networks</a>
+      <a href="../modules/trees-ensembles.html" style="padding:4px 0;color:var(--ink-2)">08 · Decision Trees, Bagging & Boosting</a>
+      <a href="../modules/clustering.html" style="padding:4px 0;color:var(--ink-2)">09 · Unsupervised Learning: Clustering</a>
+      <a href="../modules/cnns.html" style="padding:4px 0;color:var(--ink-2)">10 · Convolutional Neural Networks</a>
+      <a href="../modules/sequences.html" style="padding:4px 0;color:var(--ink-2)">11 · Sequences: RNNs, LSTMs & Attention</a>
+      <a href="../modules/transformers.html" style="padding:4px 0;color:var(--ink-2)">12 · Transformers & Large Language Models</a>
+      <a href="../modules/dimensionality-reduction.html" style="padding:4px 0;color:var(--ink-2)">13 · Dimensionality Reduction & Representation Learning</a>
+      <a href="../modules/svm-kernels.html" style="padding:4px 0;color:var(--ink-2)">14 · Support Vector Machines & Kernels</a>
+      <a href="../modules/reinforcement-learning.html" style="padding:4px 0;color:var(--ink-2)">15 · Reinforcement Learning</a>
+      <a href="../modules/interpretation.html" style="padding:4px 0;color:var(--ink-2)">16 · Model Interpretation & What Comes Next</a>
+    </div>
+  </div>
+</header>
+<main id="main" class="shell with-rail">
+<aside class="rail" aria-label="On this page">
+  <h4>06 · Deep learning</h4>
+  <ol>
+    <li><a href="#objectives">Learning objectives</a></li>
+    <li><a href="#intuition">1 · Intuition</a></li>
+    <li><a href="#math">2 · Mathematical foundations</a></li>
+    <li><a href="#labs">3 · Interactive visualizations</a></li>
+    <li><a href="#code">4 · Coding from scratch</a></li>
+    <li><a href="#assessment">5 · Assessment</a></li>
+    <li><a href="#project">6 · Portfolio project</a></li>
+  </ol>
+  <h4 style="margin-top:22px">All modules</h4>
+  <ol class="rail-sub">
+    <li><a href="foundations.html">01 What Machine Learning Actually Is</a></li>
+    <li><a href="knn-evaluation.html">02 Nearest Neighbours & Honest Evaluation</a></li>
+    <li><a href="linear-regression.html">03 Linear Models & Least Squares</a></li>
+    <li><a href="logistic-regression.html">04 Logistic Regression & Classification Loss</a></li>
+    <li><a href="regularization.html">05 Regularization, Bias–Variance & Model Selection</a></li>
+    <li><a href="neural-networks.html" style="color:var(--accent);font-weight:600">06 Artificial Neural Networks</a></li>
+    <li><a href="backpropagation.html">07 Backpropagation & Training Deep Networks</a></li>
+    <li><a href="trees-ensembles.html">08 Decision Trees, Bagging & Boosting</a></li>
+    <li><a href="clustering.html">09 Unsupervised Learning: Clustering</a></li>
+    <li><a href="cnns.html">10 Convolutional Neural Networks</a></li>
+    <li><a href="sequences.html">11 Sequences: RNNs, LSTMs & Attention</a></li>
+    <li><a href="transformers.html">12 Transformers & Large Language Models</a></li>
+    <li><a href="dimensionality-reduction.html">13 Dimensionality Reduction & Representation Learning</a></li>
+    <li><a href="svm-kernels.html">14 Support Vector Machines & Kernels</a></li>
+    <li><a href="reinforcement-learning.html">15 Reinforcement Learning</a></li>
+    <li><a href="interpretation.html">16 Model Interpretation & What Comes Next</a></li>
+  </ol>
+  <div style="margin-top:22px">
+    <button class="btn btn-sm" data-mark-complete type="button" style="width:100%;justify-content:center">Mark module complete</button>
+  </div>
+</aside>
+<article class="article">
+  <header>
+    <span class="kicker">Module 06 · Deep learning</span>
+    <h1>Artificial Neural Networks</h1>
+    <p class="lede">From the McCulloch–Pitts neuron to the multilayer perceptron: linear layers are affine maps, composition without activations collapses, and one hidden layer is a universal approximator.</p>
+    <div class="header-meta">
+      <span>📚 Source: Lecture Notes 3</span>
+      <span>⏱ 65 min</span>
+      <span>🧪 3 interactive labs</span>
+      <span>🐍 3 implementations</span>
+    </div>
+  </header>
+
+  <section class="block" id="objectives">
+    <h2><span class="secnum">◎</span> Learning objectives</h2>
+    <div class="card">
+      <p class="small muted" style="margin-top:0">By the end of this module you should be able to:</p>
+      <ul class="tight">
+      <li>Describe the perceptron update rule and explain why a single perceptron cannot solve XOR.</li>
+      <li>Show algebraically that stacking linear layers without activations is still a single linear layer.</li>
+      <li>Compare ReLU, sigmoid and tanh, and explain the vanishing-gradient problem of saturating activations.</li>
+      <li>State the universal approximation theorem and what it does *not* promise.</li>
+      <li>Choose architecture hyperparameters (width, depth, output activation, loss) for regression and classification.</li>
+      </ul>
+    </div>
+  </section>
+
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-bio">From brains to arithmetic</h3>
+  <p>
+    In 1848 the railroad worker Phineas Gage survived an iron rod passing through his brain — and his physician observed
+    specific personality changes afterwards. The case became evidence for <strong>cerebral localization</strong>: different
+    parts of the brain support different mental functions. But the deeper lesson for computing was different: no single neuron
+    is important. It is the <em>connections</em>, and the circuits they form, that perform tasks.
+  </p>
+  <p>
+    A biological neuron has dendrites that receive signals, a cell body that fires when enough input arrives, and an axon that
+    propagates the signal. Connectionist models borrow that vocabulary and nothing else:
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Year</th><th>Model</th><th>What it introduced</th></tr></thead>
+      <tbody>
+        <tr><td>1943</td><td>McCulloch–Pitts neuron</td><td>binary inputs, binary output, logical <em>and/or/not</em>: $o_1 = x_1 \wedge \neg x_2$</td></tr>
+        <tr><td>1957</td><td>Perceptron (Rosenblatt)</td><td>continuous inputs, weighted sum, threshold activation — plus a learning rule</td></tr>
+        <tr><td>1969</td><td>Minsky &amp; Papert</td><td>proof that a single perceptron cannot represent XOR</td></tr>
+        <tr><td>1986</td><td>Rumelhart, Hinton &amp; Williams</td><td>backpropagation for multilayer networks (module 07)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub" id="i-perceptron">The perceptron</h3>
+  <p>
+    A perceptron — also called a Threshold Logic Unit (TLU) — computes a weighted sum of continuous inputs and passes it
+    through a step activation:
+  </p>
+  <div class="formula">$$ o_1 = \sigma\!\left(\sum_{i=1}^{d} w_i x_i\right), \qquad \sigma \in \left\{ H(x) = \begin{cases}1 &amp; x \gt 0\\ 0 &amp; x \le 0\end{cases},\;\; \operatorname{sgn}(x)\right\} $$</div>
+  <p>Training is refreshingly direct. Initialise the weights to zero or at random, then for each training sample update:</p>
+  <div class="formula">$$ w^{\text{next}}_{i,j} = w_{i,j} + \eta\,(o_j - \hat{o}_j)\,x_i $$</div>
+  <p>
+    where $\eta$ is the <strong>learning rate</strong> and $(o_j - \hat{o}_j)$ is the error. If the prediction is correct the
+    update is zero; if it is too low the weights move toward the input; if too high, away from it. The perceptron
+    convergence theorem guarantees that this rule finds a separating hyperplane in finite time <em>if one exists</em>.
+  </p>
+
+  <h3 class="sub" id="i-xor">The XOR problem</h3>
+  <p>
+    A perceptron is a <strong>linear classifier</strong>: its decision boundary is the hyperplane $w^\top x = 0$. In 1969
+    Minsky and Papert showed that no such hyperplane separates XOR:
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>$x_1$</th><th>$x_2$</th><th>$y = x_1 \oplus x_2$</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>0</td><td>0</td></tr>
+        <tr><td>0</td><td>1</td><td>1</td></tr>
+        <tr><td>1</td><td>0</td><td>1</td></tr>
+        <tr><td>1</td><td>1</td><td>0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The two classes sit on opposite corners of the unit square. Any line that puts (0,1) and (1,0) on one side must also put
+    at least one of (0,0) or (1,1) there. Adding a hidden layer fixes it: the hidden layer <em>changes the representation</em>,
+    mapping the four points into a space where a single line does separate them. Lab 3 shows both spaces side by side, and the
+    right-hand plot is the important one — the network is not drawing a curved boundary, it is re-drawing the data.
+  </p>
+
+  <h3 class="sub" id="i-mlp">Multilayer perceptrons</h3>
+  <p>
+    An MLP extends multiple linear regression by inserting one or more <strong>hidden layers</strong>. With one hidden layer of
+    five units and a $4$-dimensional input:
+  </p>
+  <div class="formula">$$ H = XW^{(1)} + \mathbf{b}^{(1)}, \qquad O = HW^{(2)} + \mathbf{b}^{(2)} $$</div>
+  <p>
+    with $X\in\mathbb{R}^{N\times 4}$, $H\in\mathbb{R}^{N\times 5}$, $O\in\mathbb{R}^{N\times 3}$, $W^{(1)}\in\mathbb{R}^{4\times5}$,
+    $W^{(2)}\in\mathbb{R}^{5\times3}$. Information flows input → hidden → output with no feedback, so an MLP is a
+    <strong>feed-forward</strong> network: a directed acyclic graph. Biases are broadcast across the batch, i.e.
+    $A + \mathbf{b}$ adds $\mathbf{b}$ to every row.
+  </p>
+
+  <div class="callout trap">
+    <span class="label">The composition trap</span>
+    <p>
+      A network is a composition of functions, $f = f_2 \circ f_1$ with $f_1 = XW^{(1)} + B^{(1)}$ and
+      $f_2 = f_1W^{(2)} + B^{(2)}$. Without a non-linearity between them,
+      $$ O = (XW^{(1)} + B^{(1)})W^{(2)} + B^{(2)} = X\underbrace{W^{(1)}W^{(2)}}_{W} + \underbrace{B^{(1)}W^{(2)} + B^{(2)}}_{B}, $$
+      which is <em>still a single linear model</em>. Depth without activation buys nothing at all — the whole network collapses
+      into one matrix. This is why the activation function is not a detail.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-act">Activation functions</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Name</th><th>$\sigma(x)$</th><th>Range</th><th>Derivative</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>ReLU</td><td>$\max(x,0)$</td><td>$[0,\infty)$</td><td>$1$ if $x\gt0$ else $0$</td><td>default choice; no saturation for $x\gt0$</td></tr>
+        <tr><td>Sigmoid</td><td>$(1+e^{-x})^{-1}$</td><td>$(0,1)$</td><td>$\sigma(1-\sigma) \le 0.25$</td><td>historically favoured (biological); saturates</td></tr>
+        <tr><td>tanh</td><td>$\frac{e^x - e^{-x}}{e^x + e^{-x}}$</td><td>$(-1,1)$</td><td>$1-\tanh^2 \le 1$</td><td>zero-centred version of sigmoid</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The choice affects <em>representation</em> hardly at all (see the universal approximation theorem below) but affects
+    <em>trainability</em> enormously. A sigmoid's derivative is at most $0.25$, so a gradient backpropagated through $L$ such
+    layers is multiplied by at most $0.25^L$ — after ten layers that is $10^{-6}$. This is the
+    <strong>vanishing gradient</strong> problem, and it is the main reason ReLU displaced sigmoid in hidden layers. The
+    opposite failure, gradients growing without bound, is the <strong>exploding gradient</strong> problem. ReLU is not
+    differentiable at zero; by convention its derivative there is set to $0$.
+  </p>
+
+  <h3 class="sub" id="i-universal">Universal approximation</h3>
+  <p>
+    Cybenko (1989) showed that an MLP with a <em>single</em> hidden layer of arbitrary width can represent any continuous
+    real-valued function on a compact domain. Hornik (1991) showed the choice of activation does not affect this capability.
+    Lu et al. (2017) showed the same for fixed width and arbitrary depth. Three cautions:
+  </p>
+  <ul>
+    <li><strong>Represent ≠ learn.</strong> The theorem says a good set of weights exists; it says nothing about whether gradient descent will find it, how much data is needed, or how well the network generalizes.</li>
+    <li><strong>Width is unbounded</strong> in the theorem. The guarantee is asymptotic, and the required width can be astronomical.</li>
+    <li><strong>Differentiability is needed for training</strong>, which is a separate requirement from representability.</li>
+  </ul>
+
+  <h3 class="sub" id="i-arch">Architecture choices</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Hyperparameter</th><th>Regression</th><th>Binary classification</th><th>Multi-class</th></tr></thead>
+      <tbody>
+        <tr><td>Input neurons</td><td>one per feature</td><td>one per feature</td><td>one per feature</td></tr>
+        <tr><td>Hidden layers</td><td>1–5 typical</td><td>same</td><td>same</td></tr>
+        <tr><td>Hidden neurons</td><td>10–100 common</td><td>same</td><td>same</td></tr>
+        <tr><td>Output neurons</td><td>one per predicted dimension</td><td>1</td><td>1 per class</td></tr>
+        <tr><td>Output activation</td><td>none / ReLU / tanh</td><td>logistic</td><td>softmax</td></tr>
+        <tr><td>Loss</td><td>MSE or MAE</td><td>binary cross-entropy</td><td>cross-entropy ($k$ classes)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Tabular · the strong baseline</span>
+      <h4>An MLP on tabular data</h4>
+      <p>A 2–3 layer MLP with ReLU, dropout and standardized inputs is still the default deep baseline for tabular problems — and it is the model that gradient-boosted trees usually have to beat.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Vision · the trunk of every CNN</span>
+      <h4>Fully connected heads</h4>
+      <p>LeNet ends in two dense layers; AlexNet ends in three. The convolutional stack is a learned feature extractor feeding a small MLP.</p>
+    </div>
+    <div class="example">
+      <span class="tag">NLP · the feed-forward block</span>
+      <h4>Transformers are mostly MLPs</h4>
+      <p>Each transformer block contains a two-layer MLP applied to every token position, plus attention. Two thirds of the parameters of a large language model are in these MLPs.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Science · surrogate models</span>
+      <h4>AlphaFold and friends</h4>
+      <p>Protein structure prediction, weather emulation and materials screening all use deep networks as fast surrogates for expensive simulations — an MLP is often the final prediction head.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Control · function approximation</span>
+      <h4>Deep reinforcement learning</h4>
+      <p>Module 15 replaces the Q-table with a network $Q_\theta(s,a)$; the universal approximation property is what makes continuous state spaces tractable.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Representation · transfer</span>
+      <h4>Frozen embeddings</h4>
+      <p>The hidden layer of a trained network is a representation you can reuse: strip the output layer, freeze the rest, and train a small head on a new task (module 13).</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-layers">2.1 Layers as affine maps, networks as compositions</h3>
+  <p>
+    A layer is an affine map $f_\ell(\mathbf{h}) = \sigma_\ell(W^{(\ell)}\mathbf{h} + \mathbf{b}^{(\ell)})$. Stacking $L$ layers gives
+  </p>
+  <div class="formula">$$ f(\mathbf{x}) = f_L \circ f_{L-1} \circ \cdots \circ f_1(\mathbf{x}) $$</div>
+  <p>
+    and each $W^{(\ell)}\in\mathbb{R}^{n_\ell\times n_{\ell-1}}$. Counting parameters for a 4→5→3 network:
+    $W^{(1)}$ has $4\cdot5=20$, $\mathbf{b}^{(1)}$ has $5$, $W^{(2)}$ has $5\cdot3=15$, $\mathbf{b}^{(2)}$ has $3$: 43 total.
+  </p>
+
+  <details class="steps" open>
+    <summary>Proof — without a non-linearity, depth collapses to a single layer</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Two linear layers: $f_1(\mathbf{x}) = W^{(1)}\mathbf{x} + \mathbf{b}^{(1)}$ and $f_2(\mathbf{h}) = W^{(2)}\mathbf{h} + \mathbf{b}^{(2)}$.</li>
+        <li>Compose:
+          $$ f_2(f_1(\mathbf{x})) = W^{(2)}\big(W^{(1)}\mathbf{x} + \mathbf{b}^{(1)}\big) + \mathbf{b}^{(2)} = \big(W^{(2)}W^{(1)}\big)\mathbf{x} + \big(W^{(2)}\mathbf{b}^{(1)} + \mathbf{b}^{(2)}\big). $$
+        </li>
+        <li>Define $W = W^{(2)}W^{(1)}$ and $\mathbf{b} = W^{(2)}\mathbf{b}^{(1)} + \mathbf{b}^{(2)}$. Then $f(\mathbf{x}) = W\mathbf{x} + \mathbf{b}$ — a single affine map. By induction the same holds for any depth. <span class="qed">∎</span></li>
+        <li><span class="why">Consequence: the set of functions representable by a stack of linear layers is exactly the set representable by one linear layer. Non-linearity is what expands the hypothesis class.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-perceptron">2.2 Why the perceptron rule works (when it can)</h3>
+  <details class="steps">
+    <summary>Sketch — the perceptron convergence theorem</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Assume the data is linearly separable with margin $\gamma \gt 0$: there exists $\mathbf{w}^\*$ with $\|\mathbf{w}^\*\|=1$ and $y_i(\mathbf{w}^{*\top}\mathbf{x}_i) \ge \gamma$ for all $i$, where $y_i \in \{-1,+1\}$.</li>
+        <li>Each update happens only on a mistake, so $\mathbf{w}_{t+1} = \mathbf{w}_t + y_i\mathbf{x}_i$ with $y_i\mathbf{w}_t^\top\mathbf{x}_i \le 0$.</li>
+        <li><strong>Lower bound on progress:</strong> $\mathbf{w}^\*{}^\top\mathbf{w}_{t+1} = \mathbf{w}^{*\top}\mathbf{w}_t + y_i\mathbf{w}^{*\top}\mathbf{x}_i \ge \mathbf{w}^{*\top}\mathbf{w}_t + \gamma$, so after $M$ mistakes $\mathbf{w}^{*\top}\mathbf{w}_M \ge M\gamma$.</li>
+        <li><strong>Upper bound on growth:</strong> $\|\mathbf{w}_{t+1}\|^2 = \|\mathbf{w}_t\|^2 + 2y_i\mathbf{w}_t^\top\mathbf{x}_i + \|\mathbf{x}_i\|^2 \le \|\mathbf{w}_t\|^2 + R^2$ where $R = \max_i\|\mathbf{x}_i\|$, so $\|\mathbf{w}_M\| \le R\sqrt{M}$.</li>
+        <li>Combine with Cauchy–Schwarz, $\mathbf{w}^{*\top}\mathbf{w}_M \le \|\mathbf{w}_M\|$:
+          $$ M\gamma \le R\sqrt{M} \;\Longrightarrow\; M \le \left(\frac{R}{\gamma}\right)^2. $$
+        </li>
+        <li><span class="qed">∎</span> The number of mistakes is finite and bounded by $(R/\gamma)^2$ — the margin controls the difficulty. If the data is <em>not</em> separable, $\gamma = 0$ and the bound is vacuous: the algorithm never converges.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-vanish">2.3 Why sigmoid depth destroys gradients</h3>
+  <details class="steps">
+    <summary>Derivation — the gradient is a product of Jacobians</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>By the multivariate chain rule, the gradient of the loss with respect to the first layer's weights is
+          $$ \frac{\partial L}{\partial W^{(1)}} = \frac{\partial L}{\partial \mathbf{h}_L}\cdot\frac{\partial \mathbf{h}_L}{\partial \mathbf{h}_{L-1}}\cdots\frac{\partial \mathbf{h}_2}{\partial \mathbf{h}_1}\cdot\frac{\partial \mathbf{h}_1}{\partial W^{(1)}}. $$
+        </li>
+        <li>For element-wise activations, each factor $\frac{\partial \mathbf{h}_{\ell+1}}{\partial \mathbf{h}_\ell}$ has the form
+          $\mathrm{diag}\big(\sigma'(\mathbf{z}_\ell)\big)W^{(\ell)}$, so its norm is bounded by
+          $\max|\sigma'|\cdot\|W^{(\ell)}\|$.</li>
+        <li>For the sigmoid, $\max|\sigma'| = 0.25$; for tanh, $1$; for ReLU, $1$ (on the active half). Hence
+          $$ \left\|\frac{\partial L}{\partial W^{(1)}}\right\| \le \left\|\frac{\partial L}{\partial \mathbf{h}_L}\right\|\prod_{\ell=1}^{L-1}\big(0.25\,\|W^{(\ell)}\|\big). $$
+        </li>
+        <li>If $\|W^{(\ell)}\| \approx 1$, the product decays like $0.25^L$: vanishing. If $\|W^{(\ell)}\| \gt 4$, it grows like $(0.25\|W\|)^L$: exploding. <span class="qed">∎</span></li>
+        <li><span class="why">ReLU keeps the factor at 1 for active units, so the product neither shrinks nor grows systematically. Module 07 fixes the remaining issues with careful initialisation, normalisation, residual connections and adaptive optimisers.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-approx">2.4 What the universal approximation theorem actually says</h3>
+  <p>
+    Cybenko's theorem: let $\sigma$ be a continuous, bounded, non-constant activation. Then the set of functions of the form
+  </p>
+  <div class="formula">$$ g(\mathbf{x}) = \sum_{j=1}^{M} \alpha_j\,\sigma\big(\mathbf{w}_j^\top\mathbf{x} + b_j\big) $$</div>
+  <p>
+    is dense in $C([0,1]^d)$ with respect to the supremum norm: for every continuous $f$ and every $\epsilon \gt 0$ there exist
+    $M$ and parameters with $\sup_{\mathbf{x}}|f(\mathbf{x}) - g(\mathbf{x})| \lt \epsilon$.
+  </p>
+  <div class="callout">
+    <span class="label">Reading the quantifiers carefully</span>
+    <p>
+      "Dense" is an existence statement over parameters, and $M$ is not bounded. The theorem therefore explains
+      <em>why neural networks are worth trying</em> but not <em>why they work in practice</em> — that is a question about
+      optimisation, data, and inductive bias, and it is still an active research topic.
+    </p>
+  </div>
+
+  <h3 class="sub" id="m-init">2.5 A note on initialisation</h3>
+  <p>
+    If all weights start at zero, every hidden unit computes the same thing and receives the same gradient — symmetry is never
+    broken and the network behaves like a single neuron. Small random initialisation breaks the symmetry, but the scale
+    matters: too small and activations shrink layer by layer; too large and they saturate. Module 07 derives the Xavier/He
+    scaling rules that keep variance constant across layers.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-perceptron">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · the perceptron</span><h4>The 1957 learning rule, live</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Points with a black ring are currently misclassified. Press <strong>Train 1 epoch</strong> and watch the boundary rotate: each mistake nudges the weight vector (amber arrow) toward or away from the offending point, and the boundary is always perpendicular to it.</p>
+      <p>The error count must reach zero because this data is separable — that is the convergence theorem. Then drag the learning rate to $0.01$: the same solution, many more epochs. The theorem promises convergence, not speed.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-activations">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · activations</span><h4>Activation, derivative, and depth</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Drag the vertical cursor to choose a pre-activation value $x$. The lower plot shows what happens to a gradient as it is multiplied by $\sigma'(x)$ once per layer.</p>
+      <p>With the sigmoid and $x=1.2$, the per-layer factor is about $0.18$: after twelve layers the gradient has shrunk by $10^{-9}$ — the first layers learn essentially nothing. Move to $x=0$ and it is $0.25$ per layer, still catastrophic. Switch to ReLU: the factor is either 1 or 0, so depth costs nothing (at the price of dead units). This is the single most important practical fact in this module.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-xor">
+    <div class="lab-head"><span class="lab-tag">Lab 3 · hidden layers</span><h4>XOR, solved by a change of representation</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Left: the input space, with the four XOR points. No straight line can separate them — Minsky and Papert's point. Right: the same four points plotted in the hidden layer's coordinates $(h_1,h_2)$, where a single line now separates the classes.</p>
+      <p>Press <strong>Train</strong>. The network is not learning a curved boundary; it is learning a <em>re-representation</em> in which the problem becomes linear. Set the hidden units to 1 and train again: it can never solve XOR, because one hidden unit gives a one-dimensional representation. Two is the minimum, and that is exactly the classic 2-2-1 solution.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">scikit-learn</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 06 — perceptron and a tiny MLP from scratch (forward pass + perceptron rule)."""
+import random
+
+
+def step(x):
+    return 1 if x &gt; 0 else 0
+
+
+def sign(x):
+    return 1 if x &gt; 0 else (-1 if x &lt; 0 else 0)
+
+
+class Perceptron:
+    """Rosenblatt's 1957 rule: w += eta * (o - o_hat) * x"""
+
+    def __init__(self, n_features, lr=0.1, seed=0):
+        rng = random.Random(seed)
+        self.w = [rng.uniform(-0.1, 0.1) for _ in range(n_features)]
+        self.b = 0.0
+        self.lr = lr
+
+    def predict(self, x):
+        return sign(sum(wi * xi for wi, xi in zip(self.w, x)) + self.b)
+
+    def fit(self, X, y, epochs=100):
+        for _ in range(epochs):
+            errors = 0
+            for xi, ti in zip(X, y):
+                o = self.predict(xi)
+                if o != ti:
+                    self.w = [wj + self.lr * (ti - o) * xj for wj, xj in zip(self.w, xi)]
+                    self.b += self.lr * (ti - o)
+                    errors += 1
+            if errors == 0:
+                break
+        return self
+
+
+class MLP:
+    """One hidden layer, tanh, sigmoid output; forward pass + gradients by hand."""
+
+    def __init__(self, n_in, n_hidden, seed=0):
+        rng = random.Random(seed)
+        self.W1 = [[rng.gauss(0, 1) for _ in range(n_in)] for _ in range(n_hidden)]
+        self.b1 = [0.0] * n_hidden
+        self.W2 = [rng.gauss(0, 1) for _ in range(n_hidden)]
+        self.b2 = 0.0
+
+    def forward(self, x):
+        h = []
+        for row, bj in zip(self.W1, self.b1):
+            z = sum(w * xi for w, xi in zip(row, x)) + bj
+            h.append((z, (2.0 / (1 + pow(2.718281828, -2 * z))) - 1))  # tanh
+        z2 = sum(w * hv for w, (_, hv) in zip(self.W2, h)) + self.b2
+        p = 1.0 / (1.0 + pow(2.718281828, -z2))
+        return h, z2, p
+
+    def fit(self, X, y, epochs=2000, lr=0.5):
+        for _ in range(epochs):
+            for xi, ti in zip(X, y):
+                h, z2, p = self.forward(xi)
+                dz = p - ti                                   # dL/dz2 for BCE + sigmoid
+                dW2 = [dz * hv for _, hv in h]
+                dpre = [dz * w * (1 - hv * hv) for w, (_, hv) in zip(self.W2, h)]
+                self.W2 = [w - lr * g for w, g in zip(self.W2, dW2)]
+                self.b2 -= lr * dz
+                self.W1 = [[w - lr * g * xj for w, xj in zip(row, xi)] for row, g in zip(self.W1, dpre)]
+                self.b1 = [b - lr * g for b, g in zip(self.b1, dpre)]
+        return self
+
+    def predict(self, x):
+        return 1 if self.forward(x)[2] &gt;= 0.5 else 0
+
+
+if __name__ == "__main__":
+    X = [[0, 0], [0, 1], [1, 0], [1, 1]]
+    xor = [0, 1, 1, 0]
+
+    p = Perceptron(2).fit(X, [1 if v else -1 for v in xor], epochs=50)
+    print("perceptron on XOR:", [p.predict(x) for x in X], "<- fails")
+
+    mlp = MLP(2, 4, seed=3).fit(X, xor, epochs=4000)
+    print("MLP on XOR:       ", [mlp.predict(x) for x in X], "<- succeeds")
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 06 — an MLP in NumPy: layers, activations, forward pass, param counts."""
+import numpy as np
+
+ACTIVATIONS = {
+    "relu": (lambda z: np.maximum(z, 0), lambda z: (z &gt; 0).astype(float)),
+    "tanh": (np.tanh, lambda z: 1 - np.tanh(z) ** 2),
+    "sigmoid": (lambda z: 1 / (1 + np.exp(-z)), lambda z: (1 / (1 + np.exp(-z))) * (1 - 1 / (1 + np.exp(-z)))),
+    "linear": (lambda z: z, lambda z: np.ones_like(z)),
+}
+
+
+def init_layer(n_in, n_out, scheme="he", rng=None):
+    rng = rng or np.random.default_rng(0)
+    if scheme == "he":            # good for ReLU
+        std = np.sqrt(2.0 / n_in)
+    elif scheme == "xavier":      # good for tanh / sigmoid
+        std = np.sqrt(1.0 / n_in)
+    else:                          # the classic mistake
+        std = 0.01
+    return rng.normal(0, std, (n_in, n_out)), np.zeros(n_out)
+
+
+def forward(X, params, act="relu", out_act="sigmoid"):
+    """params = [(W1,b1), (W2,b2), ...]; returns output and the cache for backprop."""
+    cache = []
+    A = np.asarray(X, float)
+    for i, (W, b) in enumerate(params):
+        Z = A @ W + b
+        last = i == len(params) - 1
+        f = ACTIVATIONS[out_act if last else act][0]
+        A = f(Z)
+        cache.append((Z, A))
+    return A, cache
+
+
+def count_parameters(params):
+    return sum(W.size + b.size for W, b in params)
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(8, 4))
+    params = [init_layer(4, 5, "he", rng), init_layer(5, 3, "he", rng)]
+
+    out, _ = forward(X, params, act="relu", out_act="linear")
+    print("output shape:", out.shape)                     # (8, 3)
+    print("parameters  :", count_parameters(params))       # 4*5+5 + 5*3+3 = 43
+
+    # The composition trap: two linear layers = one linear layer.
+    W1, b1 = init_layer(4, 5, "xavier", rng)
+    W2, b2 = init_layer(5, 3, "xavier", rng)
+    linear_two, _ = forward(X, [(W1, b1), (W2, b2)], act="linear", out_act="linear")
+    linear_one, _ = forward(X, [(W1 @ W2, b1 @ W2 + b2)], act="linear", out_act="linear")
+    print("max difference:", np.abs(linear_two - linear_one).max())   # ~1e-16
+
+    # Activation ranges on a wide input
+    z = np.array([[-5.0, -1.0, 0.0, 1.0, 5.0]])
+    for name in ("relu", "tanh", "sigmoid"):
+        f, d = ACTIVATIONS[name]
+        print(f"{name:8s} f={np.round(f(z), 3)}  f'={np.round(d(z), 3)}")
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 06 — the production baseline: MLPClassifier on tabular data."""
+import numpy as np
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
+from sklearn.neural_network import MLPClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_breast_cancer(return_X_y=True)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, stratify=y, random_state=0)
+
+# Scaling matters more for neural nets than for trees: it conditions the optimisation.
+mlp = make_pipeline(
+    StandardScaler(),
+    MLPClassifier(
+        hidden_layer_sizes=(32, 16),   # two hidden layers
+        activation="relu",
+        solver="adam",
+        alpha=1e-3,                    # L2 penalty
+        learning_rate_init=1e-3,
+        max_iter=2000,
+        early_stopping=True,           # holds out 10% for validation
+        random_state=0,
+    ),
+)
+mlp.fit(X_tr, y_tr)
+print("test accuracy:", round(mlp.score(X_te, y_te), 4))
+print("epochs run   :", mlp[-1].n_iter_)
+print("loss curve   :", [round(v, 3) for v in mlp[-1].loss_curve_[:5]], "...")
+
+# Architecture search: width and depth vs. performance
+cv = StratifiedKFold(5, shuffle=True, random_state=0)
+grid = {
+    "mlpclassifier__hidden_layer_sizes": [(16,), (64,), (32, 16), (64, 32, 16)],
+    "mlpclassifier__alpha": [1e-4, 1e-2],
+}
+search = GridSearchCV(mlp, grid, cv=cv, scoring="roc_auc", n_jobs=-1)
+search.fit(X_tr, y_tr)
+print("\nbest architecture:", search.best_params_)
+print("best CV AUC      :", round(search.best_score_, 4))
+
+# Compare against logistic regression: on small tabular data the gap is often small.
+lr = make_pipeline(StandardScaler(), LogisticRegression(max_iter=2000)).fit(X_tr, y_tr)
+print("logistic AUC     :", round(roc_auc_score(y_te, lr.predict_proba(X_te)[:, 1]), 4))
+print("MLP AUC          :", round(roc_auc_score(y_te, mlp.predict_proba(X_te)[:, 1]), 4))
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block proves the composition trap numerically: a two-linear-layer network and its collapsed single-layer
+      equivalent agree to machine precision. That is why <code>act="relu"</code> is not optional.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="06">
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>A network has 4 inputs, one hidden layer of 5 units, and 3 outputs, all fully connected. How many parameters (weights + biases)?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>35</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>43</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>60</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>47</span></button></li>
+      </ul>
+      <div class="explain"><p>$4\cdot5+5 = 25$ for layer 1, $5\cdot3+3 = 18$ for layer 2, total 43.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>What happens if you stack five linear layers with no activation functions?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>You get a degree-5 polynomial</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>You get a more expressive model than one linear layer</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>It is mathematically identical to a single linear layer</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The gradients vanish</span></button></li>
+      </ul>
+      <div class="explain"><p>$(W_5\cdots W_1)\mathbf{x} + \mathbf{b}'$ — a product of matrices is a matrix. Non-linearity is what expands the hypothesis class.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>Why is a single perceptron unable to learn XOR?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>XOR has too few samples</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>The learning rate cannot be tuned</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>The step activation is not differentiable</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>XOR is not linearly separable, and a perceptron can only draw a hyperplane</span></button></li>
+      </ul>
+      <div class="explain"><p>The classes sit on opposite corners of the unit square; every line fails on at least one point. A hidden layer re-represents the data so that it becomes separable.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>A gradient is backpropagated through 12 sigmoid layers, each with $\sigma'(z)\approx0.2$. What is the effect on the first layer's gradient?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>It is multiplied by about $0.2^{12}\approx4\times10^{-9}$: the layer barely learns</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>It is unchanged</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>It is multiplied by about $0.2\times12$</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>It grows by $1/0.2$ per layer</span></button></li>
+      </ul>
+      <div class="explain"><p>Gradients compose multiplicatively through layers, so a per-layer factor below 1 compounds exponentially — the vanishing-gradient problem. ReLU keeps the factor at 1 for active units.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>The universal approximation theorem guarantees that:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Gradient descent will find the optimal weights</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Some sufficiently wide single-hidden-layer network can approximate any continuous function arbitrarily well</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>The network will generalize from few samples</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Depth is unnecessary</span></button></li>
+      </ul>
+      <div class="explain"><p>It is an existence statement about representability, with unbounded width. It says nothing about optimisation, sample complexity or generalisation.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Perceptron update</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$w_{i,j} \leftarrow w_{i,j} + \eta(o_j - \hat o_j)x_i$: move the weights only when the prediction is wrong, by an amount proportional to the error and the input.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Feed-forward network</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">A directed acyclic graph of layers: information flows input → output with no feedback. MLPs and CNNs are feed-forward; RNNs are not.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Hidden layer</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">A layer whose output is not observed. Its job is to re-represent the input so that the final linear layer can solve the task.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">ReLU</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\max(x,0)$. Cheap, non-saturating for positive inputs, derivative 1 or 0. The default hidden activation; derivative at 0 defined as 0.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Vanishing gradient</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Gradients multiplied by factors below 1 at every layer decay exponentially with depth. Caused by saturating activations; fixed by ReLU, normalisation, residual connections and good initialisation.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Exploding gradient</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">The same product grows without bound, producing numerical overflow and unstable training. Fixed by gradient clipping (module 11) and careful initialisation.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Universal approximation</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Cybenko (1989): a single hidden layer of arbitrary width can approximate any continuous function on a compact domain to any accuracy. An existence result, not a training guarantee.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Symmetry breaking</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Why weights must be initialised randomly: with all-zero weights every hidden unit computes the same value and receives the same gradient, so the network never differentiates its units.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Show that two hidden units solve XOR</h4></div>
+    <p>Using step activations, find weights and biases for a 2-2-1 network that computes $x_1 \oplus x_2$. Verify on all four inputs.</p>
+    <button class="btn btn-sm" data-reveal="sol-06-1" type="button">Show solution</button>
+    <div id="sol-06-1" class="solution" hidden>
+      <p>Let $h_1 = H(x_1 + x_2 - 0.5)$ (fires if <em>at least one</em> input is 1) and $h_2 = H(x_1 + x_2 - 1.5)$ (fires only if <em>both</em> are 1). Then output $= H(h_1 - 2h_2 - 0.5)$.</p>
+      <div class="table-wrap"><table class="data"><thead><tr><th>$x_1$</th><th>$x_2$</th><th>$h_1$</th><th>$h_2$</th><th>$h_1 - 2h_2 - 0.5$</th><th>out</th></tr></thead><tbody>
+        <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>-0.5</td><td>0</td></tr>
+        <tr><td>0</td><td>1</td><td>1</td><td>0</td><td>0.5</td><td>1</td></tr>
+        <tr><td>1</td><td>0</td><td>1</td><td>0</td><td>0.5</td><td>1</td></tr>
+        <tr><td>1</td><td>1</td><td>1</td><td>1</td><td>-1.5</td><td>0</td></tr>
+      </tbody></table></div>
+      <p>The hidden layer computes (OR, AND) — a two-dimensional representation in which the classes are linearly separable.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Derive the vanishing-gradient bound</h4></div>
+    <p>For an $L$-hidden-layer network with sigmoid activations and weight matrices of spectral norm at most 1, bound the norm of $\partial L/\partial W^{(1)}$ in terms of the output gradient and $L$.</p>
+    <button class="btn btn-sm" data-reveal="sol-06-2" type="button">Show solution</button>
+    <div id="sol-06-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>Each layer contributes $\mathrm{diag}(\sigma'(\mathbf{z}_\ell))W^{(\ell)}$, with spectral norm at most $\max|\sigma'|\cdot\|W^{(\ell)}\|_2 \le 0.25$.</li>
+        <li>Norms of products are at most the product of norms, so
+          $$ \left\|\frac{\partial L}{\partial W^{(1)}}\right\| \le \left\|\frac{\partial L}{\partial \mathbf{h}_L}\right\|\cdot 0.25^{L-1}. $$
+        </li>
+        <li>For $L=20$ this is $0.25^{19} \approx 3.6\times10^{-12}$: the first layer's gradient is numerically zero in float32. <span class="qed">∎</span></li>
+        <li><span class="why">The bound is worst-case, but in practice saturating units make it realistic: sigmoid networks deeper than about 5 layers were essentially untrainable before ReLU and normalisation.</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Perceptron convergence bound</h4></div>
+    <p>Prove that if the data is linearly separable with margin $\gamma$ and all inputs satisfy $\|\mathbf{x}_i\|\le R$, the perceptron makes at most $(R/\gamma)^2$ mistakes.</p>
+    <button class="btn btn-sm" data-reveal="sol-06-3" type="button">Show solution</button>
+    <div id="sol-06-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>Normalise so that $\|\mathbf{w}^\*\| = 1$ and $y_i\langle\mathbf{w}^\*,\mathbf{x}_i\rangle \ge \gamma$.</li>
+        <li>Progress: on each mistake $\langle\mathbf{w}^\*,\mathbf{w}_{t+1}\rangle = \langle\mathbf{w}^\*,\mathbf{w}_t\rangle + y_i\langle\mathbf{w}^\*,\mathbf{x}_i\rangle \ge \langle\mathbf{w}^\*,\mathbf{w}_t\rangle + \gamma$, so after $M$ mistakes $\langle\mathbf{w}^\*,\mathbf{w}_M\rangle \ge M\gamma$.</li>
+        <li>Growth: $\|\mathbf{w}_{t+1}\|^2 \le \|\mathbf{w}_t\|^2 + \|\mathbf{x}_i\|^2 \le \|\mathbf{w}_t\|^2 + R^2$ (the cross term is non-positive on a mistake), so $\|\mathbf{w}_M\|\le R\sqrt{M}$.</li>
+        <li>Cauchy–Schwarz: $M\gamma \le \langle\mathbf{w}^\*,\mathbf{w}_M\rangle \le \|\mathbf{w}_M\| \le R\sqrt{M}$, hence $M \le (R/\gamma)^2$. <span class="qed">∎</span></li>
+        <li><span class="why">Interpretation: the bound depends on the margin, not on the dimension — but it grows quadratically as the margin shrinks, which is why nearly-inseparable data is slow.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 06</span>
+    <h3>Build an MLP and prove it should exist</h3>
+    <p>Implement a multilayer perceptron from scratch, then use it to answer an experimental question about architecture rather than just to fit a dataset.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Implement a configurable MLP (any depth/width, ReLU/tanh/sigmoid, MSE or cross-entropy) with manual forward and backward passes.</li>
+      <li>Verify the backward pass with a numerical gradient check (central differences) — report the maximum relative error.</li>
+      <li>Reproduce the composition trap: train a 2-layer linear network and a 1-layer linear network on the same data and show identical decision boundaries.</li>
+      <li>Run a depth sweep (1–6 hidden layers) with sigmoid versus ReLU and plot training loss curves. Explain the difference using the product-of-Jacobians argument.</li>
+      <li>Fit XOR, then two-moons, then a real tabular dataset; report where the MLP beats logistic regression and where it does not.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li><code>mlp.py</code> with gradient-checked backward pass</li>
+      <li>Figure: loss curves for sigmoid vs. ReLU at each depth</li>
+      <li>Short report with the composition-trap experiment and the XOR verification table</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Correctness</td><td>Gradient check passes to $10^{-6}$ relative error for every parameter</td><td>30</td></tr>
+        <tr><td>Experiments</td><td>Depth/activation sweep with clear, correctly labelled plots</td><td>30</td></tr>
+        <tr><td>Explanation</td><td>Vanishing gradients demonstrated <em>and</em> explained analytically</td><td>25</td></tr>
+        <tr><td>Honesty</td><td>States where the MLP loses to a linear model and why</td><td>15</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Add momentum to your SGD and show the loss curves change shape.</li>
+      <li>Implement the softmax output layer and train a 10-class classifier on a digits dataset.</li>
+      <li>Plot the hidden-layer representation of two-moons before and after training, as in lab 3.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/06-mlp-from-scratch/</code>.</p>
+  </div>
+</section>
+
+
+  <nav class="pager" aria-label="Module navigation">
+  <a class="prev" href="regularization.html"><span>← Previous</span><b>05 · Regularization, Bias–Variance & Model Selection</b></a>
+  <a class="next" href="backpropagation.html"><span>Next →</span><b>07 · Backpropagation & Training Deep Networks</b></a>
+</nav>
+</article>
+</main>
+<footer class="site">
+  <div class="shell">
+    <div>
+      <strong>ML from First Principles</strong><br />
+      An interactive, open-source companion to CSC 74020 (Machine Learning), Fall 2025, taught by Prof. Jonathan Gryak at the CUNY Graduate Center.
+    </div>
+    <div>
+      <a href="../index.html">Home</a> ·
+      <a href="../index.html#curriculum">Curriculum</a> ·
+      <a href="../index.html#python">Python library</a> ·
+      <a href="../index.html#sources">Sources</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

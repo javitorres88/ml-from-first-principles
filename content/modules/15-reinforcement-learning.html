@@ -1,0 +1,786 @@
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-mdp">Learning from reward instead of labels</h3>
+  <p>
+    Supervised learning needs a teacher who knows the right answer for every input. Reinforcement learning (RL) replaces the
+    teacher with a <strong>scalar reward</strong> delivered after acting. The agent must discover, by trial and error, which
+    actions lead to good outcomes — the way you learn to walk, drive or play a sport.
+  </p>
+  <p>
+    The formal setting is a <strong>Markov decision process</strong> (MDP), defined by:
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Element</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>States $s\in S$</td><td>everything the agent needs to know about the world</td></tr>
+        <tr><td>Actions $a\in A$ (or $A(s)$)</td><td>what the agent can do</td></tr>
+        <tr><td>Transition model $T(s,a,s') = \Pr(s'\mid s,a)$</td><td>the dynamics — possibly stochastic</td></tr>
+        <tr><td>Reward $R(s,a,s')$</td><td>the immediate payoff, sometimes written $R(s)$ or $R(s')$</td></tr>
+        <tr><td>Start state, terminal states</td><td>where episodes begin and end</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>"Markov"</strong> means the future is independent of the past given the present: action outcomes depend only on the
+    current state. That assumption is what makes the whole formalism tractable — the state is a sufficient statistic for
+    everything that matters.
+  </p>
+  <p>
+    The running example is a <strong>grid world</strong>: an agent moves in a maze, walls block it, movement is noisy (80% of the
+    time an action succeeds, 10% each it slips sideways), there is a small living reward each step and a large terminal reward.
+    The goal is to maximise the sum of rewards — the <strong>utility</strong> — over time.
+  </p>
+
+  <h3 class="sub" id="i-policy">Policies and values</h3>
+  <p>
+    A <strong>policy</strong> $\pi: S\to A$ specifies an action for every state. The optimal policy $\pi^\*$ maximises expected
+    utility, and which policy is optimal depends on the transition probabilities and the rewards — change the living reward and
+    the agent's willingness to dawdle changes with it.
+  </p>
+  <p>Two quantities capture optimality. The <strong>value</strong> of a state is the expected discounted return from it:</p>
+  <div class="formula">$$ V^\*(s) = \max_{a}\;\sum_{s'}T(s,a,s')\Big[R(s,a,s') + \gamma V^\*(s')\Big] $$</div>
+  <p>and the <strong>Q-value</strong> is the same quantity after committing to a specific first action:</p>
+  <div class="formula">$$ Q^\*(s,a) = \sum_{s'}T(s,a,s')\Big[R(s,a,s') + \gamma\max_{a'}Q^\*(s',a')\Big] $$</div>
+  <p>
+    The discount factor $\gamma\in[0,1)$ makes distant rewards count less, keeps the sum finite for infinite horizons, and
+    encodes impatience. These two equations are the <strong>Bellman equations</strong>: a one-step lookahead relationship that
+    characterises the optimal values, and the foundation of everything that follows.
+  </p>
+
+  <h3 class="sub" id="i-solving">Two ways to solve a known MDP</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Method</th><th>Procedure</th><th>Character</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Value iteration</strong></td><td>initialise $V=0$; repeatedly apply the Bellman update to every state until $V$ converges; then read off $\pi^\*(s)=\arg\max_a Q(s,a)$</td><td>simple, each sweep is one Bellman backup</td></tr>
+        <tr><td><strong>Policy iteration</strong></td><td>start with a policy; evaluate its values; improve it greedily; repeat until the policy stops changing</td><td>usually converges in fewer iterations, each one more expensive</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Both require knowing $T$ and $R$. <strong>Reinforcement learning</strong> is the case where they are unknown: you must act to
+    find out. That introduces the tension at the heart of the field.
+  </p>
+
+  <h3 class="sub" id="i-explore">Exploration versus exploitation</h3>
+  <ul>
+    <li><strong>Exploration</strong> — try unknown actions to gather information.</li>
+    <li><strong>Exploitation</strong> — use what you already know to collect reward.</li>
+    <li><strong>Regret</strong> — the total cost of the mistakes you inevitably make while learning.</li>
+    <li><strong>Sampling</strong> — you may need to repeat state–action pairs many times to get reliable estimates.</li>
+    <li><strong>Generalisation</strong> — what you learn in one state may apply to others, which is how RL scales.</li>
+  </ul>
+  <div class="callout warn">
+    <span class="label">Why pure exploitation fails</span>
+    <p>
+      If you always take the best action according to your current (wrong) estimates, you never discover the better option you
+      have not tried. You get stuck in a local optimum of your own ignorance. <strong>$\epsilon$-greedy</strong> exploration is
+      the simplest fix: with small probability $\epsilon$ act randomly, otherwise act greedily. Its properties are exactly as
+      advertised — every state–action pair is tried infinitely often (so estimates converge), but it keeps doing stupid things
+      forever, so $\epsilon$ is usually decayed toward zero over time.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-model">Model-based, model-free, and the two model-free families</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Approach</th><th>What is learned</th><th>Examples</th></tr></thead>
+      <tbody>
+        <tr><td>Model-based</td><td>estimate $T$ and $R$, then solve the MDP</td><td>Dyna, planning with a learned model</td></tr>
+        <tr><td>Model-free, value-based</td><td>estimate $V$ or $Q$ directly from experience</td><td>TD learning, Q-learning, DQN</td></tr>
+        <tr><td>Model-free, policy-based</td><td>learn the policy directly</td><td>policy gradients, REINFORCE, PPO</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    This module focuses on the value-based family: <strong>temporal difference (TD) learning</strong> for prediction and
+    <strong>Q-learning</strong> for control.
+  </p>
+
+  <h3 class="sub" id="i-td">TD learning and Q-learning</h3>
+  <p>
+    TD learning replaces the expectation in the Bellman equation with a single sampled transition — the "update toward a
+    one-step lookahead" idea:
+  </p>
+  <div class="formula">$$ V(s) \leftarrow V(s) + \alpha\Big[\underbrace{r + \gamma V(s')}_{\text{TD target}} - \underbrace{V(s)}_{\text{current estimate}}\Big] $$</div>
+  <p>
+    The bracket is the <strong>TD error</strong>. Averaged over samples it converges to the true value (with a decaying learning
+    rate), and it is <em>online</em>: you can update after every single step rather than waiting for an episode to finish.
+  </p>
+  <p>
+    TD learning evaluates a policy but cannot improve it, because improving requires knowing the transition model. Q-learning
+    sidesteps this by learning the action-value function directly:
+  </p>
+  <div class="formula">$$ Q(s,a) \leftarrow Q(s,a) + \alpha\Big[r + \gamma\max_{a'}Q(s',a') - Q(s,a)\Big] $$</div>
+  <p>
+    The $\max$ over next actions is what makes this <strong>off-policy</strong>: the update uses the <em>greedy</em> continuation
+    even if the agent actually behaved randomly. That is why Q-learning converges to the optimal policy even when the samples
+    come from a suboptimal exploring policy — a remarkable property, with two caveats: every state–action pair must be visited
+    infinitely often, and the learning rate must satisfy
+  </p>
+  <div class="formula">$$ \sum_t \alpha(t) = \infty, \qquad \sum_t \alpha^2(t) \lt \infty $$</div>
+  <p>
+    satisfied for instance by $\alpha(t) = 1/t$ or (better, numerically) $\alpha(t) = K/(K+t)$.
+  </p>
+
+  <h3 class="sub" id="i-generalise">Generalising across states</h3>
+  <p>
+    A Q-table needs one entry per state–action pair. For chess that is $10^{43}$ states; for a robot with continuous sensors it
+    is uncountable. The fix is <strong>function approximation</strong>: represent $Q$ with parameters $\boldsymbol\theta$,
+  </p>
+  <div class="formula">$$ Q_{\mathbf{w}}(s,a) = \mathbf{w}^\top\mathbf{f}(s,a) = w_1f_1(s,a) + \dots + w_nf_n(s,a) $$</div>
+  <p>
+    where the features $f_i$ describe the state (distance to the nearest ghost, distance to the nearest dot, whether Pac-Man is in
+    a tunnel). The update becomes a gradient step on the TD error:
+  </p>
+  <div class="formula">$$ \mathbf{w} \leftarrow \mathbf{w} + \alpha\Big[r + \gamma\max_{a'}Q_{\mathbf{w}}(s',a') - Q_{\mathbf{w}}(s,a)\Big]\nabla_{\mathbf{w}}Q_{\mathbf{w}}(s,a) $$</div>
+  <p>
+    With the wrong features the best possible approximation can be terrible — but with good features the compression is
+    extraordinary: chess value functions have been approximated with about 30 weights and still play decently.
+    <strong>Deep Q-networks</strong> (DQN) replace the linear form with a CNN over the last four frames and learned weights,
+    and learned $Q$ for 49 Atari games from pixels.
+  </p>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Robotics · locomotion</span>
+      <h4>AIBO learning to walk</h4>
+      <p>Start from a hand-coded policy, let RL refine it. The optimised policy is faster and more stable than the hand-tuned one.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Games · Atari</span>
+      <h4>DQN</h4>
+      <p>One architecture, 49 games, pixels in and actions out. The combination of experience replay and a target network made Q-learning stable enough for deep function approximation.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Robotics · team sports</span>
+      <h4>DeepMind robot soccer (2024)</h4>
+      <p>Humanoid robots learned to play soccer from proprioceptive and camera input, with goals as reward — more agile than preset instructions.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Operations · resource allocation</span>
+      <h4>Data-centre cooling</h4>
+      <p>RL agents control cooling setpoints, trading energy cost against temperature constraints — an MDP with a well-defined reward and a simulator to train in.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Language models · alignment</span>
+      <h4>RLHF</h4>
+      <p>Human preferences train a reward model; policy-gradient RL then fine-tunes the language model against it. The same exploration/exploitation logic applies.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Clinical · treatment policies</span>
+      <h4>Sepsis treatment</h4>
+      <p>Off-policy evaluation of treatment policies from historical ICU data — with heavy caveats, because a bad policy cannot be safely explored.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-return">2.1 Return, discounting, and why $\gamma \lt 1$</h3>
+  <p>For a trajectory $s_0, a_0, r_1, s_1, a_1, r_2, \dots$ the discounted return is</p>
+  <div class="formula">$$ G_t = \sum_{k=0}^{\infty}\gamma^k r_{t+k+1} $$</div>
+  <details class="steps" open>
+    <summary>Derivation — the recursive form and the boundedness condition</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Factor out the first reward:
+          $$ G_t = r_{t+1} + \gamma\big(r_{t+2} + \gamma r_{t+3} + \dots\big) = r_{t+1} + \gamma G_{t+1}. $$
+          <span class="why">This recursion is what makes Bellman equations possible: the return from now equals the immediate reward plus the discounted return from next step.</span>
+        </li>
+        <li>If rewards are bounded, $|r|\le R_{\max}$, then $|G_t| \le R_{\max}\sum_k\gamma^k = \frac{R_{\max}}{1-\gamma}$, which is finite iff $\gamma \lt 1$. <span class="qed">∎</span></li>
+        <li><span class="why">$\gamma$ also has an interpretation as a horizon: $1/(1-\gamma)$ is the "effective number of future steps" being optimised. $\gamma=0.9$ looks about 10 steps ahead; $\gamma=0.99$ about 100.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-bellman">2.2 The Bellman optimality equations</h3>
+  <details class="steps">
+    <summary>Derivation — from the definition of optimal value</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>By definition, $V^\*(s) = \max_\pi \mathbb{E}_\pi[G_t \mid s_t = s]$.</li>
+        <li>Use the return recursion and split the expectation over the first action and transition:
+          $$ V^\*(s) = \max_{a}\sum_{s'}T(s,a,s')\big[R(s,a,s') + \gamma\,\mathbb{E}_\pi[G_{t+1}\mid s_{t+1}=s']\big]. $$
+        </li>
+        <li>The inner expectation, under an optimal continuation, is $V^\*(s')$. Hence
+          $$ V^\*(s) = \max_a\sum_{s'}T(s,a,s')\big[R(s,a,s')+\gamma V^\*(s')\big]. $$
+          <span class="qed">∎</span>
+        </li>
+        <li>The same argument one step later gives the $Q$ form. The two are related by
+          $V^\*(s) = \max_a Q^\*(s,a)$ and $Q^\*(s,a) = \sum_{s'}T(s,a,s')[R + \gamma\max_{a'}Q^\*(s',a')]$.</li>
+        <li><span class="why">Existence and uniqueness: the Bellman operator $\mathcal{B}$ defined by the right-hand side is a contraction in the sup norm with modulus $\gamma \lt 1$. By the Banach fixed-point theorem it has a unique fixed point, which is $V^\*$ — and iterating $\mathcal{B}$ from any starting point converges to it geometrically. That is precisely why value iteration works.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-vi">2.3 Value iteration converges</h3>
+  <p>Value iteration applies the Bellman operator repeatedly: $V_{k+1} = \mathcal{B}V_k$.</p>
+  <details class="steps">
+    <summary>Proof — the contraction argument and the error bound</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>For any two value functions $U, W$:
+          $$ \|\mathcal{B}U - \mathcal{B}W\|_\infty = \max_s\Big|\max_a\sum_{s'}T(s,a,s')\big[R+\gamma U(s')\big] - \max_a\sum_{s'}T(s,a,s')\big[R+\gamma W(s')\big]\Big|. $$
+        </li>
+        <li>Using $|\max_a f(a) - \max_a g(a)| \le \max_a|f(a)-g(a)|$ and $\sum_{s'}T(s,a,s')=1$:
+          $$ \le \gamma\max_s\max_a\sum_{s'}T(s,a,s')\big|U(s')-W(s')\big| \le \gamma\|U-W\|_\infty. $$
+        </li>
+        <li>So $\mathcal{B}$ is a $\gamma$-contraction; iterating gives $\|V_k - V^\*\|\le\gamma^k\|V_0-V^\*\|$, geometric convergence. <span class="qed">∎</span></li>
+        <li>A practical stopping rule follows: after a sweep with maximum change $\Delta$, the current policy is within
+          $\frac{\gamma\Delta}{1-\gamma}$ of optimal in value. Lab 1 reports $\Delta$ so you can watch it collapse.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-qlearn">2.4 Why Q-learning is off-policy</h3>
+  <p>
+    Write the Q-learning update as a stochastic approximation to the Bellman optimality operator:
+  </p>
+  <div class="formula">$$ Q_{t+1}(s,a) = Q_t(s,a) + \alpha_t(s,a)\Big[\underbrace{r + \gamma\max_{a'}Q_t(s',a')}_{\text{sample of }(\mathcal{B}Q_t)(s,a)} - Q_t(s,a)\Big] $$</div>
+  <p>
+    The target uses $\max_{a'}$ regardless of which action the behaviour policy actually took next. So the update is estimating
+    $Q^\*$ — the values of the <em>greedy</em> policy — while the data comes from an exploratory policy. That decoupling is what
+    "off-policy" means, and it is why Q-learning can learn the optimal policy from random exploration.
+  </p>
+  <div class="callout">
+    <span class="label">Convergence conditions</span>
+    <p>
+      Watkins and Dayan proved convergence to $Q^\*$ with probability 1 provided (i) every state–action pair is visited
+      infinitely often, and (ii) the learning rates satisfy $\sum_t\alpha_t=\infty$ and $\sum_t\alpha_t^2\lt\infty$. Condition (ii)
+      is why a constant learning rate is technically incorrect but practically common: it tracks a moving target in
+      non-stationary problems.
+    </p>
+  </div>
+
+  <h3 class="sub" id="m-fa">2.5 Function approximation and the deadly triad</h3>
+  <p>
+    With linear function approximation $Q_{\mathbf{w}}(s,a) = \mathbf{w}^\top\mathbf{f}(s,a)$, the semi-gradient TD update is
+  </p>
+  <div class="formula">$$ \mathbf{w} \leftarrow \mathbf{w} + \alpha\big[r + \gamma\max_{a'}Q_{\mathbf{w}}(s',a') - Q_{\mathbf{w}}(s,a)\big]\mathbf{f}(s,a) $$</div>
+  <p>
+    Note the target depends on $\mathbf{w}$ too, so this is <em>not</em> true gradient descent — hence "semi-gradient". The
+    combination of three ingredients — function approximation, bootstrapping (using an estimate as a target) and off-policy
+    data — is called the <strong>deadly triad</strong>, and it can make training diverge. DQN's two tricks address it directly:
+    an <strong>experience replay buffer</strong> (breaks temporal correlation in the samples) and a <strong>target network</strong>
+    (a slowly updated copy used to compute targets, so the target stops chasing itself).
+  </p>
+
+  <h3 class="sub" id="m-regret">2.6 Regret and exploration schedules</h3>
+  <p>
+    Regret measures the total reward lost relative to acting optimally from the start:
+  </p>
+  <div class="formula">$$ \text{Regret}(T) = T\cdot V^\*(s_0) - \sum_{t=1}^{T}r_t $$</div>
+  <p>
+    Minimising regret is a stronger requirement than learning the optimal policy — it requires learning <em>efficiently</em>.
+    Fixed $\epsilon$-greedy has linear regret (it never stops exploring); decaying $\epsilon$ achieves logarithmic regret in
+    many settings, and optimistic initialisation or explicit exploration bonuses (count-based, curiosity-driven) do better still.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-gridworld">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · planning</span><h4>Value iteration on a grid world</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Green is the goal (+10), black is the pit (−10), grey squares are walls. Each cell shows $V(s)$ and an arrow for the greedy action. Press <strong>Run</strong> and watch values propagate outward from the goal one ring per sweep — that is the Bellman backup spreading information through the state space.</p>
+      <p>Watch the <em>max ΔV</em> readout: it shrinks geometrically, exactly as the contraction argument of §2.3 predicts. Then set the living reward to $0$ and re-run: the agent no longer cares how long it takes, and the policy can wander. Set it to $-0.25$ and the policy becomes urgent. The reward function, not the algorithm, decides what the agent wants.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-qlearning">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · learning</span><h4>Q-learning without a model</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Same grid, but the agent is not told the dynamics — it learns $Q(s,a)$ from sampled transitions. Values start at zero and fill in from the states the agent actually visits.</p>
+      <p>Run a few hundred episodes with $\epsilon = 0.3$. The best-return readout climbs and the policy arrows point at the goal. Now set $\epsilon = 0$ after resetting: the agent commits to its first (wrong) guess and never finds the goal — the exploration/exploitation failure in its purest form. Set $\epsilon = 1$ and it wanders randomly forever. The interesting regime is in between, ideally with $\epsilon$ decaying over time.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">Gymnasium / PyTorch</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 15 — value iteration, policy iteration, TD learning and Q-learning."""
+import random
+
+ACTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+
+class GridWorld:
+    def __init__(self, size=5, goal=(0, 4), pit=(2, 2), living=-0.04, gamma=0.9, slip=0.1):
+        self.n, self.goal, self.pit = size, goal, pit
+        self.living, self.gamma, self.slip = living, gamma, slip
+        self.walls = {(1, 1), (3, 3)}
+
+    def is_wall(self, r, c):
+        return not (0 &lt;= r &lt; self.n and 0 &lt;= c &lt; self.n) or (r, c) in self.walls
+
+    def step(self, state, action):
+        """Returns (next_state, reward, done). Movement is stochastic."""
+        r, c = state
+        if random.random() &lt; self.slip:
+            action = random.randrange(4)
+        dr, dc = ACTIONS[action]
+        nr, nc = r + dr, c + dc
+        if self.is_wall(nr, nc):
+            nr, nc = r, c
+        reward = self.living
+        if (nr, nc) == self.goal:
+            reward += 10
+        if (nr, nc) == self.pit:
+            reward -= 10
+        done = (nr, nc) in (self.goal, self.pit)
+        return (nr, nc), reward, done
+
+    def states(self):
+        return [(r, c) for r in range(self.n) for c in range(self.n) if not self.is_wall(r, c)]
+
+
+def value_iteration(env, iters=200, tol=1e-6):
+    V = {s: 0.0 for s in env.states()}
+    for it in range(iters):
+        delta = 0.0
+        new = dict(V)
+        for s in env.states():
+            if s in (env.goal, env.pit):
+                continue
+            best = max(
+                env.living + (10 if env.step(s, a)[0] == env.goal else -10 if env.step(s, a)[0] == env.pit else 0)
+                + env.gamma * V[env.step(s, a)[0]]
+                for a in range(4)
+            )
+            delta = max(delta, abs(best - V[s]))
+            new[s] = best
+        V = new
+        if delta &lt; tol:
+            break
+    policy = {}
+    for s in env.states():
+        if s in (env.goal, env.pit):
+            continue
+        policy[s] = max(range(4), key=lambda a: V[env.step(s, a)[0]])
+    return V, policy, it + 1
+
+
+def td_evaluate(env, policy, episodes=500, alpha=0.1):
+    """TD(0) policy evaluation with a running average."""
+    V = {s: 0.0 for s in env.states()}
+    for _ in range(episodes):
+        s = (env.n - 1, 0)
+        for _ in range(100):
+            a = policy[s]
+            s2, r, done = env.step(s, a)
+            V[s] += alpha * (r + env.gamma * V[s2] - V[s])
+            s = s2
+            if done:
+                break
+    return V
+
+
+def q_learning(env, episodes=2000, alpha=0.2, gamma=0.9, eps=0.2, eps_decay=0.999):
+    Q = {s: [0.0] * 4 for s in env.states()}
+    returns = []
+    for ep in range(episodes):
+        s = (env.n - 1, 0)
+        total = 0.0
+        for _ in range(100):
+            a = random.randrange(4) if random.random() &lt; eps else max(range(4), key=lambda i: Q[s][i])
+            s2, r, done = env.step(s, a)
+            target = r + (0 if done else gamma * max(Q[s2]))
+            Q[s][a] += alpha * (target - Q[s][a])
+            total += r
+            s = s2
+            if done:
+                break
+        returns.append(total)
+        eps *= eps_decay
+    policy = {s: max(range(4), key=lambda i: Q[s][i]) for s in env.states()}
+    return Q, policy, returns
+
+
+if __name__ == "__main__":
+    random.seed(0)
+    env = GridWorld()
+    V, policy, iters = value_iteration(env)
+    print("value iteration converged in", iters, "sweeps")
+    print("V(start) =", round(V[(env.n - 1, 0)], 3))
+
+    Q, q_policy, returns = q_learning(env, episodes=1500)
+    print("mean return, first 100 episodes:", round(sum(returns[:100]) / 100, 2))
+    print("mean return, last 100 episodes :", round(sum(returns[-100:]) / 100, 2))
+    agree = sum(1 for s in policy if policy[s] == q_policy[s]) / len(policy)
+    print("policy agreement with value iteration:", round(agree, 3))
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 15 — vectorised value iteration, n-step returns, and SARSA vs. Q-learning."""
+import numpy as np
+
+
+class GridMDP:
+    """Fully specified MDP: T[s,a,s'] and R[s,a]. Enables exact comparison."""
+
+    def __init__(self, n=5, goal=(0, 4), pit=(2, 2), gamma=0.9, living=-0.04, slip=0.1):
+        self.n, self.goal, self.pit, self.gamma = n, goal, pit, gamma
+        self.living, self.slip = living, slip
+        self.walls = {(1, 1), (3, 3)}
+        self.states = [(r, c) for r in range(n) for c in range(n) if (r, c) not in self.walls]
+        self.index = {s: i for i, s in enumerate(self.states)}
+        self.T, self.R = self._build()
+
+    def _move(self, s, a):
+        dr, dc = [(-1, 0), (1, 0), (0, -1), (0, 1)][a]
+        r, c = s[0] + dr, s[1] + dc
+        if not (0 &lt;= r &lt; self.n and 0 &lt;= c &lt; self.n) or (r, c) in self.walls:
+            return s
+        return (r, c)
+
+    def _build(self):
+        S, A = len(self.states), 4
+        T = np.zeros((S, A, S))
+        R = np.zeros((S, A))
+        for i, s in enumerate(self.states):
+            for a in range(A):
+                outcomes = [(self._move(s, a), 1 - self.slip)]
+                for b in range(A):
+                    if b != a:
+                        outcomes.append((self._move(s, b), self.slip / 3))
+                for s2, p in outcomes:
+                    T[i, a, self.index[s2]] += p
+                    r = self.living + (10 if s2 == self.goal else -10 if s2 == self.pit else 0)
+                    R[i, a] += p * r
+        return T, R
+
+    def terminal(self):
+        mask = np.zeros(len(self.states), bool)
+        for t in (self.goal, self.pit):
+            if t in self.index:
+                mask[self.index[t]] = True
+        return mask
+
+
+def value_iteration(mdp, tol=1e-8):
+    V = np.zeros(len(mdp.states))
+    term = mdp.terminal()
+    for it in range(1000):
+        Q = mdp.R + mdp.gamma * mdp.T @ V
+        Vnew = np.where(term, 0.0, Q.max(1))
+        delta = np.abs(Vnew - V).max()
+        V = Vnew
+        if delta &lt; tol:
+            break
+    return V, Q.argmax(1), it + 1
+
+
+def policy_iteration(mdp):
+    pi = np.zeros(len(mdp.states), int)
+    for it in range(100):
+        # policy evaluation (exact linear solve)
+        P = mdp.T[np.arange(len(mdp.states)), pi]
+        R = mdp.R[np.arange(len(mdp.states)), pi]
+        V = np.linalg.solve(np.eye(len(mdp.states)) - mdp.gamma * P, R)
+        Q = mdp.R + mdp.gamma * mdp.T @ V
+        new_pi = Q.argmax(1)
+        if np.array_equal(new_pi, pi):
+            return V, pi, it + 1
+        pi = new_pi
+    return V, pi, 100
+
+
+def q_learning_tabular(mdp, episodes=2000, alpha=0.2, eps=0.2, seed=0):
+    rng = np.random.default_rng(seed)
+    Q = np.zeros((len(mdp.states), 4))
+    start = mdp.index[(mdp.n - 1, 0)]
+    term = mdp.terminal()
+    returns = []
+    for _ in range(episodes):
+        s, total = start, 0.0
+        for _ in range(100):
+            a = rng.integers(4) if rng.random() &lt; eps else int(Q[s].argmax())
+            probs = mdp.T[s, a]
+            s2 = int(rng.choice(len(probs), p=probs / probs.sum()))
+            r = mdp.R[s, a]
+            target = r + (0 if term[s2] else mdp.gamma * Q[s2].max())
+            Q[s, a] += alpha * (target - Q[s, a])
+            total += r
+            s = s2
+            if term[s]:
+                break
+        returns.append(total)
+    return Q, returns
+
+
+if __name__ == "__main__":
+    mdp = GridMDP()
+    V, pi, it_v = value_iteration(mdp)
+    Vp, pip, it_p = policy_iteration(mdp)
+    print(f"value iteration: {it_v} sweeps, policy iteration: {it_p} rounds")
+    print("policies agree:", bool(np.array_equal(pi, pip)), " value diff:", round(float(np.abs(V - Vp).max()), 6))
+
+    Q, returns = q_learning_tabular(mdp, episodes=3000)
+    print("mean return first 200:", round(float(np.mean(returns[:200])), 2))
+    print("mean return last 200 :", round(float(np.mean(returns[-200:])), 2))
+    print("Q-policy agrees with VI:", round(float((Q.argmax(1) == pi).mean()), 3))
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 15 — a real environment and a DQN, in Gymnasium + PyTorch."""
+import random
+from collections import deque
+
+import gymnasium as gym
+import numpy as np
+import torch
+import torch.nn as nn
+
+
+class QNet(nn.Module):
+    def __init__(self, obs_dim, n_actions, hidden=64):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(obs_dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, n_actions),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
+def train_dqn(env_name="CartPole-v1", episodes=300, gamma=0.99, lr=1e-3,
+              batch=64, eps_start=1.0, eps_end=0.05):
+    env = gym.make(env_name)
+    obs_dim = env.observation_space.shape[0]
+    n_actions = env.action_space.n
+
+    policy_net = QNet(obs_dim, n_actions)
+    target_net = QNet(obs_dim, n_actions)
+    target_net.load_state_dict(policy_net.state_dict())   # the target-network trick
+    opt = torch.optim.Adam(policy_net.parameters(), lr=lr)
+    buffer = deque(maxlen=50_000)                          # experience replay
+
+    returns = []
+    for ep in range(episodes):
+        obs, _ = env.reset(seed=ep)
+        eps = max(eps_end, eps_start - ep / (0.6 * episodes))
+        total = 0.0
+        for t in range(500):
+            if random.random() &lt; eps:
+                a = env.action_space.sample()
+            else:
+                with torch.no_grad():
+                    a = int(policy_net(torch.tensor(obs, dtype=torch.float32)).argmax())
+            obs2, r, terminated, truncated, _ = env.step(a)
+            done = terminated or truncated
+            buffer.append((obs, a, r, obs2, done))
+            total += r
+            obs = obs2
+
+            if len(buffer) &gt;= batch:
+                sample = random.sample(buffer, batch)
+                s, ac, rew, s2, d = zip(*sample)
+                s = torch.tensor(np.array(s), dtype=torch.float32)
+                ac = torch.tensor(ac)
+                rew = torch.tensor(rew, dtype=torch.float32)
+                s2 = torch.tensor(np.array(s2), dtype=torch.float32)
+                d = torch.tensor(d, dtype=torch.float32)
+                q = policy_net(s).gather(1, ac[:, None]).squeeze(1)
+                with torch.no_grad():
+                    q_next = target_net(s2).max(1).values
+                    target = rew + gamma * q_next * (1 - d)
+                loss = nn.functional.smooth_l1_loss(q, target)
+                opt.zero_grad(); loss.backward()
+                nn.utils.clip_grad_norm_(policy_net.parameters(), 10.0)
+                opt.step()
+            if done:
+                break
+        returns.append(total)
+        if ep % 20 == 0:
+            target_net.load_state_dict(policy_net.state_dict())
+            print(f"episode {ep:3d}  return {total:6.1f}  eps {eps:.2f}")
+    env.close()
+    return policy_net, returns
+
+
+if __name__ == "__main__":
+    torch.manual_seed(0)
+    random.seed(0)
+    np.random.seed(0)
+    net, returns = train_dqn(episodes=200)
+    print("mean return, first 20 episodes:", round(float(np.mean(returns[:20])), 1))
+    print("mean return, last 20 episodes :", round(float(np.mean(returns[-20:])), 1))
+    print("\nCartPole is solved above ~475; compare with the random baseline of ~22.")
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block makes the comparison exact by building the full transition tensor $T$: value iteration, policy iteration
+      and tabular Q-learning all recover the same policy, and the first two agree on values to $10^{-6}$. The PyTorch block is
+      the modern version of the same idea, with a neural network replacing the table.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="15">
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>What does the Markov property assert about an MDP?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Rewards are deterministic</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>The next state depends only on the current state and action, not on the history</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>All states are reachable</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The policy is stationary</span></button></li>
+      </ul>
+      <div class="explain"><p>$\Pr(s_{t+1}\mid s_t,a_t) = \Pr(s_{t+1}\mid s_0,\dots,s_t,a_0,\dots,a_t)$: the state is a sufficient statistic for the future, which is what makes the Bellman recursion valid.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>The Bellman operator is a contraction with modulus $\gamma \lt 1$. This guarantees:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>The optimal policy is unique</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Rewards are bounded</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Value iteration converges to the unique fixed point $V^\*$ geometrically</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Exploration is unnecessary</span></button></li>
+      </ul>
+      <div class="explain"><p>By the Banach fixed-point theorem, a contraction has a unique fixed point and iterating it converges at rate $\gamma^k$ from any starting point.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>Q-learning is called off-policy because:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>It does not use rewards</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>It needs the transition model</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>It only works offline</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The update uses $\max_{a'}Q(s',a')$ regardless of which action the behaviour policy took</span></button></li>
+      </ul>
+      <div class="explain"><p>The target is the greedy continuation, so it estimates $Q^\*$ even while the data comes from an exploring policy — hence convergence to the optimal policy from suboptimal behaviour.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>Fixed $\epsilon$-greedy exploration has which property?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Every state–action pair is tried infinitely often, but regret grows linearly</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>It converges to zero regret</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>It never explores</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>It requires the transition model</span></button></li>
+      </ul>
+      <div class="explain"><p>Coverage is guaranteed (good for convergence of estimates) but it keeps taking random actions forever, so it pays a constant per-step penalty — linear regret. Decaying $\epsilon$ is the standard remedy.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>The "deadly triad" that can make RL diverge is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Exploration, exploitation and regret</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Function approximation, bootstrapping and off-policy data</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Rewards, transitions and discounting</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Value iteration, policy iteration and Q-learning</span></button></li>
+      </ul>
+      <div class="explain"><p>Each is fine alone; together they break the contraction guarantee. DQN's replay buffer and target network are direct mitigations.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">MDP tuple</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$(S, A, T, R, \gamma)$: states, actions, transition probabilities, rewards, discount. Add a start state and optional terminal states.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Bellman optimality equation</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$V^\*(s) = \max_a\sum_{s'}T(s,a,s')[R+\gamma V^\*(s')]$. One-step lookahead, and the fixed point of a contraction.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">TD error</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$r + \gamma V(s') - V(s)$: the difference between the one-step estimate and the current value. The quantity every TD and Q-learning update moves along.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">On-policy vs. off-policy</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">On-policy (SARSA) evaluates the policy being followed. Off-policy (Q-learning) evaluates the greedy policy while following another.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Discount factor</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\gamma$: makes the return finite for $\gamma\lt1$ and sets the effective planning horizon $1/(1-\gamma)$.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Regret</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$T V^\*(s_0) - \sum_t r_t$: reward lost relative to acting optimally from the start. Minimising it requires learning efficiently, not just eventually.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">DQN's two stabilisers</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Experience replay (decorrelates samples) and a target network (stops the target from chasing itself). Both address the deadly triad.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Exploration bonus</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Add a term rewarding unfamiliar states (count-based or curiosity-driven) instead of relying on random $\epsilon$. Reduces regret substantially.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+</section>
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">One Bellman backup</h4></div>
+    <p>A state has two actions. Action A leads to a state with $V=10$ with probability 1 and gives reward 0. Action B gives reward 5 and leads to a state with $V=2$ with probability 1. With $\gamma=0.9$, which action is better and what is $V(s)$?</p>
+    <button class="btn btn-sm" data-reveal="sol-15-1" type="button">Show solution</button>
+    <div id="sol-15-1" class="solution" hidden>
+      <p>$Q(s,A) = 0 + 0.9(10) = 9$. $Q(s,B) = 5 + 0.9(2) = 6.8$.</p>
+      <p>Action A is better, and $V(s) = 9$. Note that the immediate reward favours B but the discounted future dominates — that is exactly what $\gamma$ controls.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Trace a Q-learning update</h4></div>
+    <p>With $\alpha=0.5$, $\gamma=0.9$, $Q(s,a)=2$, a transition giving reward 1 into state $s'$ where $\max_{a'}Q(s',a')=6$, and the episode continuing, compute the new $Q(s,a)$. What if the transition is terminal?</p>
+    <button class="btn btn-sm" data-reveal="sol-15-2" type="button">Show solution</button>
+    <div id="sol-15-2" class="solution" hidden>
+      <p>Continuing: target $= 1 + 0.9(6) = 6.4$; TD error $= 6.4 - 2 = 4.4$; new $Q = 2 + 0.5(4.4) = 4.2$.</p>
+      <p>Terminal: the bootstrap term is dropped, target $= 1$; TD error $= 1 - 2 = -1$; new $Q = 2 - 0.5 = 1.5$. The value <em>decreases</em> — the state was over-valued because it was assumed to lead somewhere good.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Prove the contraction property</h4></div>
+    <p>Show that the Bellman operator is a $\gamma$-contraction in the sup norm, and use it to bound $\|V_k - V^\*\|_\infty$ after $k$ sweeps.</p>
+    <button class="btn btn-sm" data-reveal="sol-15-3" type="button">Show solution</button>
+    <div id="sol-15-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>Let $U, W$ be value functions. Using $|\max_a f(a)-\max_a g(a)|\le\max_a|f(a)-g(a)|$:
+          $$ \|\mathcal{B}U-\mathcal{B}W\|_\infty \le \gamma\max_s\max_a\sum_{s'}T(s,a,s')|U(s')-W(s')|. $$
+        </li>
+        <li>Since $\sum_{s'}T(s,a,s')=1$ and $|U(s')-W(s')|\le\|U-W\|_\infty$, the right side is $\le\gamma\|U-W\|_\infty$. <span class="qed">∎</span></li>
+        <li>Iterating: $\|V_k-V^\*\| = \|\mathcal{B}V_{k-1}-\mathcal{B}V^\*\| \le \gamma\|V_{k-1}-V^\*\| \le \gamma^k\|V_0-V^\*\|$.</li>
+        <li><span class="why">Practical consequence: to guarantee $\|V_k-V^\*\|\le\epsilon$ you need $k\ge\log(\|V_0-V^\*\|/\epsilon)/\log(1/\gamma)$ sweeps — a number that grows sharply as $\gamma\to1$, which is why high-discount problems need many more iterations.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 15</span>
+    <h3>Solve, then learn, then generalise</h3>
+    <p>Take one environment through all three levels of the RL stack — exact planning, tabular learning, and function approximation — and measure what each buys and costs.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Define an MDP of your own (a grid world with a twist, or a small operations problem). Write out $S$, $A$, $T$, $R$, $\gamma$.</li>
+      <li>Solve it exactly with value iteration and policy iteration; report sweep counts, wall-clock time and the optimal policy.</li>
+      <li>Solve it again with tabular Q-learning; plot learning curves over several seeds and compare the learned policy with the exact one.</li>
+      <li>Now hide the model and use a linear function approximator on hand-designed features. Show the approximation error as a function of the feature set.</li>
+      <li>Run an $\epsilon$-decay experiment and plot regret for fixed vs. decaying $\epsilon$.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li>Environment specification and exact solution</li>
+      <li>Learning curves with confidence bands over 5 seeds</li>
+      <li>Regret plot comparing exploration schedules</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Formalisation</td><td>MDP fully specified; reward design justified</td><td>25</td></tr>
+        <tr><td>Exact solution</td><td>Both planning methods agree; convergence reported</td><td>25</td></tr>
+        <tr><td>Learning study</td><td>Multiple seeds, error bars, policy comparison</td><td>30</td></tr>
+        <tr><td>Exploration analysis</td><td>Regret curves for at least three schedules, interpreted</td><td>20</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Implement SARSA and compare its learned policy with Q-learning under a risky pit.</li>
+      <li>Add experience replay and a target network to a DQN and show the effect on stability.</li>
+      <li>Design a reward function that causes unintended behaviour (reward hacking) and explain why.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/15-rl-gridworld/</code>.</p>
+  </div>
+</section>

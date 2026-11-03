@@ -1,0 +1,661 @@
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-why">Representations, and why fewer dimensions can be better</h3>
+  <p>
+    A <strong>representation</strong> is an embedding — a mapping of a data modality into another mathematical space that
+    captures the features relevant to a task. Deep networks learn one implicitly (which is why transfer learning works), but we
+    can also learn one directly, without labels. There are three unsupervised routes:
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Route</th><th>Assumption</th><th>Methods</th></tr></thead>
+      <tbody>
+        <tr><td>Structure-based</td><td>the data lies on a low-dimensional subspace or manifold of a high-dimensional ambient space</td><td>PCA, SVD, LSA, LLE, Isomap</td></tr>
+        <tr><td>Autoencoders</td><td>a good representation is one you can reconstruct from</td><td>linear, nonlinear, denoising, sparse, variational</td></tr>
+        <tr><td>Density estimation</td><td>learn $p(\mathbf{x})$ and sample from it</td><td>GANs, diffusion models</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Two practical goals drive dimensionality reduction:</p>
+  <ul>
+    <li><strong>Compression / modelling</strong> — fewer inputs, less noise, faster training, less overfitting.</li>
+    <li><strong>Visualisation</strong> — a 2-D or 3-D embedding a human can look at.</li>
+  </ul>
+
+  <h3 class="sub" id="i-svd">Singular value decomposition</h3>
+  <p>
+    For an $m\times n$ matrix $A$ of rank $r$, the SVD is
+  </p>
+  <div class="formula">$$ A = U\Sigma V^\top $$</div>
+  <p>
+    with $U$ and $V$ orthogonal and $\Sigma$ diagonal with non-negative <strong>singular values</strong>
+    $\sigma_1\ge\sigma_2\ge\dots\ge\sigma_r\ge 0$. The names come from what $A$ does to a vector:
+  </p>
+  <div class="formula">$$ A\mathbf{v}_i = \sigma_i\mathbf{u}_i $$</div>
+  <p>
+    so $A$ maps each right singular vector to the corresponding left singular vector, stretched by $\sigma_i$. Equivalently,
+  </p>
+  <div class="formula">$$ A = \sum_{i=1}^{r}\sigma_i\,\mathbf{u}_i\mathbf{v}_i^\top $$</div>
+  <p>
+    a sum of rank-1 matrices ordered by importance. Truncating that sum after $k$ terms gives the <em>best</em> rank-$k$
+    approximation in the Frobenius norm — a theorem (Eckart–Young), not a heuristic. That single fact is why SVD underlies PCA,
+    latent semantic analysis, recommender systems and naive image compression.
+  </p>
+
+  <h3 class="sub" id="i-pca">Principal component analysis</h3>
+  <p>
+    PCA is a <strong>change of basis</strong>: rotate the coordinate system so the first axis points along the direction of
+    greatest variance, the second along the next-greatest orthogonal direction, and so on. The new coordinates are
+    <em>linearly uncorrelated</em> by construction.
+  </p>
+  <p>The procedure via SVD:</p>
+  <ol class="derivation">
+    <li>Compute the mean $\mu_i$ (and, if standardising, the standard deviation $\sigma_i$) of each feature.</li>
+    <li>Centre (or standardise) the data. <em>Centering is required</em> — otherwise the singular values describe the second moment about the origin, not the variance.</li>
+    <li>Take the SVD of the centred matrix: $X = U\Sigma V^\top$.</li>
+    <li>The principal components are the columns of $U\Sigma$, i.e. $\mathrm{PC}_i = \mathbf{u}_i\sigma_i$.</li>
+    <li>The variance of component $i$ is $\sigma_i^2/(n-1)$; the fraction of variance explained is $\sigma_i^2/\sum_j\sigma_j^2$.</li>
+  </ol>
+  <div class="callout">
+    <span class="label">Centre or standardise?</span>
+    <p>
+      If the features share units and ranges (the iris measurements are all centimetres), <strong>centering</strong> preserves
+      the relative importance of the features. If they do not — income in dollars next to age in years — you must
+      <strong>standardise</strong>, or the largest-variance feature will define PC1 regardless of its relevance. After
+      standardising, the squared singular values divided by $n$ describe the correlation matrix instead of the covariance.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-limits">PCA's assumptions, and what to use instead</h3>
+  <ul>
+    <li>It captures only <strong>linear</strong> correlations. For non-linear structure, use kernel PCA or an autoencoder.</li>
+    <li>It assumes mean and variance are enough to describe the distribution — i.e. roughly Gaussian data. Independent component analysis relaxes this when the sources are non-Gaussian.</li>
+    <li>Centering and projection produce negative values, which may be meaningless for counts or intensities. Non-negative matrix factorisation is the alternative.</li>
+  </ul>
+
+  <h3 class="sub" id="i-vis">Visualisation: t-SNE and UMAP</h3>
+  <p>
+    PCA is a <em>global linear</em> projection; for visualisation you usually want to preserve <em>local neighbourhoods</em>
+    instead. <strong>t-SNE</strong> computes a probability distribution over pairs of points in the high-dimensional space (closer
+    points get higher probability), then finds a low-dimensional layout whose pairwise probabilities match it, using a heavy-tailed
+    (t) distribution in the embedding to avoid crowding. Two caveats: it is stochastic — every run differs — and distances
+    <em>between</em> clusters are not meaningful, only the clusters themselves. <strong>UMAP</strong> is a related method that is
+    faster and preserves more global structure; it is approximately equivalent to t-SNE applied after a PCA initialisation.
+  </p>
+
+  <h3 class="sub" id="i-ae">Autoencoders</h3>
+  <p>
+    An autoencoder learns a compressed representation by learning to reconstruct:
+  </p>
+  <div class="formula">$$ f:\mathcal{X}\to\mathcal{H} \text{ (encoder)}, \qquad g:\mathcal{H}\to\mathcal{X} \text{ (decoder)}, \qquad \arg\min_{f,g}\;\mathbb{E}\big[L\big(\mathbf{x},\,(g\circ f)(\mathbf{x})\big)\big] $$</div>
+  <p>
+    The simplest version has one hidden layer, linear activations, and squared error: $L = \|\mathbf{x}-\mathbf{x}'\|^2$ with
+    $\mathbf{x}' = UV\mathbf{x}$. If the bottleneck dimension $K \ge D$ you can trivially set $UV = I$; if $K \lt D$ the output
+    is forced into a $K$-dimensional subspace. What is the best such subspace? The one minimising the squared distance from the
+    data to its projections — which is the same as maximising the variance of the projections. That is PCA, and section 2.4
+    proves it.
+  </p>
+  <p>Adding non-linear activations buys representations PCA cannot express. The standard variants:</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Variant</th><th>Mechanism</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Undercomplete</td><td>hidden size &lt; input size</td><td>force compression</td></tr>
+        <tr><td>Overcomplete</td><td>hidden size &gt; input size</td><td>needs regularisation, else it learns the identity</td></tr>
+        <tr><td>Denoising</td><td>feed a corrupted input, reconstruct the clean one</td><td>learn robust features</td></tr>
+        <tr><td>Sparse</td><td>$\ell_1$ penalty on the code</td><td>interpretable, sparse activations</td></tr>
+        <tr><td>Convolutional</td><td>convs + transposed convs</td><td>images; the basis of latent diffusion</td></tr>
+        <tr><td>Variational</td><td>encode a distribution, sample, decode</td><td>generation; the encoder inside Stable Diffusion</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    A useful sanity check on what compression means: an image set of size $128\times128\times3$ with 8-bit colour has
+    $256^{49152}$ possible members — vastly more than the number of atoms in the universe. The set of <em>natural</em> images is a
+    vanishingly thin subset, and an autoencoder with a small bottleneck can only ever produce points in that subset. A good
+    autoencoder's output space approximates the natural-image manifold; a bad one produces blurry averages.
+  </p>
+
+  <h3 class="sub" id="i-discgen">Discriminative vs. generative models</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Model</th><th>Learns</th><th>Can do</th></tr></thead>
+      <tbody>
+        <tr><td>Discriminative</td><td>$p(y\mid\mathbf{x})$</td><td>classify; no notion of whether an input is plausible</td></tr>
+        <tr><td>Generative</td><td>$p(\mathbf{x})$</td><td>sample, detect outliers, reject unreasonable inputs, learn features without labels</td></tr>
+        <tr><td>Conditional generative</td><td>$p(\mathbf{x}\mid y)$</td><td>generate data conditioned on a label — built from the other two via Bayes' rule</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>GANs</strong> are <em>implicit</em> generative models: a generator maps a noise vector $\mathbf{z}$ to a sample
+    $G(\mathbf{z})$, and a discriminator tries to tell real from fake. Training is the minimax game
+  </p>
+  <div class="formula">$$ \min_G\max_D\; J_D = \mathbb{E}_{\mathbf{x}\sim\text{data}}\big[-\log D(\mathbf{x})\big] + \mathbb{E}_{\mathbf{z}}\big[-\log\big(1-D(G(\mathbf{z}))\big)\big] $$</div>
+  <p>
+    with the generator using the non-saturating variant $J_G = \mathbb{E}_{\mathbf{z}}[-\log D(G(\mathbf{z}))]$ to avoid flat
+    gradients when its samples are obviously fake. GANs produce crisp images but give no likelihood, so you cannot measure how
+    well they model the distribution — the motivation for diffusion models in module 16.
+  </p>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Genomics · visualisation</span>
+      <h4>PCA of expression data</h4>
+      <p>The first two principal components of a gene-expression matrix usually separate tissue types — the standard first figure in a genomics paper.</p>
+    </div>
+    <div class="example">
+      <span class="tag">NLP · latent semantics</span>
+      <h4>LSA</h4>
+      <p>Build a term–document matrix, truncate its SVD, and documents with similar meaning end up with similar vectors even when they share no words.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Imaging · compression</span>
+      <h4>Rank-k approximations</h4>
+      <p>A $375\times325$ image is visually acceptable at rank 91 — about a 4× reduction in stored numbers — and nearly identical at rank 200.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Single cell · clustering</span>
+      <h4>PCA then neighbours</h4>
+      <p>Standard scRNA-seq pipelines reduce to 30–50 principal components before building a neighbour graph and running UMAP. PCA denoises; UMAP visualises.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Anomaly detection</span>
+      <h4>Reconstruction error</h4>
+      <p>Train an autoencoder on normal data; a new sample with high reconstruction error is anomalous. The same trick detects fraud and equipment faults.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Generative · style transfer</span>
+      <h4>CycleGAN</h4>
+      <p>Two generators and two discriminators learn to translate between unpaired image collections (horses ↔ zebras, maps ↔ aerial photos), with a cycle-consistency loss to prevent content loss.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-svd">2.1 Computing the SVD from eigen-decompositions</h3>
+  <details class="steps" open>
+    <summary>Derivation — left and right singular vectors from $AA^\top$ and $A^\top A$</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Both $A^\top A$ ($n\times n$) and $AA^\top$ ($m\times m$) are symmetric positive semi-definite, so each can be diagonalised by an orthonormal basis with non-negative eigenvalues.</li>
+        <li>Let $A^\top A\mathbf{v} = \lambda\mathbf{v}$. Then $AA^\top(A\mathbf{v}) = A(A^\top A\mathbf{v}) = \lambda(A\mathbf{v})$, so $A\mathbf{v}$ is an eigenvector of $AA^\top$ with the same eigenvalue.</li>
+        <li>Normalising gives $\mathbf{u} = A\mathbf{v}/\sqrt\lambda$, hence $A\mathbf{v} = \sigma\mathbf{u}$ with $\sigma = \sqrt\lambda$. The singular values are the square roots of the eigenvalues, and $U$ and $V$ have the same eigenvalues because the two matrices are similar. <span class="qed">∎</span></li>
+        <li><strong>Worked example.</strong> $A = \begin{bmatrix}2&amp;2\\-1&amp;1\end{bmatrix}$ gives $A^\top A = \begin{bmatrix}5&amp;3\\3&amp;5\end{bmatrix}$ with eigenvalues $8, 2$ and eigenvectors $(1,1),(-1,1)$. Normalising and applying $A\mathbf{v}=\sigma\mathbf{u}$ gives $\sigma_1 = 2\sqrt2$, $\sigma_2 = \sqrt2$, $U = I$, so
+          $$ A = \begin{bmatrix}1&amp;0\\0&amp;1\end{bmatrix}\begin{bmatrix}2\sqrt2&amp;0\\0&amp;\sqrt2\end{bmatrix}\begin{bmatrix}\tfrac{\sqrt2}{2}&amp;\tfrac{\sqrt2}{2}\\-\tfrac{\sqrt2}{2}&amp;\tfrac{\sqrt2}{2}\end{bmatrix}. $$
+        </li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-eckart">2.2 Low-rank approximation (Eckart–Young)</h3>
+  <p>Truncating the SVD after $k$ terms gives</p>
+  <div class="formula">$$ A_k = \sum_{i=1}^{k}\sigma_i\mathbf{u}_i\mathbf{v}_i^\top, \qquad \|A - A_k\|_F^2 = \sum_{i=k+1}^{r}\sigma_i^2 $$</div>
+  <p>
+    and no rank-$k$ matrix can do better in the Frobenius norm. This is why the singular-value spectrum is the right stopping
+    criterion: the tail sum $\sum_{i\gt k}\sigma_i^2$ <em>is</em> the squared reconstruction error. Lab 2 plots the spectrum and
+    lets you cut it — the "energy kept" readout is $1 - \sum_{i\gt k}\sigma_i^2/\sum_i\sigma_i^2$.
+  </p>
+
+  <h3 class="sub" id="m-pca-var">2.3 PCA as variance maximisation</h3>
+  <details class="steps">
+    <summary>Derivation — the first principal component maximises projected variance</summary>
+    <div class="steps-body">
+      <p>Let $X$ be the centred $n\times d$ data matrix and $\mathbf{w}$ a unit vector.</p>
+      <ol class="derivation">
+        <li>The projected values are $X\mathbf{w}$; their sample variance is
+          $$ \frac{1}{n-1}\|X\mathbf{w}\|^2 = \frac{1}{n-1}\mathbf{w}^\top X^\top X\mathbf{w}. $$
+        </li>
+        <li>Let $S = \frac{1}{n-1}X^\top X$ be the sample covariance. Maximise $\mathbf{w}^\top S\mathbf{w}$ subject to $\|\mathbf{w}\|=1$.</li>
+        <li>Form the Lagrangian $\mathcal{L} = \mathbf{w}^\top S\mathbf{w} - \lambda(\mathbf{w}^\top\mathbf{w}-1)$ and differentiate:
+          $$ \frac{\partial\mathcal{L}}{\partial\mathbf{w}} = 2S\mathbf{w} - 2\lambda\mathbf{w} = 0 \;\Longrightarrow\; S\mathbf{w} = \lambda\mathbf{w}. $$
+        </li>
+        <li>So the optimum is an eigenvector of $S$, and the achieved variance is $\mathbf{w}^\top S\mathbf{w} = \lambda$. Maximising therefore picks the <em>largest</em> eigenvalue. <span class="qed">∎</span></li>
+        <li>Subsequent components maximise the same objective subject to orthogonality to the previous ones, which yields the remaining eigenvectors in decreasing eigenvalue order.</li>
+        <li><span class="why">Since $S = \frac{1}{n-1}V\Sigma^2V^\top$, the eigenvectors of $S$ are the right singular vectors of $X$ and the variances are $\sigma_i^2/(n-1)$ — connecting this derivation to the SVD route.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-ae">2.4 A linear autoencoder learns the PCA subspace</h3>
+  <details class="steps">
+    <summary>Proof — the optimal linear autoencoder spans the top-$K$ principal subspace</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>With linear encoder and decoder the reconstruction is $\hat{\mathbf{x}} = UV\mathbf{x}$ where $V\in\mathbb{R}^{K\times D}$ and $U\in\mathbb{R}^{D\times K}$. The matrix $UV$ has rank at most $K$ and is a projection-like map.</li>
+        <li>The loss is $\mathbb{E}\|\mathbf{x}-UV\mathbf{x}\|^2$. For any fixed $K$-dimensional subspace $\mathcal{S}$, the best rank-$K$ map is the orthogonal projection onto $\mathcal{S}$ — any other map would leave a larger residual for some direction.</li>
+        <li>So the problem reduces to choosing the subspace: minimise the expected squared distance from the data to its projection onto $\mathcal{S}$.</li>
+        <li>By Pythagoras, $\|\mathbf{x}\|^2 = \|\mathrm{proj}_\mathcal{S}\mathbf{x}\|^2 + \|\mathbf{x}-\mathrm{proj}_\mathcal{S}\mathbf{x}\|^2$, and $\mathbb{E}\|\mathbf{x}\|^2$ is fixed. Minimising the residual is therefore the same as <em>maximising</em> $\mathbb{E}\|\mathrm{proj}_\mathcal{S}\mathbf{x}\|^2$, the variance captured by the subspace.</li>
+        <li>By §2.3 that maximum is attained by the span of the top $K$ eigenvectors of the covariance — the PCA subspace. Choose $U = Q$ and $V = Q^\top$ for an orthonormal basis $Q$ of that subspace. <span class="qed">∎</span></li>
+        <li><span class="why">Lab 3 shows the learned decoder direction converging onto PC1: the autoencoder rediscovers PCA without ever computing a covariance matrix.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-tsne">2.5 What t-SNE optimises</h3>
+  <p>t-SNE defines a similarity distribution in the input space and one in the embedding, then minimises their KL divergence:</p>
+  <div class="formula">$$ p_{j\mid i} = \frac{\exp\!\big(-\|\mathbf{x}_i-\mathbf{x}_j\|^2/2\sigma_i^2\big)}{\sum_{k\ne i}\exp\!\big(-\|\mathbf{x}_i-\mathbf{x}_k\|^2/2\sigma_i^2\big)}, \qquad q_{ij} = \frac{(1+\|\mathbf{y}_i-\mathbf{y}_j\|^2)^{-1}}{\sum_{k\ne l}(1+\|\mathbf{y}_k-\mathbf{y}_l\|^2)^{-1}} $$</div>
+  <div class="formula">$$ \mathrm{KL}(P\|Q) = \sum_{i\ne j}p_{ij}\log\frac{p_{ij}}{q_{ij}} $$</div>
+  <p>
+    The bandwidth $\sigma_i$ is chosen per point so that the perplexity (effective number of neighbours) matches a
+    hyperparameter. The heavy-tailed Student-$t$ kernel in $Q$ allows moderately distant points to be modelled cheaply, solving
+    the "crowding problem" where a 2-D map cannot separate many clusters. Because the objective is asymmetric
+    ($p\log(p/q)$ penalises putting $q$ mass where $p$ has none but not the reverse), t-SNE preserves local neighbourhoods and
+    is unreliable about global distances — which is why cluster sizes and inter-cluster gaps in a t-SNE plot should not be
+    over-interpreted.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-pca">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · PCA</span><h4>Find the direction of maximum variance</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Rotate the red axis and watch the projection variance readout. It peaks exactly when the axis aligns with the green dashed PC1 — the eigenvector of the covariance matrix with the largest eigenvalue. Press <strong>Snap to PC1</strong> to jump there.</p>
+      <p>Notice that the second principal axis is always perpendicular to the first. That orthogonality is what makes the new coordinates uncorrelated, and it is why PCA is a rotation rather than an arbitrary linear map.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-svd">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · SVD</span><h4>Low-rank approximation and the spectrum</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>The lower plot is the singular-value spectrum (normalised by $\sigma_1$); the upper image is the rank-$k$ reconstruction. Rank 1 is a single gradient — the dominant direction only. Raise $k$ and structure appears: first the big blob, then the small square.</p>
+      <p>Watch the compression readout: storing a rank-$k$ factorisation of a $40\times40$ matrix needs $k(40+40+1)$ numbers instead of 1,600. At $k=4$ that is a 5× reduction for about 90% of the energy. This is exactly how SVD compresses images, and why the spectrum's elbow tells you where to stop.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-autoencoder">
+    <div class="lab-head"><span class="lab-tag">Lab 3 · autoencoder</span><h4>Gradient descent rediscovers PCA</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>A linear autoencoder with a one-dimensional bottleneck: encode $h = \mathbf{w}\cdot\mathbf{x}$, decode $\hat{\mathbf{x}} = \mathbf{v}h$. The red segments are reconstruction residuals; the red arrow is the learned decoder direction.</p>
+      <p>Press <strong>Train</strong> and watch the red arrow rotate onto the green PC1 direction while the reconstruction error falls. The angle readout converges to 0°. That is the theorem of §2.4 demonstrated empirically: nobody told this network about eigenvectors, and it found the principal subspace anyway. Add a non-linearity and it could find something PCA cannot.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">scikit-learn</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 13 — PCA via power iteration, and a linear autoencoder, no libraries."""
+import math
+import random
+
+
+def mean_centre(X):
+    d = len(X[0])
+    mu = [sum(row[j] for row in X) / len(X) for j in range(d)]
+    return [[row[j] - mu[j] for j in range(d)] for row in X], mu
+
+
+def covariance(Xc):
+    n, d = len(Xc), len(Xc[0])
+    return [[sum(Xc[i][a] * Xc[i][b] for i in range(n)) / (n - 1) for b in range(d)] for a in range(d)]
+
+
+def matvec(M, v):
+    return [sum(m * x for m, x in zip(row, v)) for row in M]
+
+
+def norm(v):
+    return math.sqrt(sum(x * x for x in v))
+
+
+def power_iteration(M, iters=200):
+    """Leading eigenvector and eigenvalue of a symmetric PSD matrix."""
+    d = len(M)
+    v = [1.0 / math.sqrt(d)] * d
+    lam = 0.0
+    for _ in range(iters):
+        w = matvec(M, v)
+        n = norm(w)
+        v = [x / n for x in w]
+        lam = n
+    return v, lam
+
+
+def pca(X, k=2):
+    Xc, mu = mean_centre(X)
+    S = covariance(Xc)
+    comps, variances = [], []
+    d = len(S)
+    for _ in range(k):
+        v, lam = power_iteration(S)
+        comps.append(v)
+        variances.append(lam)
+        # deflate: remove the component we just found
+        S = [[S[a][b] - lam * v[a] * v[b] for b in range(d)] for a in range(d)]
+    total = sum(variances)  # variance captured by the k components
+    return comps, variances, mu
+
+
+def project(X, comps, mu):
+    return [[sum((row[j] - mu[j]) * c[j] for j in range(len(row))) for c in comps] for row in X]
+
+
+if __name__ == "__main__":
+    rng = random.Random(0)
+    X = [[2 * rng.gauss(0, 1) + rng.gauss(0, 0.3),
+          rng.gauss(0, 1) - 0.4 * rng.gauss(0, 0.3)] for _ in range(300)]
+
+    comps, variances, mu = pca(X, k=2)
+    print("component 1:", [round(v, 3) for v in comps[0]], " variance:", round(variances[0], 3))
+    print("component 2:", [round(v, 3) for v in comps[1]], " variance:", round(variances[1], 3))
+    print("explained ratio:", round(variances[0] / (variances[0] + variances[1]), 3))
+    print("orthogonal:", round(sum(a * b for a, b in zip(comps[0], comps[1])), 10))
+
+    Z = project(X, comps, mu)
+    print("projected shape:", len(Z), "x", len(Z[0]))
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 13 — PCA via SVD, low-rank image compression, and a linear autoencoder."""
+import numpy as np
+
+
+def pca_svd(X, k=None):
+    """Centre, take the SVD, return components, explained variance and the transform."""
+    X = np.asarray(X, float)
+    mu = X.mean(0)
+    Xc = X - mu
+    U, S, Vt = np.linalg.svd(Xc, full_matrices=False)
+    var = S ** 2 / (len(X) - 1)
+    k = k or len(S)
+    return {
+        "components": Vt[:k],                 # (k, d) rows are PC directions
+        "singular_values": S[:k],
+        "explained_variance": var[:k],
+        "explained_ratio": var[:k] / var.sum(),
+        "mean": mu,
+    }
+
+
+def transform(model, X):
+    return (np.asarray(X, float) - model["mean"]) @ model["components"].T
+
+
+def inverse_transform(model, Z):
+    return np.asarray(Z, float) @ model["components"] + model["mean"]
+
+
+def low_rank(A, k):
+    U, S, Vt = np.linalg.svd(A, full_matrices=False)
+    return (U[:, :k] * S[:k]) @ Vt[:k], S
+
+
+def linear_autoencoder(X, k=1, lr=0.05, steps=400):
+    """Gradient descent on ||X - X W V||^2 with W: d->k and V: k->d."""
+    X = np.asarray(X, float)
+    X = X - X.mean(0)
+    n, d = X.shape
+    W = np.random.default_rng(0).normal(0, 0.1, (d, k))
+    V = np.random.default_rng(1).normal(0, 0.1, (k, d))
+    for _ in range(steps):
+        H = X @ W
+        R = H @ V - X
+        gW = X.T @ (R @ V.T) / n
+        gV = H.T @ R / n
+        W -= lr * gW
+        V -= lr * gV
+    return W, V
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(300, 5)) @ np.diag([3, 2, 1, 0.5, 0.2]) @ np.linalg.qr(rng.normal(size=(5, 5)))[0]
+
+    model = pca_svd(X)
+    print("explained ratio:", np.round(model["explained_ratio"], 3))
+    print("cumulative     :", np.round(np.cumsum(model["explained_ratio"]), 3))
+
+    Z = transform(model, X)
+    Xrec = inverse_transform(model, Z[:, :2])
+    print("2-component reconstruction MSE:", round(float(((X - Xrec) ** 2).mean()), 4))
+
+    # Low-rank image compression
+    img = np.outer(np.sin(np.linspace(0, 6, 60)), np.cos(np.linspace(0, 4, 45)))
+    img += (np.random.default_rng(1).random(img.shape) - 0.5) * 0.1
+    for k in (1, 5, 20):
+        rec, S = low_rank(img, k)
+        err = np.linalg.norm(img - rec) / np.linalg.norm(img)
+        print(f"rank {k:2d}: relative error {err:.3f}  stored {k * (img.shape[0] + img.shape[1] + 1)} vs {img.size}")
+
+    # The linear autoencoder finds the same subspace as PCA
+    W, V = linear_autoencoder(X, k=1, steps=2000)
+    pca_dir = model["components"][0]
+    ae_dir = V[0] / np.linalg.norm(V[0])
+    cos = abs(float(pca_dir @ ae_dir))
+    print("|cos(angle)| between autoencoder and PC1:", round(cos, 5))
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 13 — scikit-learn: PCA, kernel PCA, t-SNE, and an autoencoder in PyTorch."""
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA, KernelPCA, TruncatedSVD
+from sklearn.manifold import TSNE
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_digits(return_X_y=True)          # 1797 images, 64 pixels each
+X = StandardScaler().fit_transform(X)
+
+# --- explained variance -----------------------------------------------------
+pca = PCA().fit(X)
+cum = np.cumsum(pca.explained_variance_ratio_)
+print("components for 80% / 95% variance:",
+      int(np.searchsorted(cum, 0.80)) + 1, "/", int(np.searchsorted(cum, 0.95)) + 1)
+
+# --- compression and reconstruction error -----------------------------------
+for k in (2, 10, 20, 40):
+    p = PCA(n_components=k).fit(X)
+    rec = p.inverse_transform(p.transform(X))
+    print(f"k={k:2d}: explained={p.explained_variance_ratio_.sum():.3f}  MSE={((X - rec) ** 2).mean():.4f}")
+
+# --- what centering vs standardising does -----------------------------------
+from sklearn.datasets import load_iris
+Xi = load_iris().data
+for label, data in (("centred", Xi - Xi.mean(0)), ("standardised", StandardScaler().fit_transform(Xi))):
+    p = PCA(2).fit(data)
+    print(f"iris {label:13s} PC1 explains {p.explained_variance_ratio_[0]:.3f}")
+
+# --- kernel PCA for non-linear structure ------------------------------------
+kpca = KernelPCA(n_components=2, kernel="rbf", gamma=0.02).fit_transform(X)
+print("kernel PCA output shape:", kpca.shape)
+
+# --- t-SNE for visualisation ------------------------------------------------
+tsne = TSNE(n_components=2, perplexity=30, random_state=0).fit_transform(X[:500])
+print("t-SNE output shape:", tsne.shape, " (stochastic: rerun to see it move)")
+
+# --- an autoencoder in PyTorch ----------------------------------------------
+import torch, torch.nn as nn
+torch.manual_seed(0)
+ae = nn.Sequential(
+    nn.Linear(64, 16), nn.ReLU(),      # encoder
+    nn.Linear(16, 8), nn.ReLU(),       # bottleneck
+    nn.Linear(8, 16), nn.ReLU(),       # decoder
+    nn.Linear(16, 64),
+)
+Xt = torch.tensor(X, dtype=torch.float32)
+opt = torch.optim.Adam(ae.parameters(), lr=1e-3)
+for step in range(600):
+    loss = nn.functional.mse_loss(ae(Xt), Xt)
+    opt.zero_grad(); loss.backward(); opt.step()
+print("autoencoder final MSE:", round(loss.item(), 4))
+print("bottleneck compression:", 64 / 8, "x")
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block closes the loop on §2.4: after 2,000 gradient steps, the linear autoencoder's decoder direction has
+      $|\cos|\approx1$ with the first principal component. Same subspace, completely different algorithm.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="13">
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>The singular values of a centred data matrix $X$ relate to the covariance matrix as:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$\sigma_i$ equals the variance of component $i$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>$\sigma_i^2$ equals the variance of component $i$</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>$\sigma_i^2/(n-1)$ equals the variance of component $i$</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>There is no relation</span></button></li>
+      </ul>
+      <div class="explain"><p>$X^\top X/(n-1) = V\Sigma^2V^\top/(n-1)$, so the eigenvalues of the covariance are $\sigma_i^2/(n-1)$ and the eigenvectors are the right singular vectors.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>Why must the data be centred before PCA?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>To make the singular values non-negative</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Otherwise the SVD describes the second moment about the origin, not the variance</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>To remove outliers</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Centering is optional</span></button></li>
+      </ul>
+      <div class="explain"><p>Without centring, the dominant singular vector points toward the mean rather than toward the direction of greatest spread — the classic first-principle error in PCA code.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>A linear autoencoder with a $K$-dimensional bottleneck and squared error learns:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>An arbitrary linear map</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>The identity</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>A random subspace</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The top-$K$ PCA subspace</span></button></li>
+      </ul>
+      <div class="explain"><p>Minimising reconstruction error is equivalent to maximising captured variance, whose optimum is the span of the top $K$ eigenvectors of the covariance.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>Two features: height in centimetres (150–200) and weight in kilograms (50–120). For PCA you should:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Standardise, because the features have different units and scales</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Only centre, because both are physical measurements</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Do nothing</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Log-transform both</span></button></li>
+      </ul>
+      <div class="explain"><p>Different units mean different scales, so the larger-variance feature would dominate PC1 for reasons unrelated to importance. Standardising gives each feature unit variance; then the squared singular values describe correlations.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>In a t-SNE plot, the distance between two clusters is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>A faithful measure of their dissimilarity</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Exactly proportional to the high-dimensional distance</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Not meaningful — t-SNE preserves local neighbourhoods, not global geometry</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Deterministic across runs</span></button></li>
+      </ul>
+      <div class="explain"><p>The KL objective is asymmetric and the embedding is stochastic, so cluster sizes and gaps should not be interpreted quantitatively. Only membership is reliable.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">SVD</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$A = U\Sigma V^\top$ with $U,V$ orthogonal. $A\mathbf{v}_i = \sigma_i\mathbf{u}_i$, so $A = \sum_i\sigma_i\mathbf{u}_i\mathbf{v}_i^\top$.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Eckart–Young theorem</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">The truncated SVD is the optimal rank-$k$ approximation in Frobenius norm, with error $\sqrt{\sum_{i\gt k}\sigma_i^2}$. Optimal, not heuristic.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Explained variance ratio</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\sigma_i^2/\sum_j\sigma_j^2$: the fraction of total variance captured by component $i$. The cumulative version tells you how many components you need.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Latent semantic analysis</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">SVD on a term–document matrix, truncated to $k$ components. Documents with similar meaning end up close even without shared words.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Undercomplete vs. overcomplete</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Bottleneck smaller than the input forces compression; larger allows the identity and needs regularisation (denoising, sparsity, dropout) to learn anything useful.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Implicit vs. explicit density models</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">GANs are implicit: they sample without giving $p(\mathbf{x})$. VAEs, autoregressive models and diffusion are explicit: you can evaluate (or bound) the likelihood.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Why GAN training is unstable</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Two networks optimise opposing objectives, so the loss does not decrease monotonically and can oscillate or collapse. Non-saturating generator loss and careful architecture choices help.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Cycle consistency</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">In CycleGAN, mapping $A\to B\to A$ should return the original. It is what allows unpaired image translation without content loss.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+</section>
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">PCA by hand in 2-D</h4></div>
+    <p>Three centred points: $(-1,0)$, $(0,1)$, $(1,-1)$. Compute the covariance matrix, its eigenvalues, and the first principal component.</p>
+    <button class="btn btn-sm" data-reveal="sol-13-1" type="button">Show solution</button>
+    <div id="sol-13-1" class="solution" hidden>
+      <p>$X^\top X = \begin{bmatrix}2&amp;-1\\-1&amp;2\end{bmatrix}$, so $S = X^\top X/(n-1) = \begin{bmatrix}1&amp;-0.5\\-0.5&amp;1\end{bmatrix}$.</p>
+      <p>Eigenvalues: $1.5$ and $0.5$. Eigenvector for $1.5$: $\frac{1}{\sqrt2}(1,-1)$.</p>
+      <p>PC1 explains $1.5/2 = 75\%$ of the variance. The data is more spread along the anti-diagonal, which is visible by inspection.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Prove the reconstruction-error identity</h4></div>
+    <p>Show that for centred data, truncating after $k$ components leaves squared reconstruction error $\sum_{i\gt k}\sigma_i^2$.</p>
+    <button class="btn btn-sm" data-reveal="sol-13-2" type="button">Show solution</button>
+    <div id="sol-13-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>Write $X = U\Sigma V^\top$ and $X_k = U_k\Sigma_kV_k^\top$ (first $k$ components).</li>
+        <li>Because $U$ has orthonormal columns, $\|X - X_k\|_F^2 = \|U^\top(X-X_k)\|_F^2$.</li>
+        <li>$U^\top X = \Sigma V^\top$ and $U^\top X_k$ keeps only the first $k$ rows of $\Sigma V^\top$; the difference is the remaining rows, whose squared Frobenius norm is $\sum_{i\gt k}\sigma_i^2$. <span class="qed">∎</span></li>
+        <li>Since the residual only involves the discarded singular values, and no rank-$k$ matrix can have a smaller residual, this is optimal.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Show that a linear autoencoder recovers PCA</h4></div>
+    <p>Let $\hat X = XWV$ with $W\in\mathbb{R}^{d\times k}$, $V\in\mathbb{R}^{k\times d}$. Show that minimising $\|X-XWV\|_F^2$ over rank-$k$ factorisations is equivalent to PCA, and characterise the optimal $WV$.</p>
+    <button class="btn btn-sm" data-reveal="sol-13-3" type="button">Show solution</button>
+    <div id="sol-13-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>$WV$ has rank at most $k$, so the problem is: find the best rank-$k$ approximation of $X$.</li>
+        <li>By Eckart–Young the optimum is $X_k = U_k\Sigma_kV_k^\top$.</li>
+        <li>Hence the optimal composite map is $WV = V_k^\top V_k$ — the orthogonal projection onto the top-$k$ principal subspace (up to a change of basis inside the subspace, which does not change the projection). <span class="qed">∎</span></li>
+        <li><span class="why">So a linear autoencoder can learn the PCA <em>subspace</em> but not the PCA <em>axes</em> or the ordered variances: any invertible linear map inside the bottleneck gives the same reconstruction. That is exactly what lab 3 shows — the decoder direction converges onto PC1's span.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 13</span>
+    <h3>Compress, visualise, reconstruct</h3>
+    <p>Take a high-dimensional dataset and demonstrate what is lost and what is preserved at each compression level — with numbers, not adjectives.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Choose a dataset with at least 30 dimensions (digits, gene expression, or image patches).</li>
+      <li>Implement PCA via SVD and via power iteration; verify they agree on components and explained variance.</li>
+      <li>Plot the scree plot and cumulative explained variance; choose $k$ for 90% and 95% with an explicit rule.</li>
+      <li>Quantify the downstream cost: train a classifier on the original features and on the $k$-component projection; report accuracy and training time for both.</li>
+      <li>Compare PCA, kernel PCA and t-SNE for a 2-D visualisation, and explain where they disagree.</li>
+      <li>Train a linear autoencoder and a non-linear one; show that the linear one matches PCA and the non-linear one beats it at the same bottleneck size.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li>Notebook with scree plots, reconstruction examples and the classifier comparison</li>
+      <li>From-scratch PCA and autoencoder with tests</li>
+      <li>Two figures: the visualisation comparison, and reconstruction quality vs. $k$</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Correctness</td><td>SVD and power-iteration PCA agree; centring handled correctly</td><td>25</td></tr>
+        <tr><td>Quantification</td><td>Downstream cost/benefit measured, not asserted</td><td>30</td></tr>
+        <tr><td>Comparison</td><td>PCA vs. kernel PCA vs. t-SNE differences explained mechanistically</td><td>25</td></tr>
+        <tr><td>Autoencoder</td><td>Linear = PCA verified numerically; non-linear improvement demonstrated</td><td>20</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Implement a denoising autoencoder and show it learns more robust features than a plain one.</li>
+      <li>Use the autoencoder's bottleneck as input to a classifier and compare with raw features.</li>
+      <li>Add NMF and discuss why non-negative bases are preferable for count or intensity data.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/13-compression-study/</code>.</p>
+  </div>
+</section>

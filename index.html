@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ML from First Principles — an interactive machine learning course</title>
+<meta name="description" content="Learn machine learning from first principles: intuition, derivations, interactive labs, from-scratch Python, NumPy and scikit-learn, quizzes and portfolio projects." />
+<meta property="og:title" content="ML from First Principles — an interactive machine learning course" />
+<meta property="og:description" content="Learn machine learning from first principles: intuition, derivations, interactive labs, from-scratch Python, NumPy and scikit-learn, quizzes and portfolio projects." />
+<meta property="og:type" content="article" />
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="assets/vendor/katex/katex.min.css" />
+<link rel="stylesheet" href="assets/css/site.css" />
+<script defer src="assets/vendor/katex/katex.min.js"></script>
+<script defer src="assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="assets/js/viz.js"></script>
+<script defer src="assets/js/mla.js"></script>
+<script defer src="assets/js/site.js"></script>
+
+</head>
+<body data-module="home">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">ML</span>
+      <span>ML from First Principles<small>Interactive course · CUNY CSC 74020</small></span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a class="opt" href="index.html#curriculum">Curriculum</a>
+      <a class="opt" href="index.html#python">Python library</a>
+      <a class="opt" href="index.html#projects">Projects</a>
+      <a class="opt" href="index.html#sources">Sources</a>
+      <button class="icon-btn" data-theme-toggle type="button" aria-label="Toggle theme">☾</button>
+      <button class="icon-btn" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">☰</button>
+    </nav>
+  </div>
+  <div id="navMenu" hidden style="border-top:1px solid var(--line);background:var(--panel)">
+    <div class="shell" style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:.86rem">
+      <a href="modules/foundations.html" style="padding:4px 0;color:var(--ink-2)">01 · What Machine Learning Actually Is</a>
+      <a href="modules/knn-evaluation.html" style="padding:4px 0;color:var(--ink-2)">02 · Nearest Neighbours & Honest Evaluation</a>
+      <a href="modules/linear-regression.html" style="padding:4px 0;color:var(--ink-2)">03 · Linear Models & Least Squares</a>
+      <a href="modules/logistic-regression.html" style="padding:4px 0;color:var(--ink-2)">04 · Logistic Regression & Classification Loss</a>
+      <a href="modules/regularization.html" style="padding:4px 0;color:var(--ink-2)">05 · Regularization, Bias–Variance & Model Selection</a>
+      <a href="modules/neural-networks.html" style="padding:4px 0;color:var(--ink-2)">06 · Artificial Neural Networks</a>
+      <a href="modules/backpropagation.html" style="padding:4px 0;color:var(--ink-2)">07 · Backpropagation & Training Deep Networks</a>
+      <a href="modules/trees-ensembles.html" style="padding:4px 0;color:var(--ink-2)">08 · Decision Trees, Bagging & Boosting</a>
+      <a href="modules/clustering.html" style="padding:4px 0;color:var(--ink-2)">09 · Unsupervised Learning: Clustering</a>
+      <a href="modules/cnns.html" style="padding:4px 0;color:var(--ink-2)">10 · Convolutional Neural Networks</a>
+      <a href="modules/sequences.html" style="padding:4px 0;color:var(--ink-2)">11 · Sequences: RNNs, LSTMs & Attention</a>
+      <a href="modules/transformers.html" style="padding:4px 0;color:var(--ink-2)">12 · Transformers & Large Language Models</a>
+      <a href="modules/dimensionality-reduction.html" style="padding:4px 0;color:var(--ink-2)">13 · Dimensionality Reduction & Representation Learning</a>
+      <a href="modules/svm-kernels.html" style="padding:4px 0;color:var(--ink-2)">14 · Support Vector Machines & Kernels</a>
+      <a href="modules/reinforcement-learning.html" style="padding:4px 0;color:var(--ink-2)">15 · Reinforcement Learning</a>
+      <a href="modules/interpretation.html" style="padding:4px 0;color:var(--ink-2)">16 · Model Interpretation & What Comes Next</a>
+    </div>
+  </div>
+</header>
+<main id="main">
+  <section class="hero">
+    <div class="shell">
+      <span class="eyebrow">Interactive course · 16 modules</span>
+      <h1>Machine learning,<br />from first principles.</h1>
+      <p class="lede">
+        Every module takes one idea and rebuilds it four ways: the <strong>intuition</strong> and where it shows up in the
+        world, the <strong>mathematics</strong> derived step by step, an <strong>interactive lab</strong> you can drag,
+        and the same algorithm written three times — <strong>pure Python</strong>, <strong>NumPy</strong>, and
+        <strong>scikit-learn</strong>. Then you prove you own it with quizzes, flashcards and a portfolio project.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="modules/foundations.html">Start with Module 01 →</a>
+        <a class="btn" href="#curriculum">See the curriculum</a>
+        <a class="btn btn-ghost" href="#python">Python library</a>
+      </div>
+      <div style="margin-top:34px;max-width:420px">
+        <div style="display:flex;justify-content:space-between;font-size:.8rem;color:var(--ink-3);margin-bottom:6px">
+          <span>Your progress</span><span data-overall-label>0 of 16 modules complete</span>
+        </div>
+        <div style="height:6px;border-radius:4px;background:var(--line)" >
+          <div data-overall-progress="16" style="height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .3s"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell" style="padding-bottom:20px">
+    <div class="grid grid-3">
+      <div class="card">
+        <h3>1 · Intuition first</h3>
+        <p class="small muted">A visual explanation and three real-world examples before a single symbol appears. If you cannot say what a model <em>does</em> in one sentence, the maths will not help.</p>
+      </div>
+      <div class="card">
+        <h3>2 · Mathematics, derived</h3>
+        <p class="small muted">Linear algebra, calculus and probability appear exactly where they are needed — with numbered, expandable derivations and proofs you can check line by line.</p>
+      </div>
+      <div class="card">
+        <h3>3 · Labs you can drag</h3>
+        <p class="small muted">Every module ships canvas-based simulations: sliders for learning rate, k, λ, C, γ, temperature. Break them on purpose. That is the fastest way to build intuition.</p>
+      </div>
+      <div class="card">
+        <h3>4 · Three implementations</h3>
+        <p class="small muted">Pure-Python from scratch (no libraries, so nothing hides), then vectorised NumPy, then the scikit-learn equivalent — with a note on when to use which.</p>
+      </div>
+      <div class="card">
+        <h3>5 · Assessment that bites</h3>
+        <p class="small muted">Multiple-choice quizzes with explanations for every distractor, a flashcard deck, and graded practice problems with full worked solutions.</p>
+      </div>
+      <div class="card">
+        <h3>6 · A portfolio project</h3>
+        <p class="small muted">Each module ends with a scoped project — brief, deliverables, rubric and starter code — so the course leaves you with artefacts, not just notes.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell" id="curriculum" style="padding:56px 20px 10px;scroll-margin-top:80px">
+    <h2 style="margin-bottom:8px">Curriculum</h2>
+    <p class="lede" style="margin-bottom:26px">Sixteen modules, following the lecture sequence of CSC 74020. Each one is self-contained; the ordering below is the recommended path.</p>
+    <div class="grid grid-3">
+      <a class="module-card card" href="modules/foundations.html" data-progress-for="foundations">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 01 · Foundations</span>
+        <h3>What Machine Learning Actually Is</h3>
+        <p>The vocabulary, the pipeline, and the metrics — everything later modules assume.</p>
+        <div class="meta"><span class="chip">pipeline</span><span class="chip">evaluation</span><span class="chip">overfitting</span><span class="chip">metrics</span><span class="chip chip-accent">55 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/knn-evaluation.html" data-progress-for="knn-evaluation">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 02 · Classification</span>
+        <h3>Nearest Neighbours & Honest Evaluation</h3>
+        <p>The simplest learner in ML, plus the evaluation vocabulary that every later model is judged with.</p>
+        <div class="meta"><span class="chip">k-NN</span><span class="chip">distance</span><span class="chip">hyperparameters</span><span class="chip">confusion matrix</span><span class="chip chip-accent">50 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/linear-regression.html" data-progress-for="linear-regression">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 03 · Regression</span>
+        <h3>Linear Models & Least Squares</h3>
+        <p>Least squares, derived and dissected — the template for every optimisation problem that follows.</p>
+        <div class="meta"><span class="chip">least squares</span><span class="chip">normal equations</span><span class="chip">pseudoinverse</span><span class="chip">SVD</span><span class="chip chip-accent">70 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/logistic-regression.html" data-progress-for="logistic-regression">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 04 · Classification</span>
+        <h3>Logistic Regression & Classification Loss</h3>
+        <p>From a line to a probability: the logistic function, log-odds, and cross-entropy from first principles.</p>
+        <div class="meta"><span class="chip">logistic</span><span class="chip">cross-entropy</span><span class="chip">log-odds</span><span class="chip">softmax</span><span class="chip chip-accent">65 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/regularization.html" data-progress-for="regularization">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 05 · Generalization</span>
+        <h3>Regularization, Bias–Variance & Model Selection</h3>
+        <p>How to stop a model from memorising: penalties, the bias–variance trade-off, and honest validation.</p>
+        <div class="meta"><span class="chip">ridge</span><span class="chip">lasso</span><span class="chip">bias-variance</span><span class="chip">cross-validation</span><span class="chip chip-accent">70 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/neural-networks.html" data-progress-for="neural-networks">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 06 · Deep learning</span>
+        <h3>Artificial Neural Networks</h3>
+        <p>Neurons, layers, activations, and why nonlinearity is the whole point.</p>
+        <div class="meta"><span class="chip">perceptron</span><span class="chip">MLP</span><span class="chip">activation</span><span class="chip">universal approximation</span><span class="chip chip-accent">65 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/backpropagation.html" data-progress-for="backpropagation">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 07 · Deep learning</span>
+        <h3>Backpropagation & Training Deep Networks</h3>
+        <p>How gradients actually flow: the chain rule at scale, plus the tricks that make deep nets trainable.</p>
+        <div class="meta"><span class="chip">chain rule</span><span class="chip">backprop</span><span class="chip">Adam</span><span class="chip">dropout</span><span class="chip">initialisation</span><span class="chip chip-accent">85 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/trees-ensembles.html" data-progress-for="trees-ensembles">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 08 · Classical ML</span>
+        <h3>Decision Trees, Bagging & Boosting</h3>
+        <p>Trees you can read, and the ensembles that turn weak learners into strong ones.</p>
+        <div class="meta"><span class="chip">CART</span><span class="chip">Gini</span><span class="chip">random forest</span><span class="chip">AdaBoost</span><span class="chip chip-accent">75 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/clustering.html" data-progress-for="clustering">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 09 · Unsupervised</span>
+        <h3>Unsupervised Learning: Clustering</h3>
+        <p>Finding structure without labels: centroids, densities and hierarchies.</p>
+        <div class="meta"><span class="chip">k-means</span><span class="chip">DBSCAN</span><span class="chip">hierarchical</span><span class="chip">elbow</span><span class="chip chip-accent">70 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/cnns.html" data-progress-for="cnns">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 10 · Deep learning</span>
+        <h3>Convolutional Neural Networks</h3>
+        <p>Inductive bias for images: locality, weight sharing, and hierarchies of features.</p>
+        <div class="meta"><span class="chip">convolution</span><span class="chip">pooling</span><span class="chip">batch norm</span><span class="chip">ResNet</span><span class="chip chip-accent">80 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/sequences.html" data-progress-for="sequences">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 11 · Deep learning</span>
+        <h3>Sequences: RNNs, LSTMs & Attention</h3>
+        <p>State, memory and attention — the pre-transformer toolkit for sequential data.</p>
+        <div class="meta"><span class="chip">RNN</span><span class="chip">LSTM</span><span class="chip">BPTT</span><span class="chip">attention</span><span class="chip chip-accent">80 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/transformers.html" data-progress-for="transformers">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 12 · Modern AI</span>
+        <h3>Transformers & Large Language Models</h3>
+        <p>Attention is all you need: the architecture behind modern language models.</p>
+        <div class="meta"><span class="chip">self-attention</span><span class="chip">multi-head</span><span class="chip">positional encoding</span><span class="chip">LLM</span><span class="chip chip-accent">85 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/dimensionality-reduction.html" data-progress-for="dimensionality-reduction">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 13 · Unsupervised</span>
+        <h3>Dimensionality Reduction & Representation Learning</h3>
+        <p>Compression as understanding: SVD, PCA, t-SNE and autoencoders.</p>
+        <div class="meta"><span class="chip">SVD</span><span class="chip">PCA</span><span class="chip">t-SNE</span><span class="chip">autoencoder</span><span class="chip chip-accent">80 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/svm-kernels.html" data-progress-for="svm-kernels">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 14 · Classical ML</span>
+        <h3>Support Vector Machines & Kernels</h3>
+        <p>Geometry-first classification: margins, duality, and the kernel trick.</p>
+        <div class="meta"><span class="chip">margin</span><span class="chip">duality</span><span class="chip">kernel trick</span><span class="chip">RBF</span><span class="chip chip-accent">75 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/reinforcement-learning.html" data-progress-for="reinforcement-learning">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 15 · Sequential decisions</span>
+        <h3>Reinforcement Learning</h3>
+        <p>Learning from reward: MDPs, Bellman equations, and trial-and-error agents.</p>
+        <div class="meta"><span class="chip">MDP</span><span class="chip">Bellman</span><span class="chip">Q-learning</span><span class="chip">exploration</span><span class="chip chip-accent">80 min</span></div>
+      </a>
+      <a class="module-card card" href="modules/interpretation.html" data-progress-for="interpretation">
+        <span class="progress-dot" aria-hidden="true"></span>
+        <span class="num">Module 16 · Responsible ML</span>
+        <h3>Model Interpretation & What Comes Next</h3>
+        <p>Opening the black box, and a map of where the field is heading.</p>
+        <div class="meta"><span class="chip">SHAP</span><span class="chip">Shapley</span><span class="chip">Grad-CAM</span><span class="chip">frontiers</span><span class="chip chip-accent">70 min</span></div>
+      </a>
+    </div>
+  </section>
+
+  <section class="shell" id="python" style="padding:56px 20px 10px;scroll-margin-top:80px">
+    <h2 style="margin-bottom:8px">The <code>mlfs</code> Python library</h2>
+    <p class="lede" style="margin-bottom:22px">
+      Every code block in this course also exists as a tested module in the repository, so you can <code>pip install -e .</code>
+      and run the exact code you read. Each algorithm ships with three implementations and a test suite that checks them
+      against each other and against scikit-learn.
+    </p>
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>From scratch, then vectorised</h3>
+        <pre style="margin:0;overflow-x:auto"><code>from mlfs.linear_model import LinearRegressionScratch, LinearRegressionNumPy
+from sklearn.linear_model import LinearRegression
+
+m1 = LinearRegressionScratch().fit(X, y)   # loops + the normal equations
+m2 = LinearRegressionNumPy().fit(X, y)     # vectorised, pinv-based
+m3 = LinearRegression().fit(X, y)          # scikit-learn
+
+assert abs(m1.coef_[0] - m3.coef_[0]) &lt; 1e-8</code></pre>
+      </div>
+      <div class="card">
+        <h3>What is inside</h3>
+        <ul class="tight small">
+          <li><code>mlfs/</code> — 15 sub-packages covering the course (kNN, trees, SVM, PCA, CNN, RNN, attention, RL…)</li>
+          <li><code>tests/</code> — 53 tests, including parity checks against scikit-learn / NumPy references</li>
+          <li><code>assets/js/labs/</code> — the 16 lab scripts behind the interactive figures</li>
+          <li><code>projects/</code> — starter code and rubrics for the 16 portfolio projects</li>
+        </ul>
+        <p class="small muted" style="margin-bottom:0">Dependencies: <code>numpy</code>, <code>scikit-learn</code>, <code>pytest</code>. PyTorch is optional and only used in the deep-learning notebooks.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell" id="projects" style="padding:56px 20px 10px;scroll-margin-top:80px">
+    <h2 style="margin-bottom:8px">Portfolio projects</h2>
+    <p class="lede" style="margin-bottom:22px">Each module ends with a project brief: a problem, a dataset suggestion, deliverables, a rubric and stretch goals. Do four of them and you have a portfolio.</p>
+    <div class="grid grid-4">
+      <div class="card"><h4>Regression clinic</h4><p class="small muted">Predict and explain — with a residual analysis a statistician would accept.</p></div>
+      <div class="card"><h4>Classifier bake-off</h4><p class="small muted">Same data, six algorithms, one honest cross-validated leaderboard.</p></div>
+      <div class="card"><h4>From-scratch deep net</h4><p class="small muted">Autograd, MLP, CNN — no frameworks, then match PyTorch.</p></div>
+      <div class="card"><h4>Interpretability report</h4><p class="small muted">Explain a model's decisions to a non-technical stakeholder.</p></div>
+    </div>
+  </section>
+
+  <section class="shell" id="sources" style="padding:56px 20px 80px;scroll-margin-top:80px">
+    <h2 style="margin-bottom:8px">Sources &amp; attribution</h2>
+    <div class="card">
+      <p class="small" style="margin-top:0">
+        The primary source for this site is the CSC 74020 <em>Machine Learning</em> lecture notes by
+        <strong>Prof. Jonathan Gryak</strong> (Department of Computer Science, CUNY Graduate Center, Fall 2025):
+        Lectures 1–14, including the slide decks for Transformers/LLMs, Dimensionality Reduction, SVMs, Reinforcement
+        Learning and Model Interpretation. Notation, terminology, definitions, worked examples and the sequence of topics
+        follow those notes closely.
+      </p>
+      <p class="small">
+        Supplementary readings from the course reading list are referenced where a derivation benefits from a second
+        treatment: Bishop, <em>Pattern Recognition and Machine Learning</em> (2006); Hastie, Tibshirani &amp; Friedman,
+        <em>The Elements of Statistical Learning</em>; Géron, <em>Hands-On Machine Learning with Scikit-Learn, Keras &amp;
+        TensorFlow</em>; Raschka, <em>Machine Learning with PyTorch and Scikit-Learn</em>; Zhang et al.,
+        <em>Dive into Deep Learning</em>; Sutton &amp; Barto, <em>Reinforcement Learning: An Introduction</em>.
+      </p>
+      <p class="small muted" style="margin-bottom:0">
+        Interactive labs, code, quizzes, flashcards and projects are original to this repository. Figures are drawn in
+        the browser with the small canvas toolkit in <code>assets/js/viz.js</code> — no charting library, no tracking, no
+        network calls. Math is typeset with a locally vendored KaTeX.
+      </p>
+    </div>
+  </section>
+</main>
+<footer class="site">
+  <div class="shell">
+    <div>
+      <strong>ML from First Principles</strong><br />
+      An interactive, open-source companion to CSC 74020 (Machine Learning), Fall 2025, taught by Prof. Jonathan Gryak at the CUNY Graduate Center.
+    </div>
+    <div>
+      <a href="index.html">Home</a> ·
+      <a href="index.html#curriculum">Curriculum</a> ·
+      <a href="index.html#python">Python library</a> ·
+      <a href="index.html#sources">Sources</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

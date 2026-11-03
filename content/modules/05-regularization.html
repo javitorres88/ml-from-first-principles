@@ -1,0 +1,645 @@
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-problem">The problem: fitting noise</h3>
+  <p>
+    Module 01 showed the symptom — training error falls while validation error rises. This module is about the cure and about
+    the mathematics that explains why the cure works. There are only two levers, and every practical technique is a
+    combination of them:
+  </p>
+  <ol>
+    <li><strong>Constrain the model</strong> so it cannot express the noise: fewer features, lower degree, shallower trees, smaller weights.</li>
+    <li><strong>Estimate generalization honestly</strong> so you can tell whether the constraint helped: validation sets and cross-validation.</li>
+  </ol>
+
+  <h3 class="sub" id="i-penalty">Regularization as a budget</h3>
+  <p>
+    Rather than minimising the fit error alone, minimise fit error <em>plus a price for complexity</em>:
+  </p>
+  <div class="formula">$$ g(\boldsymbol\theta, f) = \text{MSE}(\boldsymbol\theta) + \lambda\cdot R(\boldsymbol\theta) $$</div>
+  <p>
+    $\lambda$ is a hyperparameter that sets the exchange rate between accuracy and simplicity. Two penalties dominate:
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Name</th><th>$R(\boldsymbol\theta)$</th><th>Geometric constraint</th><th>Effect on weights</th></tr></thead>
+      <tbody>
+        <tr><td>Ridge (Tikhonov)</td><td>$\sum_i\theta_i^2 = \|\boldsymbol\theta\|_2^2$</td><td>a ball (circle in 2-D)</td><td>shrinks all weights smoothly; none become exactly zero</td></tr>
+        <tr><td>Lasso</td><td>$\sum_i|\theta_i| = \|\boldsymbol\theta\|_1$</td><td>a diamond (cross-polytope)</td><td>sets some weights exactly to zero → sparse model, feature selection</td></tr>
+        <tr><td>Elastic net</td><td>$\beta\|\boldsymbol\theta\|_2^2 + \|\boldsymbol\theta\|_1$</td><td>a rounded diamond</td><td>sparse <em>and</em> stable with correlated features</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout insight">
+    <span class="label">Why the diamond gives exact zeros</span>
+    <p>
+      Picture the elliptical contours of the unpenalised loss closing in on the least-squares solution $\hat{\mathbf{w}}$, and a
+      constraint region that grows as $\lambda$ shrinks. The regularised solution is the first point where the two touch. A
+      circle is smooth, so the touching point is generically on its surface with both coordinates non-zero. A diamond has
+      <em>corners on the axes</em>, and corners are where expanding ellipses tend to land — so one or more coordinates become
+      exactly zero. That is the whole of lasso's feature-selection behaviour, and lab 1 lets you watch it happen.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-bv">Bias and variance</h3>
+  <p>
+    Suppose the true label is $y = y^\* + \epsilon$ where $y^\*$ is the best achievable prediction and $\epsilon$ is noise with
+    mean 0 and variance $\sigma^2$. If we could draw many training sets and fit a model $y_k$ to each, the expected error of a
+    single fit decomposes into three parts:
+  </p>
+  <div class="formula">$$ \mathbb{E}\big[(y - y_k)^2\big] = \underbrace{\big(y^\* - \mathbb{E}[y_k]\big)^2}_{\text{bias}^2} + \underbrace{\mathbb{E}\big[(y_k - \mathbb{E}[y_k])^2\big]}_{\text{variance}} + \underbrace{\sigma^2}_{\text{noise}} $$</div>
+  <ul>
+    <li><strong>Bias</strong> — how far the average model is from the truth. Rigid models are biased: a line cannot follow a sine wave.</li>
+    <li><strong>Variance</strong> — how much the fitted model moves when the training data changes. Flexible models have high variance: change one point and the degree-9 polynomial changes everywhere.</li>
+    <li><strong>Noise</strong> — irreducible. No model can remove it, and it sets the floor for any metric.</li>
+  </ul>
+  <p>
+    Increasing complexity lowers bias and raises variance. The sum is a U-shaped curve, and the minimum of that curve — not the
+    minimum of the training error — is what you are looking for. Regularization moves you left along the curve deliberately;
+    cross-validation tells you where the bottom is.
+  </p>
+
+  <h3 class="sub" id="i-cv">Cross-validation protocols, and what each protects against</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Protocol</th><th>How folds are formed</th><th>Use when</th></tr></thead>
+      <tbody>
+        <tr><td>$k$-fold</td><td>shuffle, split into $k$ equal parts ($k=5$ or $10$ typical)</td><td>large, balanced data</td></tr>
+        <tr><td>Leave-one-out</td><td>$k=N$: train on $N-1$, test on 1</td><td>tiny datasets</td></tr>
+        <tr><td>Stratified $k$-fold</td><td>each fold preserves class prevalence</td><td><strong>default for classification</strong></td></tr>
+        <tr><td>Stratified group $k$-fold</td><td>stratify <em>and</em> keep groups intact</td><td>longitudinal / subject-wise data with autocorrelation</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The tuning protocol itself: partition into $k$ folds; for every hyperparameter combination $j$, train $k$ times and record
+    the mean and standard deviation of the metric; choose the best $j^\*$; <strong>retrain on all the data</strong> with
+    $j^\*$; evaluate once on the test set. Search strategies range from grid search through randomized search and Bayesian
+    optimization to early-stopping schemes such as successive halving and Hyperband.
+  </p>
+  <div class="callout warn">
+    <span class="label">The one-standard-error rule</span>
+    <p>
+      If several hyperparameters are within one standard error of the best, prefer the simplest (most regularised) of them.
+      The differences are inside the noise of your estimate anyway, and simpler models generalize at least as well in practice.
+      Lab 3 draws the band for you.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Genomics · $p \gg n$</span>
+      <h4>Lasso for biomarker selection</h4>
+      <p>With 20,000 genes and 200 patients, plain least squares is undefined (infinitely many solutions). Lasso returns a handful of non-zero coefficients — a testable gene panel.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Finance · collinear factors</span>
+      <h4>Ridge for correlated predictors</h4>
+      <p>Market factors are highly correlated, which makes coefficients unstable. Ridge stabilises them by shrinking together; the predictions stay accurate even when individual coefficients are not identifiable.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Clinical ML · subject leakage</span>
+      <h4>Group cross-validation</h4>
+      <p>ARDS data has thousands of hourly records per patient. Splitting by row leaks patient identity into the test fold; stratified group $k$-fold keeps every patient in exactly one fold.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Deep learning · implicit regularization</span>
+      <h4>Weight decay and dropout</h4>
+      <p>Module 07 adds $\lambda\|W\|^2$ to network losses (weight decay) and randomly zeroes activations (dropout). Both are regularization; neither is guaranteed to prevent memorisation (Zhang et al., 2017).</p>
+    </div>
+    <div class="example">
+      <span class="tag">Competitions · stacking the odds</span>
+      <h4>Blending and model selection</h4>
+      <p>On leaderboards, the difference between the top 20 entries is usually inside the CV standard deviation. Reporting the error bars is the difference between a result and a coin flip.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Time series · ordered splits</span>
+      <h4>Never shuffle the future</h4>
+      <p>For sequential data, folds must respect time: train on the past, test on the future. Shuffled $k$-fold leaks the future into the past and produces scores you cannot reproduce in production.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-ridge">2.1 Ridge regression, solved</h3>
+  <p>Add an $\ell_2$ penalty to the least-squares cost and differentiate as in module 03:</p>
+  <div class="formula">$$ g(\boldsymbol\theta) = \|A\boldsymbol\theta - \mathbf{t}\|_2^2 + \lambda\|\boldsymbol\theta\|_2^2 $$</div>
+  <details class="steps" open>
+    <summary>Derivation — the closed form and its shrinkage behaviour</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Expand: $g = \boldsymbol\theta^\top A^\top A\boldsymbol\theta - 2\boldsymbol\theta^\top A^\top\mathbf{t} + \mathbf{t}^\top\mathbf{t} + \lambda\boldsymbol\theta^\top\boldsymbol\theta$.</li>
+        <li>Differentiate: $\nabla g = 2A^\top A\boldsymbol\theta - 2A^\top\mathbf{t} + 2\lambda\boldsymbol\theta$.</li>
+        <li>Set to zero:
+          $$ \boxed{\;(A^\top A + \lambda I)\hat{\boldsymbol\theta}_\lambda = A^\top\mathbf{t}\;} \qquad \hat{\boldsymbol\theta}_\lambda = (A^\top A + \lambda I)^{-1}A^\top\mathbf{t} $$
+          <span class="why">Adding $\lambda I$ makes the matrix strictly positive definite whenever $\lambda \gt 0$ — so the inverse always exists, even when $A^\top A$ is singular. Ridge is what makes $p \gt n$ problems solvable.</span>
+        </li>
+        <li>Diagonalise $A^\top A = Q\Lambda Q^\top$ and rotate into that basis. Componentwise,
+          $$ \hat\theta_\lambda^{(i)} = \frac{\lambda_i}{\lambda_i + \lambda}\,\hat\theta_0^{(i)}. $$
+          Every component is multiplied by a factor in $[0,1)$: the estimate is shrunk toward zero, most strongly in directions with small $\lambda_i$ (the ill-conditioned directions). <span class="qed">∎</span></li>
+        <li><span class="why">This is why ridge fixes the exploding polynomial coefficients of module 03: the near-null directions of the Vandermonde matrix are precisely the ones that get shrunk hardest.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-lasso">2.2 Lasso and soft-thresholding</h3>
+  <p>
+    With an $\ell_1$ penalty the normal equations no longer apply (the penalty is not differentiable at zero). The solution is
+    characterised by the subgradient condition, and for an orthonormal design it reduces to <strong>soft-thresholding</strong>:
+  </p>
+  <div class="formula">$$ \hat\theta_j^{\text{lasso}} = \operatorname{sign}(\hat\theta_j^{\text{OLS}})\cdot\max\left(|\hat\theta_j^{\text{OLS}}| - \frac{\lambda}{2},\, 0\right) $$</div>
+  <p>
+    Read it: subtract a fixed amount from every coefficient and clamp at zero. Small coefficients vanish exactly; large ones are
+    shifted toward zero by the same amount. Compare with ridge, which scales every coefficient by $\lambda_i/(\lambda_i+\lambda)$
+    and never reaches zero. In practice lasso is solved by coordinate descent — cycle through features, apply the
+    soft-threshold update to each, repeat — which is exactly what lab 1 implements.
+  </p>
+
+  <h3 class="sub" id="m-bv">2.3 The bias–variance decomposition, proved</h3>
+  <details class="steps">
+    <summary>Derivation — expected squared error into three terms</summary>
+    <div class="steps-body">
+      <p>Fix an input $\mathbf{x}$. Let $y = y^\*(\mathbf{x}) + \epsilon$ with $\mathbb{E}[\epsilon]=0$, $\mathrm{Var}(\epsilon)=\sigma^2$, and let $\hat{y} = y_k(\mathbf{x})$ be the prediction of a model fit to training set $k$. Write $\bar{y} = \mathbb{E}_k[\hat{y}]$ for the average prediction over training sets.</p>
+      <ol class="derivation">
+        <li>Add and subtract the average prediction:
+          $$ \mathbb{E}\big[(y - \hat{y})^2\big] = \mathbb{E}\big[(y - \bar{y} + \bar{y} - \hat{y})^2\big]. $$
+        </li>
+        <li>Expand the square:
+          $$ = \mathbb{E}\big[(y-\bar{y})^2\big] + 2\,\mathbb{E}\big[(y-\bar{y})(\bar{y}-\hat{y})\big] + \mathbb{E}\big[(\bar{y}-\hat{y})^2\big]. $$
+        </li>
+        <li>The cross term vanishes: $y$ and $\hat y$ are independent given $\mathbf{x}$ (the model never sees this $y$), so
+          $$ \mathbb{E}\big[(y-\bar{y})(\bar{y}-\hat{y})\big] = \mathbb{E}[y-\bar{y}]\cdot\mathbb{E}[\bar{y}-\hat{y}] = (y^\*-\bar{y})\cdot 0 = 0. $$
+        </li>
+        <li>The last term is the variance by definition: $\mathbb{E}[(\hat{y}-\bar{y})^2] = \mathrm{Var}(\hat y)$.</li>
+        <li>The first term decomposes further, using $\mathbb{E}[y] = y^\*$:
+          $$ \mathbb{E}\big[(y-\bar{y})^2\big] = \mathbb{E}\big[(y-y^\*)^2\big] + (y^\* - \bar{y})^2 = \sigma^2 + \text{bias}^2. $$
+        </li>
+        <li><span class="qed">∎</span> Collecting:
+          $$ \mathbb{E}\big[(y-\hat y)^2\big] = \underbrace{\sigma^2}_{\text{irreducible}} + \underbrace{(y^\*-\bar y)^2}_{\text{bias}^2} + \underbrace{\mathrm{Var}(\hat y)}_{\text{variance}}. $$
+        </li>
+      </ol>
+      <div class="callout" style="margin-bottom:0">
+        <span class="label">What this buys you</span>
+        <p>Regularization is not a heuristic: it is a way of trading a small increase in bias² for a large decrease in variance, and the decomposition says exactly when that trade is favourable — when the variance term is the dominant one, i.e. when data is scarce or the model is flexible.</p>
+      </div>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-cv">2.4 What cross-validation estimates, and how noisy it is</h3>
+  <p>
+    The $k$-fold estimator averages $k$ held-out errors, each computed on $N/k$ samples:
+  </p>
+  <div class="formula">$$ \widehat{\text{Err}}_{\text{CV}} = \frac{1}{k}\sum_{j=1}^{k}\hat{R}_{F_j}\big(f^{(-j)}\big) $$</div>
+  <p>
+    Because the folds are disjoint, each $\hat{R}_{F_j}$ is an unbiased estimate of the risk of a model trained on $(k-1)N/k$
+    samples. Averaging $k$ such estimates reduces variance roughly by a factor of $k$ — but not exactly, because the $k$ models
+    share $(k-2)N/k$ of their training data and are therefore positively correlated. The consequence is practical and
+    important: <strong>the standard deviation across folds understates the true uncertainty of the CV estimate</strong>, which is
+    why comparing models whose scores differ by less than one standard error is meaningless.
+  </p>
+  <div class="callout">
+    <span class="label">Statistical concept</span>
+    <p>
+      Cross-validation estimates the performance of a <em>procedure</em> (train on $n$ samples), not of a single fitted model.
+      The final model you ship is trained on all $N$ samples, so it should be slightly better than the CV estimate — the
+      estimate is conservative by design.
+    </p>
+  </div>
+
+  <h3 class="sub" id="m-leak">2.5 Leakage, formally</h3>
+  <p>
+    A pipeline is a composition of steps $\mathcal{P} = f_{\text{model}} \circ f_{\text{select}} \circ f_{\text{scale}}$. Leakage
+    occurs whenever any step is fitted using data that also appears in a held-out fold. If $F_j$ is a fold and
+    $\mathcal{D}_{\text{fit}}$ is the set used to fit <em>any</em> step, correctness requires
+  </p>
+  <div class="formula">$$ \mathcal{D}_{\text{fit}} \cap F_j = \varnothing \quad \text{for every fold } j. $$</div>
+  <p>
+    Feature selection, imputation, scaling, target encoding and oversampling all consume labels or statistics. Wrap them in a
+    <code>Pipeline</code> so that scikit-learn re-fits them inside each fold automatically. Group structure adds a second
+    requirement: if sample $i$ and sample $i'$ share a group $g$, they must not be split across folds —
+    $\text{group}(i) = \text{group}(i') \Rightarrow \text{fold}(i) = \text{fold}(i')$.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-ridge-lasso">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · geometry</span><h4>Why lasso produces zeros and ridge does not</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>The background is the unpenalised loss $J(w_1,w_2)$ over the two-coefficient plane; the grey dot is the ordinary least-squares solution. The dashed outline is the constraint region, and the red dot is the regularised solution — the first point where the growing region touches the loss contours.</p>
+      <p>With <strong>ridge</strong>, drag $\lambda$ from 0 upward: the red dot slides smoothly toward the origin and both coefficients shrink, but neither reaches zero. Switch to <strong>lasso</strong> and increase $\lambda$: the red dot travels along an axis and $w_2$ snaps to exactly 0. That is feature selection, and the amber path traces it as a function of $\lambda$.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-bias-variance">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · the trade-off</span><h4>Sixty fits, decomposed</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Top: sixty independent training sets of size $N$, each fitted with a polynomial of the current degree; thin lines are individual fits, dashed is their average, black is the truth. At degree 1 the fits are tightly clustered but systematically wrong (bias). At degree 9 they are centred on the truth but wildly spread (variance).</p>
+      <p>Bottom: the decomposition from §2.3 plotted against degree. Watch the two curves cross. Then reduce $N$ to 8 — variance dominates everywhere and the optimal degree drops. Increase the noise σ and the irreducible floor rises for every model. This is the whole bias–variance story in one picture.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-cv">
+    <div class="lab-head"><span class="lab-tag">Lab 3 · model selection</span><h4>Cross-validation, error bars, and the 1-SE rule</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>The coloured strip shows how 48 samples are assigned to folds. Below it, each point is the mean CV error over $k$ folds for a polynomial degree, with $\pm 1$ standard deviation error bars. The red dot is the CV-optimal degree; the dashed line marks one standard error above its score.</p>
+      <p>Press <strong>Reshuffle folds</strong> repeatedly. With $k=5$ the chosen degree jumps around — the estimate is noisy, and degrees inside the band are statistically indistinguishable. Now raise $k$ to 10 and the bars shrink. That is the variance-reduction argument of §2.4 made visible.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">scikit-learn</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 05 — ridge, lasso (coordinate descent), k-fold CV — no libraries."""
+import random
+
+
+def transpose(M):
+    return [list(r) for r in zip(*M)]
+
+
+def matmul(A, B):
+    Bt = transpose(B)
+    return [[sum(a * b for a, b in zip(row, col)) for col in Bt] for row in A]
+
+
+def solve(A, b):
+    n = len(A)
+    M = [row[:] + [b[i]] for i, row in enumerate(A)]
+    for c in range(n):
+        p = max(range(c, n), key=lambda r: abs(M[r][c]))
+        M[c], M[p] = M[p], M[c]
+        pv = M[c][c]
+        if abs(pv) &lt; 1e-12:
+            continue
+        M[c] = [v / pv for v in M[c]]
+        for r in range(n):
+            if r != c and M[r][c]:
+                f = M[r][c]
+                M[r] = [a - f * b_ for a, b_ in zip(M[r], M[c])]
+    return [row[-1] for row in M]
+
+
+def ridge(X, t, lam):
+    """(X'X + lam*I) w = X't  -- no bias column, so the intercept is not penalised."""
+    Xt = transpose(X)
+    G = matmul(Xt, X)
+    for i in range(len(G)):
+        G[i][i] += lam
+    return solve(G, [sum(X[i][j] * t[i] for i in range(len(X))) for j in range(len(X[0]))])
+
+
+def lasso(X, t, lam, iters=200):
+    """Coordinate descent with soft-thresholding. Produces exact zeros."""
+    n, m = len(X), len(X[0])
+    w = [0.0] * m
+    col_sq = [sum(X[i][j] ** 2 for i in range(n)) / n for j in range(m)]
+    for _ in range(iters):
+        for j in range(m):
+            rho = 0.0
+            for i in range(n):
+                pred = sum(X[i][k] * w[k] for k in range(m))
+                rho += X[i][j] * (t[i] - pred + X[i][j] * w[j])
+            rho /= n
+            thr = lam / 2
+            w[j] = (rho - thr) / col_sq[j] if rho &gt; thr else ((rho + thr) / col_sq[j] if rho &lt; -thr else 0.0)
+    return w
+
+
+def k_fold_indices(n, k, seed=0):
+    idx = list(range(n))
+    random.Random(seed).shuffle(idx)
+    return [idx[i::k] for i in range(k)]
+
+
+def cv_mse(X, t, lam, penalty="ridge", k=5, seed=0):
+    scores = []
+    for test in k_fold_indices(len(X), k, seed):
+        train = [i for i in range(len(X)) if i not in set(test)]
+        Xtr = [X[i] for i in train]
+        ttr = [t[i] for i in train]
+        w = ridge(Xtr, ttr, lam) if penalty == "ridge" else lasso(Xtr, ttr, lam)
+        err = sum((t[i] - sum(X[i][j] * w[j] for j in range(len(w)))) ** 2 for i in test) / len(test)
+        scores.append(err)
+    mean = sum(scores) / len(scores)
+    sd = (sum((s - mean) ** 2 for s in scores) / len(scores)) ** 0.5
+    return mean, sd
+
+
+if __name__ == "__main__":
+    rng = random.Random(0)
+    X = [[rng.gauss(0, 1) for _ in range(4)] for _ in range(120)]
+    t = [1.5 * X[i][0] - 0.8 * X[i][1] + rng.gauss(0, 0.3) for i in range(120)]
+
+    print("ridge  l=0.1 :", [round(v, 3) for v in ridge(X, t, 0.1)])
+    print("lasso  l=0.5 :", [round(v, 3) for v in lasso(X, t, 0.5)])   # some exact zeros
+    for lam in (0.01, 0.1, 1.0):
+        print(f"CV MSE ridge lam={lam}: {cv_mse(X, t, lam):.4f}")
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 05 — vectorised ridge/lasso, the bias-variance decomposition, CV."""
+import numpy as np
+
+
+def ridge(X, t, lam, fit_intercept=True):
+    X = np.asarray(X, float)
+    t = np.asarray(t, float)
+    if fit_intercept:
+        mu, sd = X.mean(0), X.std(0) + 1e-12
+        Xs = (X - mu) / sd
+        t_mean = t.mean()
+    else:
+        Xs, t_mean = X, 0.0
+    w = np.linalg.solve(Xs.T @ Xs + lam * np.eye(Xs.shape[1]), Xs.T @ (t - t_mean))
+    return w, t_mean
+
+
+def soft_threshold(v, k):
+    return np.sign(v) * np.maximum(np.abs(v) - k, 0.0)
+
+
+def lasso(X, t, lam, iters=500, tol=1e-6):
+    """Coordinate descent; returns exact zeros for irrelevant features."""
+    X = np.asarray(X, float)
+    t = np.asarray(t, float)
+    n, m = X.shape
+    w = np.zeros(m)
+    col_sq = (X**2).sum(0) / n
+    for _ in range(iters):
+        w_old = w.copy()
+        for j in range(m):
+            r = t - X @ w + X[:, j] * w[j]
+            rho = X[:, j] @ r / n
+            w[j] = soft_threshold(rho, lam / 2) / col_sq[j]
+        if np.max(np.abs(w - w_old)) &lt; tol:
+            break
+    return w
+
+
+def bias_variance_demo(degree=3, n=20, reps=200, noise=0.3, seed=0):
+    """Monte-Carlo estimate of bias^2, variance and noise for a polynomial fit."""
+    rng = np.random.default_rng(seed)
+    truth = lambda x: np.sin(2 * np.pi * x)
+    xs = np.linspace(0.02, 0.98, 40)
+    preds = np.empty((reps, xs.size))
+    for r in range(reps):
+        X = rng.random(n)
+        y = truth(X) + rng.normal(0, noise, n)
+        coeffs = np.polyfit(X, y, degree)
+        preds[r] = np.polyval(coeffs, xs)
+    mean = preds.mean(0)
+    bias2 = ((mean - truth(xs)) ** 2).mean()
+    var = preds.var(0).mean()
+    return bias2, var, noise**2
+
+
+if __name__ == "__main__":
+    print("degree  bias^2  variance  noise  total")
+    for d in range(1, 10):
+        b, v, s = bias_variance_demo(degree=d)
+        print(f"{d:6d}  {b:6.3f}  {v:8.3f}  {s:5.2f}  {b+v+s:6.3f}")
+
+    rng = np.random.default_rng(1)
+    X = rng.normal(size=(200, 6))
+    t = 2 * X[:, 0] - X[:, 2] + rng.normal(0, 0.3, 200)
+    print("\nridge:", np.round(ridge(X, t, 0.5)[0], 3))
+    print("lasso:", np.round(lasso(X, t, 0.3), 3), "<- exact zeros")
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 05 — the production pattern: pipelines, CV, group splits, 1-SE rule."""
+import numpy as np
+from sklearn.datasets import load_breast_cancer
+from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.model_selection import (GridSearchCV, GroupKFold, StratifiedGroupKFold,
+                                     StratifiedKFold, cross_validate, train_test_split)
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+
+X, y = load_breast_cancer(return_X_y=True)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, stratify=y, random_state=0)
+
+# ---- 1. Regularisation strength, chosen by CV -------------------------------
+pipe = make_pipeline(StandardScaler(), LogisticRegression(max_iter=2000))
+grid = {"logisticregression__C": np.logspace(-3, 2, 12)}          # C = 1/lambda
+cv = StratifiedKFold(5, shuffle=True, random_state=0)
+search = GridSearchCV(pipe, grid, cv=cv, scoring="roc_auc", return_train_score=True)
+search.fit(X_tr, y_tr)
+print("best C:", round(search.best_params_["logisticregression__C"], 4),
+      " CV AUC:", round(search.best_score_, 4))
+
+# ---- 2. The 1-SE rule ------------------------------------------------------
+res = search.cv_results_
+scores = res["mean_test_score"]
+sds = res["std_test_score"]
+best = scores.argmax()
+within = np.flatnonzero(scores &gt;= scores[best] - sds[best])
+simple = within[np.argmax(res["param_logisticregression__C"][within].astype(float))]
+print(f"1-SE choice: C={res['param_logisticregression__C'][simple]}  "
+      f"AUC={scores[simple]:.4f} (vs best {scores[best]:.4f})")
+
+# ---- 3. Feature selection INSIDE the fold (no leakage) ----------------------
+safe = make_pipeline(StandardScaler(), SelectKBest(f_classif, k=10),
+                     LogisticRegression(max_iter=2000))
+print("CV with selection inside folds:",
+      round(cross_validate(safe, X_tr, y_tr, cv=cv, scoring="roc_auc")["test_score"].mean(), 4))
+
+# The leaky alternative is one line away, and it inflates the score:
+#   selector = SelectKBest(f_classif, k=10).fit(X_tr, y_tr)   # sees ALL training labels
+#   leaky = make_pipeline(selector, StandardScaler(), LogisticRegression())
+# Never fit a selector outside the CV loop.
+
+# ---- 4. Grouped data needs grouped folds -----------------------------------
+groups = np.repeat(np.arange(len(X_tr) // 10), 10)[: len(X_tr)]
+for splitter in (StratifiedKFold(5, shuffle=True, random_state=0),
+                 StratifiedGroupKFold(5)):
+    s = cross_validate(safe, X_tr, y_tr, cv=splitter, groups=groups if "Group" in type(splitter).__name__ else None,
+                       scoring="roc_auc")
+    print(f"{type(splitter).__name__:22s} AUC = {s['test_score'].mean():.4f}")
+
+# ---- 5. Polynomial ridge: regularisation vs. complexity ---------------------
+Xd = np.linspace(-2, 2, 100)[:, None]
+td = 0.8 * Xd.ravel() ** 3 - 0.5 * Xd.ravel() + np.random.default_rng(0).normal(0, 0.2, 100)
+for deg in (3, 9):
+    for alpha in (0.0, 1e-2, 1.0):
+        m = make_pipeline(PolynomialFeatures(deg, include_bias=False), StandardScaler(), Ridge(alpha=alpha))
+        sc = cross_validate(m, Xd, td, cv=5, scoring="neg_mean_squared_error")
+        print(f"degree={deg} alpha={alpha:<5} CV MSE = {-sc['test_score'].mean():.4f}")
+</code></pre></div>
+    <div class="code-caption">
+      Note the pattern in block 3: the <em>only</em> difference between the safe and leaky pipelines is where
+      <code>SelectKBest</code> is fitted. That one line is the difference between a CV score you can publish and one you cannot.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="05">
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>Why does the $\ell_1$ penalty produce exact zeros while $\ell_2$ does not?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Because $\ell_1$ is differentiable and $\ell_2$ is not</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Because $\ell_1$ penalises large weights more strongly</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Because the $\ell_1$ ball has corners on the axes, where loss contours tend to touch</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Because lasso is trained with gradient descent</span></button></li>
+      </ul>
+      <div class="explain"><p>The regularised solution is where a loss contour first touches the constraint region. A diamond's corners lie on the coordinate axes, so the touching point frequently has a zero coordinate. A circle is smooth, so solutions generically have all coordinates non-zero.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>In the bias–variance decomposition, increasing model complexity typically:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Raises bias and raises variance</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Lowers bias and raises variance</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Lowers bias and lowers variance</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Changes only the irreducible noise</span></button></li>
+      </ul>
+      <div class="explain"><p>A more flexible model can represent the truth more closely (bias falls) but reacts more strongly to the particular training sample (variance rises). The noise term is a property of the data and never changes.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>You standardise features, then run 5-fold CV. Where must the scaler be fitted?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Once on the whole dataset — scaling is unsupervised so it cannot leak</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>On the test fold only</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>It does not matter as long as the model is regularised</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Inside each fold, on the training part only</span></button></li>
+      </ul>
+      <div class="explain"><p>Unsupervised does not mean leak-free: the mean and variance of the held-out fold are still information about it. The bias is small for scaling, but the same habit causes catastrophic leakage when applied to target encoding or feature selection.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>Ridge solves $(A^\top A + \lambda I)\hat{\boldsymbol\theta} = A^\top\mathbf{t}$. The main benefit over least squares is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>The matrix is strictly positive definite, so it is invertible even when features are collinear or $p \gt n$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>It makes the cost non-convex, which improves generalisation</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>It removes the need for a validation set</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>It always gives lower training error</span></button></li>
+      </ul>
+      <div class="explain"><p>$A^\top A$ is only positive semi-definite; adding $\lambda I$ with $\lambda \gt 0$ makes every eigenvalue at least $\lambda$, guaranteeing invertibility and bounding the condition number. Training error generally goes <em>up</em>.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>Model A scores $0.842 \pm 0.031$ in CV and model B scores $0.848 \pm 0.029$. What is the defensible conclusion?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>B is better; it has the higher mean</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>A is better because its standard deviation is larger</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>The difference is well inside the noise; prefer the simpler model or collect more data</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Run both on the test set and pick the winner there</span></button></li>
+      </ul>
+      <div class="explain"><p>The gap (0.006) is a fifth of a standard deviation. Selecting on that difference is selecting on noise, and doing it on the test set destroys the test set's purpose.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Ridge closed form</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\hat{\boldsymbol\theta}_\lambda = (A^\top A + \lambda I)^{-1}A^\top\mathbf{t}$, shrinking each coefficient by $\lambda_i/(\lambda_i+\lambda)$ in the eigenbasis of $A^\top A$.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Soft-thresholding</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\operatorname{sign}(\hat\theta)\max(|\hat\theta|-\lambda/2, 0)$: shift each coefficient toward zero by a fixed amount and clamp. The lasso update for an orthonormal design.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Elastic net</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\beta\|\boldsymbol\theta\|_2^2 + \|\boldsymbol\theta\|_1$: sparse like lasso but stable when features are correlated, where lasso arbitrarily picks one of a group.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Bias–variance decomposition</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\mathbb{E}[(y-\hat y)^2] = \sigma^2 + (y^*-\bar y)^2 + \mathrm{Var}(\hat y)$: irreducible noise + systematic error + sensitivity to the training sample.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">One-standard-error rule</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Among hyperparameters within one standard error of the best CV score, choose the simplest. Differences inside the noise are not evidence.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Stratified group $k$-fold</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Preserves class prevalence <em>and</em> keeps all rows of a group (patient, subject, site) in one fold. Required whenever rows are correlated.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Hyperparameter search strategies</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Grid search, randomized search, Bayesian optimization, and early-stopping methods (successive halving, Hyperband). Randomized search beats grid search when only a few hyperparameters matter.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Weight decay</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\ell_2$ regularization applied to network weights. In SGD it is equivalent to multiplying weights by $(1-\alpha\lambda)$ each step — hence the name.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Ridge by hand</h4></div>
+    <p>For a single feature with $A = (1, 2, 3)^\top$ and $\mathbf{t} = (2, 4, 7)^\top$, compute the OLS and ridge ($\lambda = 2$) slopes, without an intercept.</p>
+    <button class="btn btn-sm" data-reveal="sol-05-1" type="button">Show solution</button>
+    <div id="sol-05-1" class="solution" hidden>
+      <p>$A^\top A = 1 + 4 + 9 = 14$ and $A^\top\mathbf{t} = 2 + 8 + 21 = 31$.</p>
+      <p>OLS: $\hat w = 31/14 = 2.214$. Ridge: $\hat w_\lambda = 31/(14+2) = 1.9375$.</p>
+      <p>The shrinkage factor is $14/16 = 0.875$, and indeed $2.214 \times 0.875 = 1.937$. Shrinkage is stronger when $A^\top A$ is small — that is, when the feature carries little information.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Prove the decomposition</h4></div>
+    <p>Let $y = f(\mathbf{x}) + \epsilon$ with $\mathbb{E}[\epsilon]=0$ and $\mathrm{Var}(\epsilon)=\sigma^2$, and let $\hat y$ be an estimator independent of $\epsilon$. Prove $\mathbb{E}[(y-\hat y)^2] = \sigma^2 + (f - \mathbb{E}[\hat y])^2 + \mathrm{Var}(\hat y)$.</p>
+    <button class="btn btn-sm" data-reveal="sol-05-2" type="button">Show solution</button>
+    <div id="sol-05-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>Write $y - \hat y = (f - \mathbb{E}\hat y) + \epsilon + (\mathbb{E}\hat y - \hat y)$ and square.</li>
+        <li>The cross terms vanish in expectation: $\mathbb{E}[\epsilon] = 0$, $\mathbb{E}[\mathbb{E}\hat y - \hat y] = 0$, and by independence $\mathbb{E}[\epsilon(\mathbb{E}\hat y - \hat y)] = \mathbb{E}\epsilon\cdot\mathbb{E}(\mathbb{E}\hat y - \hat y) = 0$.</li>
+        <li>What remains: $(f-\mathbb{E}\hat y)^2$ (deterministic), $\mathbb{E}[\epsilon^2]=\sigma^2$, and $\mathbb{E}[(\mathbb{E}\hat y-\hat y)^2]=\mathrm{Var}(\hat y)$. <span class="qed">∎</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Lasso as a constrained problem</h4></div>
+    <p>Show that minimising $\|A\boldsymbol\theta-\mathbf{t}\|^2 + \lambda\|\boldsymbol\theta\|_1$ is equivalent to minimising the loss subject to $\|\boldsymbol\theta\|_1 \le t$ for a suitable $t$, and explain why this produces sparsity.</p>
+    <button class="btn btn-sm" data-reveal="sol-05-3" type="button">Show solution</button>
+    <div id="sol-05-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>Let $\boldsymbol\theta^\*$ minimise the penalised objective and set $t = \|\boldsymbol\theta^\*\|_1$. Any feasible $\boldsymbol\theta$ has $\lambda\|\boldsymbol\theta\|_1 \le \lambda t$, so the penalised problem and the constrained problem share the same minimiser; the converse direction follows from Lagrangian duality / KKT with $\lambda$ as the multiplier of the active constraint.</li>
+        <li>As $\lambda\to\infty$ the corresponding $t\to0$, the region shrinks to the origin, and all coefficients are zero.</li>
+        <li>Sparsity: the optimum is a point of contact between a loss contour and the diamond. Faces of the diamond give generic non-zero coordinates, but its corners lie on the axes, so for a whole interval of $\lambda$ the contact point is a corner and a coordinate is exactly zero. Coefficients therefore enter and leave the model one at a time along the path. <span class="qed">∎</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 05</span>
+    <h3>A regularisation and validation study</h3>
+    <p>Take one dataset and answer a single question with statistical honesty: how much does regularization buy, and how sure are you?</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Choose a dataset with correlated features (or create the correlation deliberately).</li>
+      <li>Implement ridge and lasso from scratch (coordinate descent). Plot coefficient paths against $\lambda$ for both, marking where lasso coefficients hit zero.</li>
+      <li>Run nested cross-validation: an inner loop chooses $\lambda$, an outer loop estimates the performance of that whole procedure. Compare with non-nested CV and report the optimism gap.</li>
+      <li>Run the bias–variance Monte Carlo of lab 2 on your data and state which term dominates at your chosen complexity.</li>
+      <li>Demonstrate leakage: compute a CV score with feature selection outside the folds and inside, and quantify the difference.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li>Notebook with coefficient paths and the nested-CV comparison</li>
+      <li>From-scratch ridge/lasso with tests against scikit-learn</li>
+      <li>Report with one clear recommendation and its uncertainty</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Methodology</td><td>Nested CV correct; optimism gap quantified</td><td>30</td></tr>
+        <tr><td>Implementation</td><td>Coordinate descent converges; parity with scikit-learn shown</td><td>25</td></tr>
+        <tr><td>Analysis</td><td>Bias–variance terms measured, not asserted; leakage experiment included</td><td>30</td></tr>
+        <tr><td>Recommendation</td><td>One clear choice with an uncertainty statement and its practical consequence</td><td>15</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Implement elastic net and show it beats both when features are grouped and correlated.</li>
+      <li>Compare grid, random and Bayesian search at equal compute budget.</li>
+      <li>Stability selection: how often does each feature survive the lasso across bootstrap samples?</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/05-regularization-study/</code>.</p>
+  </div>
+</section>

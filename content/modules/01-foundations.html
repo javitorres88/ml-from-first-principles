@@ -1,0 +1,842 @@
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-what">What machine learning actually is</h3>
+  <p>
+    Machine learning is the study of <strong>algorithms and methodologies for constructing generalizable models from data</strong>.
+    Three words in that sentence carry all the weight:
+  </p>
+  <ul>
+    <li><strong>Model</strong> — a compact mathematical object (a line, a tree, a network of weights) that stands in for a real-world phenomenon.</li>
+    <li><strong>From data</strong> — you do not write the rule; you supply examples and the algorithm proposes the rule.</li>
+    <li><strong>Generalizable</strong> — the rule must work on data you have <em>not</em> seen. A model that only explains its training data is a lookup table wearing a lab coat.</li>
+  </ul>
+
+  <div class="callout">
+    <span class="label">Where this sits</span>
+    <p>
+      <strong>Artificial intelligence</strong> is the study of rational agents. <strong>Machine learning</strong> is the set of
+      techniques that learn a general rule from data. <strong>Deep learning</strong> is a subset of ML built from many-layer
+      neural networks. <strong>Generative AI</strong> is deep learning aimed at producing text, images or video from prompts.
+      <strong>Data science</strong> wraps AI together with data mining, statistics and visualization to extract knowledge.
+      This course lives in the middle ring: ML and DL, with the mathematics that makes both legible.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-feedback">Three kinds of feedback</h3>
+  <p>
+    ML techniques are usually classified by the <em>feedback signal</em> the algorithm receives while learning. The three
+    canonical cases are shown below; almost every algorithm in this course is an instance of one of them.
+  </p>
+
+  <figure style="margin:1.6em 0">
+    <svg viewBox="0 0 760 240" role="img" aria-label="Three learning paradigms: supervised, unsupervised, reinforcement" style="width:100%;height:auto;font-family:ui-sans-serif,system-ui,sans-serif">
+      <defs>
+        <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g fill="none" stroke="currentColor" stroke-width="1.4" color="#8b93a5">
+        <rect x="16" y="46" width="150" height="54" rx="10"/>
+        <rect x="16" y="126" width="150" height="54" rx="10"/>
+        <rect x="226" y="86" width="120" height="54" rx="10"/>
+        <path d="M166 73 H226" marker-end="url(#arw)"/>
+        <path d="M166 153 H226" marker-end="url(#arw)"/>
+        <path d="M346 100 C 372 60, 396 60, 418 92" marker-end="url(#arw)"/>
+      </g>
+      <g font-size="13" fill="currentColor" color="#12141a">
+        <text x="30" y="70" font-weight="600">labelled pairs (x, y)</text>
+        <text x="30" y="88" font-size="11.5">ground truth from experts</text>
+        <text x="30" y="150" font-weight="600">unlabelled x</text>
+        <text x="30" y="168" font-size="11.5">no target given</text>
+        <text x="238" y="110" font-weight="600">learner</text>
+        <text x="238" y="128" font-size="11.5">f : X → Y</text>
+        <text x="432" y="70" font-weight="600">supervised</text>
+        <text x="432" y="88" font-size="11.5">classify / regress</text>
+      </g>
+      <g fill="none" stroke="currentColor" stroke-width="1.4" color="#8b93a5">
+        <rect x="16" y="196" width="150" height="34" rx="10"/>
+        <path d="M166 213 H226" marker-end="url(#arw)"/>
+        <rect x="226" y="196" width="120" height="34" rx="10"/>
+      </g>
+      <g font-size="13" fill="currentColor" color="#12141a">
+        <text x="30" y="217" font-size="11.5">unlabelled x</text>
+        <text x="238" y="217" font-weight="600">clusters</text>
+        <text x="432" y="140" font-weight="600">unsupervised</text>
+        <text x="432" y="158" font-size="11.5">find structure</text>
+        <text x="432" y="217" font-weight="600">reinforcement</text>
+        <text x="432" y="235" font-size="11.5">act, get reward, repeat</text>
+        <path d="M346 213 C 372 240, 396 240, 418 226" fill="none" stroke="#8b93a5" stroke-width="1.4" marker-end="url(#arw)"/>
+      </g>
+    </svg>
+    <figcaption class="small muted">Supervised learning approximates a function from paired examples. Unsupervised learning looks for structure without targets. Reinforcement learning learns a policy from scalar rewards delivered over time.</figcaption>
+  </figure>
+
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Paradigm</th><th>Given</th><th>Learns</th><th>Typical tasks</th></tr></thead>
+      <tbody>
+        <tr><td>Supervised</td><td>training set $\{(\mathbf{x}^{(i)}, y^{(i)})\}$</td><td>$f:\mathcal{X}\to\mathcal{Y}$</td><td>classification, regression, forecasting</td></tr>
+        <tr><td>Unsupervised</td><td>inputs $\{\mathbf{x}^{(i)}\}$ only</td><td>structure: clusters, a distribution, a representation</td><td>clustering, dimensionality reduction, density estimation</td></tr>
+        <tr><td>Reinforcement</td><td>states, actions, rewards from interaction</td><td>a policy $\pi: S \to A$</td><td>control, games, robotics</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub" id="i-examples">Real-world examples from the course</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Classification · medicine</span>
+      <h4>COVID-19 diagnosis</h4>
+      <p>Input a feature vector $\mathbf{x}\in\mathbb{R}^m$ (temperature, symptom flags, antigen level); output $y\in\{0,1\}$ for negative/positive. Two classes → <em>binary classification</em>.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Classification · vision</span>
+      <h4>Chihuahua or muffin</h4>
+      <p>Input an image $I\in\mathbb{Z}^{m\times n\times 3}$ with pixel intensities 0–255; output one of two labels. Requires feature engineering or a CNN — the famous failure mode of this task is that both classes are "small, brown, blurry".</p>
+    </div>
+    <div class="example">
+      <span class="tag">Generative · unsupervised</span>
+      <h4>Image synthesis</h4>
+      <p>A generative model learns an approximate distribution over images; sampling from it produces new instances. Progress from Denton et al. (2014) to Stable Diffusion (2022) to 2024 image generators is the story of module 11 and module 16.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Reinforcement · robotics</span>
+      <h4>Robot soccer</h4>
+      <p>Haarnoja et al. (2024, DeepMind) trained humanoid robots to play soccer. State = positions of everything seen by external cameras; reward = goals. The learned policy was faster and more agile than hand-coded instructions.</p>
+    </div>
+    <div class="example">
+      <span class="tag">End-to-end pipeline · clinical</span>
+      <h4>ARDS detection</h4>
+      <p>Acute Respiratory Distress Syndrome: fluid build-up in the lungs. A full pipeline acquires longitudinal vitals, extracts statistical and geographic features from chest X-rays, trains a model and evaluates it — with label uncertainty handled explicitly (module 14 revisits this case study).</p>
+    </div>
+    <div class="example">
+      <span class="tag">Regression · finance</span>
+      <h4>Forecasting a scalar</h4>
+      <p>Predict tomorrow's price from today's features. Continuous output → regression. The same machinery returns in modules 3–5 with polynomial features, regularization and cross-validated model selection.</p>
+    </div>
+  </div>
+
+  <h3 class="sub" id="i-pipeline">The machine learning pipeline</h3>
+  <p>
+    The goal is to construct a model of a real-world phenomenon that performs well on newly collected data — or generates
+    new data that is highly similar. Getting there is a fixed sequence of stages; skipping one is the most common cause of
+    a model that looks brilliant in a notebook and fails in production.
+  </p>
+  <ol class="derivation">
+    <li><strong>Data acquisition.</strong> Data is produced by natural or artificial processes and recorded by measurement or sensors. Sources vary: natural vs synthetic; cross-sectional (tabular) vs sequential (time series); modality: waveform, image, video, audio, graph, text. <span class="why">Risk: sampling bias. Your dataset is a sample, and the sample decides what your model can possibly learn.</span></li>
+    <li><strong>Cleaning and annotation.</strong> Remove noise, extraneous and sensitive information; domain experts supply labels as ground truth. <span class="why">Risk: leakage (information from the future or from the label sneaking into the features) and label noise.</span></li>
+    <li><strong>Encoding.</strong> Most methods need numbers. Categorical variables become one-hot or binary codes. <span class="why">Risk: encoding an unordered category as an integer implies a false ordering.</span></li>
+    <li><strong>Feature engineering.</strong> Construct the information relevant to the task. A single pixel cannot tell you "is this a tree?"; a group of observations can. <span class="why">Risk: features that are unavailable at prediction time.</span></li>
+    <li><strong>Model selection and training.</strong> Choose candidate models from the data type, modality and task; tune hyperparameters on a validation set or by cross-validation. <span class="why">No free lunch (Wolpert, 1997): no algorithm dominates across all problems, so several must be evaluated.</span></li>
+    <li><strong>Evaluation.</strong> Apply the frozen model to a held-out test set and compute metrics that match the analytical goal. <span class="why">Risk: choosing the metric after seeing the results.</span></li>
+    <li><strong>Interpretation and reporting.</strong> Visualize, attribute decisions to features, and communicate with domain experts and a general audience. <span class="why">Risk: a model nobody trusts is a model nobody uses.</span></li>
+  </ol>
+
+  <div class="callout insight">
+    <span class="label">The one-sentence version</span>
+    <p>Machine learning is <em>function approximation under uncertainty</em>, and the pipeline exists to make sure the function you approximate is the one you actually care about.</p>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-setup">2.1 The learning problem, stated precisely</h3>
+  <p>
+    Let $\mathcal{X}$ be an input space and $\mathcal{Y}$ an output space. A <strong>supervised learning</strong> problem gives
+    us a training set of $N$ i.i.d. samples drawn from an unknown joint distribution $P(\mathbf{x}, y)$:
+  </p>
+  <div class="formula">$$ \mathcal{D} = \big\{(\mathbf{x}^{(1)}, y^{(1)}), \dots, (\mathbf{x}^{(N)}, y^{(N)})\big\}, \qquad (\mathbf{x}^{(i)}, y^{(i)}) \sim P . $$</div>
+  <p>
+    A <strong>hypothesis</strong> is a function $f:\mathcal{X}\to\mathcal{Y}$ drawn from a hypothesis class $\mathcal{H}$
+    (all lines, all degree-3 polynomials, all trees of depth ≤ 4, …). A <strong>loss function</strong>
+    $\ell:\mathcal{Y}\times\mathcal{Y}\to\mathbb{R}_{\ge 0}$ scores a prediction against the truth. Two quantities matter:
+  </p>
+  <div class="formula">$$ \underbrace{R(f) = \mathbb{E}_{(\mathbf{x},y)\sim P}\big[\ell(f(\mathbf{x}), y)\big]}_{\text{risk (generalization error)}} \qquad\text{vs.}\qquad \underbrace{\hat{R}_N(f) = \frac{1}{N}\sum_{i=1}^{N}\ell\big(f(\mathbf{x}^{(i)}), y^{(i)}\big)}_{\text{empirical risk (training error)}} $$</div>
+  <p>
+    We can only compute $\hat{R}_N$, but we care about $R$. The whole discipline — regularization, validation, cross-validation,
+    early stopping — exists because these two numbers can diverge.
+  </p>
+
+  <div class="callout">
+    <span class="label">Linear algebra concept</span>
+    <p>
+      A model is a <em>vector</em> of parameters $\boldsymbol\theta \in \mathbb{R}^d$; the training data is a <em>matrix</em>
+      $X\in\mathbb{R}^{N\times m}$ (one row per sample, one column per feature) plus a label vector $\mathbf{y}\in\mathbb{R}^N$.
+      Training is a search over $\mathbb{R}^d$, and evaluating a linear model on all $N$ samples at once is a matrix–vector
+      product $X\mathbf{w}$. This is why vectorized NumPy code is not a stylistic choice but the natural notation.
+    </p>
+  </div>
+
+  <div class="callout">
+    <span class="label">Probability concept</span>
+    <p>
+      The i.i.d. assumption — independent and identically distributed — is what licenses every average we take. "Identically
+      distributed" means train and test come from the same $P$; when it fails (distribution shift, a new hospital, next year's
+      market) every guarantee below quietly breaks.
+    </p>
+  </div>
+
+  <h3 class="sub" id="m-erm">2.2 Why the empirical risk is a reasonable proxy</h3>
+  <p>
+    $\hat{R}_N(f)$ is a sample average of the random variables $Z_i = \ell(f(\mathbf{x}^{(i)}), y^{(i)})$, each with mean
+    $R(f)$. The law of large numbers says the average converges. The finite-sample statement is Hoeffding's inequality, and it
+    is worth deriving because it tells you exactly how fast "training error ≈ test error" becomes true.
+  </p>
+
+  <details class="steps" open>
+    <summary>Proof — Hoeffding bound on the generalization gap</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>
+          Assume the loss is bounded: $0 \le \ell \le 1$ (for 0/1 loss this is exact). Then each $Z_i \in [0,1]$.
+          <span class="why">Boundedness is what makes the concentration argument work.</span>
+        </li>
+        <li>
+          Hoeffding's inequality for bounded independent variables states, for any $\epsilon \gt 0$,
+          $$ \Pr\!\left(\big|\hat{R}_N - R\big| \ge \epsilon\right) \le 2\exp\!\big(-2N\epsilon^2\big). $$
+        </li>
+        <li>
+          Set the right-hand side equal to a confidence level $\delta$ and solve for $\epsilon$:
+          $$ 2e^{-2N\epsilon^2} = \delta \;\Longrightarrow\; \epsilon = \sqrt{\frac{\ln(2/\delta)}{2N}}. $$
+        </li>
+        <li>
+          Therefore, with probability at least $1-\delta$,
+          $$ \big|\hat{R}_N - R\big| \le \sqrt{\frac{\ln(2/\delta)}{2N}}. $$
+          <span class="why">The gap shrinks like $1/\sqrt{N}$: quadrupling the data halves the error bars. It also grows with $\ln(1/\delta)$ — only logarithmically — so demanding more confidence is cheap; demanding more data is not.</span>
+        </li>
+        <li>
+          <span class="qed">∎</span> This bound is for a <em>single fixed</em> $f$. If you search over $|\mathcal{H}|$ hypotheses and
+          keep the best, you must union-bound over all of them, replacing $\delta$ by $\delta/|\mathcal{H}|$. That extra
+          $\ln|\mathcal{H}|$ is the mathematical origin of the bias–variance trade-off: bigger hypothesis classes fit the
+          training data better but pay a larger generalization penalty.
+        </li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-metrics">2.3 Classification metrics, derived</h3>
+  <p>
+    A classifier's behaviour on a labelled test set is tallied in a <strong>confusion matrix</strong>. Take the positive class
+    as the one you care about detecting (a disease, a fraud, a defect):
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th></th><th>Predicted positive</th><th>Predicted negative</th><th>Row total</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Actually positive</strong></td><td>TP</td><td>FN</td><td>$P = TP + FN$</td></tr>
+        <tr><td><strong>Actually negative</strong></td><td>FP</td><td>TN</td><td>$N = FP + TN$</td></tr>
+        <tr><td><strong>Column total</strong></td><td>$TP+FP$</td><td>$FN+TN$</td><td>$TP+FP+FN+TN$</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="formula">$$ \text{Accuracy} = \frac{TP+TN}{P+N},\qquad \text{Sensitivity} = \frac{TP}{P},\qquad \text{Specificity} = \frac{TN}{N} $$</div>
+  <p>
+    Sensitivity (recall, true positive rate) answers <em>"of the sick patients, how many did we catch?"</em> Specificity
+    (true negative rate) answers <em>"of the healthy patients, how many did we leave alone?"</em>. They are conditional
+    probabilities: $\text{Sensitivity} = \Pr(\hat{y}=1 \mid y=1)$ and $\text{Specificity} = \Pr(\hat{y}=0\mid y=0)$.
+  </p>
+
+  <details class="steps">
+    <summary>Derivation — accuracy is a prevalence-weighted average of sensitivity and specificity</summary>
+    <div class="steps-body">
+      <p>Let $\pi = \Pr(y=1) = P/(P+N)$ be the <strong>prevalence</strong> and $1-\pi = N/(P+N)$ its complement.</p>
+      <ol class="derivation">
+        <li>
+          Write accuracy as a sum of the two correct cells, then divide each term by the total:
+          $$ \text{Acc} = \frac{TP + TN}{P+N} = \frac{TP}{P}\cdot\frac{P}{P+N} + \frac{TN}{N}\cdot\frac{N}{P+N}. $$
+        </li>
+        <li>
+          Recognise the factors: $TP/P = \text{Sens}$, $TN/N = \text{Spec}$, $P/(P+N)=\pi$, $N/(P+N) = 1-\pi$. Hence
+          $$ \boxed{\;\text{Acc} = \pi\cdot\text{Sens} + (1-\pi)\cdot\text{Spec}\;} $$
+        </li>
+        <li>
+          <span class="qed">∎</span> Two consequences follow immediately.
+          <ul>
+            <li>Accuracy is a <em>weighted average</em> with weights set by the data, not by you. If $\pi = 0.01$, a model with
+            sensitivity 1.0 and specificity 0.0 scores 0.01·1 + 0.99·0 = 1%.</li>
+            <li>The trivial rule "always predict negative" has Sens $=0$, Spec $=1$, so its accuracy is $1-\pi$. For
+            $\pi = 0.05$ that is <strong>95%</strong> — higher than a genuinely good model with Sens $=$ Spec $= 0.9$, whose
+            accuracy is $0.05(0.9) + 0.95(0.9) = 0.9$.</li>
+          </ul>
+        </li>
+      </ol>
+      <div class="callout trap" style="margin-bottom:0">
+        <span class="label">The accuracy paradox</span>
+        <p>Accuracy is only meaningful when prevalence is balanced <em>or</em> when you report the pair (sensitivity, specificity) alongside it. This is exactly the "100% accurate" muffin-vs-chihuahua classifier that collapses to 50% on a balanced test set.</p>
+      </div>
+    </div>
+  </details>
+
+  <p>
+    When you care about the <em>predicted</em> positive cases — "if we flag this patient, how often are we right?" — you need
+    <strong>precision</strong>, also called positive predictive value (PPV). Unlike sensitivity, it is a probability
+    <em>given the prediction</em>, so it depends on prevalence.
+  </p>
+
+  <details class="steps">
+    <summary>Derivation — precision (PPV) as a function of prevalence</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>By definition $\text{PPV} = \dfrac{TP}{TP+FP}$.</li>
+        <li>
+          Scale the whole test set to size 1 and write each cell as a probability using the chain rule
+          $\Pr(A,B) = \Pr(A\mid B)\Pr(B)$:
+          $$ \Pr(\hat{y}=1, y=1) = \text{Sens}\cdot\pi, \qquad \Pr(\hat{y}=1, y=0) = (1-\text{Spec})\cdot(1-\pi). $$
+        </li>
+        <li>
+          Substitute into the ratio:
+          $$ \boxed{\;\text{PPV} = \frac{\pi\cdot\text{Sens}}{\pi\cdot\text{Sens} + (1-\pi)\,(1-\text{Spec})}\;} $$
+        </li>
+        <li>
+          <span class="qed">∎</span> Now the base-rate lesson becomes arithmetic. Take Sens $=0.99$, Spec $=0.99$, and a rare
+          disease with $\pi = 0.001$:
+          $$ \text{PPV} = \frac{0.001(0.99)}{0.001(0.99) + 0.999(0.01)} = \frac{0.00099}{0.01098} \approx 9\%. $$
+          A 99%-accurate test is wrong <em>ten times out of eleven</em> when it fires on a rare condition. The algebra does
+          not care that the test is good; the base rate dominates.
+        </li>
+      </ol>
+    </div>
+  </details>
+
+  <p>
+    To collapse a confusion matrix into one number that is robust to prevalence, average the two conditionals instead of
+    weighting them by the data:
+  </p>
+  <div class="formula">$$ \text{Balanced accuracy} = \frac{\text{Sens} + \text{Spec}}{2}, \qquad F_1 = \frac{2\cdot\text{PPV}\cdot\text{Sens}}{\text{PPV}+\text{Sens}} $$</div>
+  <p>
+    $F_1$ is the harmonic mean of precision and recall: it punishes the case where one is high and the other is low, which an
+    arithmetic mean would hide.
+  </p>
+
+  <h3 class="sub" id="m-regression-metrics">2.4 Regression metrics</h3>
+  <p>For a regression model $y = f(\mathbf{x})$ evaluated on $N$ samples, the standard metric is mean squared error:</p>
+  <div class="formula">$$ \text{MSE} = \frac{1}{N}\sum_{i=1}^{N}\big(y_i - f(\mathbf{x}_i)\big)^2, \qquad \text{RMSE} = \sqrt{\text{MSE}}, \qquad \text{MAE} = \frac{1}{N}\sum_{i=1}^{N}\big|y_i - f(\mathbf{x}_i)\big| $$</div>
+  <p>
+    Squaring makes the loss differentiable everywhere and penalizes large residuals quadratically; the absolute value is more
+    robust to outliers but non-differentiable at zero. MSE has units of $y^2$, RMSE restores the units of $y$, and MAE
+    estimates the conditional median rather than the conditional mean.
+  </p>
+  <p>For clustering, the analogous quantity is the sum of squared error (scatter), which module 09 minimizes:</p>
+  <div class="formula">$$ \text{SSE} = \sum_{j=1}^{K}\sum_{\mathbf{x}\in C_j} \big\|\mathbf{x} - \mathbf{c}_j\big\|_2^2 . $$</div>
+
+  <h3 class="sub" id="m-overfit">2.5 Overfitting, complexity, and regularization</h3>
+  <p>
+    Model complexity controls how wiggly the fitted function can be. Too rigid (degree 1 on a sinusoid) and the model
+    <strong>underfits</strong>: both training and test error are high. Too flexible (degree 9 on 10 noisy points) and the model
+    <strong>overfits</strong>: training error goes to zero while test error explodes. The classic picture — from Bishop (2006),
+    used in the lecture notes — is the degree-3 versus degree-9 polynomial fit, and the lab below reproduces it with a slider.
+  </p>
+  <p>Regularization fights overfitting by adding a penalty for complexity to the objective, with a hyperparameter $\lambda$ trading off the two terms:</p>
+  <div class="formula">$$ g(\boldsymbol\theta, f) = \underbrace{\text{MSE}(\boldsymbol\theta)}_{\text{fit the data}} \;+\; \lambda\cdot \underbrace{R(\boldsymbol\theta)}_{\text{stay simple}} $$</div>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Name</th><th>Penalty $R(\boldsymbol\theta)$</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td>Ridge (Tikhonov)</td><td>$\sum_i \theta_i^2 = \|\boldsymbol\theta\|_2^2$</td><td>shrinks all weights smoothly toward zero</td></tr>
+        <tr><td>Lasso</td><td>$\sum_i |\theta_i| = \|\boldsymbol\theta\|_1$</td><td>sets some weights exactly to zero → sparse model, feature selection</td></tr>
+        <tr><td>Elastic net</td><td>$\beta\|\boldsymbol\theta\|_2^2 + \|\boldsymbol\theta\|_1$</td><td>compromise; useful with correlated features</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout warn">
+    <span class="label">N.B.</span>
+    <p>Regularization does not always work — Zhang et al. (2017) showed that deep networks can memorize randomly labelled data while still generalizing on real data, so the classical complexity story is incomplete for modern models. Module 05 derives the bias–variance decomposition that explains when and why the penalty helps.</p>
+  </div>
+
+  <h3 class="sub" id="m-cv">2.6 Validation and cross-validation</h3>
+  <p>
+    We cannot tune hyperparameters on the test set, or the test set stops being a test set. So the data is split three ways:
+  </p>
+  <ul>
+    <li><strong>Training set</strong> — fit parameters.</li>
+    <li><strong>Validation set</strong> — choose hyperparameters and compare models.</li>
+    <li><strong>Test set</strong> — touched exactly once, after everything is frozen.</li>
+  </ul>
+  <p>
+    With limited data, a single validation split is wasteful and noisy. <strong>$k$-fold cross-validation</strong> partitions the
+    training data into $k$ folds, trains on $k-1$ and evaluates on the held-out fold, rotating which fold is held out:
+  </p>
+  <div class="formula">$$ \widehat{\text{Err}}_{\text{CV}} = \frac{1}{k}\sum_{j=1}^{k} \hat{R}_{F_j}\big(f^{(-j)}\big), \qquad f^{(-j)} = \text{model trained without fold } F_j $$</div>
+  <p>Variants, and when each is required:</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Protocol</th><th>How folds are formed</th><th>Use when</th></tr></thead>
+      <tbody>
+        <tr><td>$k$-fold</td><td>shuffle, split into $k$ equal parts ($k = 5$ or $10$ typical)</td><td>large, balanced datasets</td></tr>
+        <tr><td>Leave-one-out (LOOCV)</td><td>$k=N$; train on $N-1$, test on 1</td><td>very small datasets</td></tr>
+        <tr><td>Stratified $k$-fold</td><td>each fold preserves class prevalence</td><td><strong>default</strong> for classification — otherwise a rare class may be absent from a fold</td></tr>
+        <tr><td>Stratified group $k$-fold</td><td>stratify <em>and</em> keep groups (e.g. one patient's many records) in a single fold</td><td>correlated / longitudinal samples</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The full hyperparameter-tuning protocol: (1) partition into $k$ folds; (2) for each candidate hyperparameter set $j$, train
+    $k$ times and record mean and standard deviation of the metric; (3) pick $j^{\star}$ with the best mean; (4) <em>retrain on all
+    $k$ folds</em> with $j^{\star}$; (5) evaluate once on the test set. Step 4 matters — the fold models saw only $(k-1)/k$ of the data.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+  <p>Three labs. Each is a small simulation with a point: break them on purpose and watch the numbers.</p>
+
+  <div class="lab" data-lab="lab-pipeline">
+    <div class="lab-head">
+      <span class="lab-tag">Lab 1 · data splits</span>
+      <h4>Why stratification exists</h4>
+    </div>
+    <div class="lab-body">
+      <div class="lab-stage"></div>
+      <div class="lab-panel"></div>
+    </div>
+    <div class="lab-note">
+      <p>Drag the <em>prevalence</em> slider down to 5% and switch from <strong>stratified</strong> to <strong>random</strong> splitting. A plain random split can hand you a test fold whose positive rate is wildly different from the training fold — your estimate of performance then measures a different problem than the one you trained on. The <em>worst imbalance</em> readout is the largest deviation between a split's positive rate and the true prevalence.</p>
+      <p>Notice also how small the validation fold gets as you shrink the test fraction: three-way splits are expensive, which is why cross-validation exists.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-fit">
+    <div class="lab-head">
+      <span class="lab-tag">Lab 2 · model complexity</span>
+      <h4>Underfitting, good fit, overfitting</h4>
+    </div>
+    <div class="lab-body">
+      <div class="lab-stage"></div>
+      <div class="lab-panel"></div>
+    </div>
+    <div class="lab-note">
+      <p>The dashed curve is the ground truth $\sin(x)$; the dots are 18 noisy training samples. Sweep the degree from 0 to 12 and watch the two error columns. Up to degree 3 the <em>test</em> error falls; past degree 5 the <em>training</em> error keeps falling while the test error climbs — the signature of overfitting, and the reason training loss alone can never be your model-selection criterion.</p>
+      <p>Now raise the noise σ and repeat. More noise moves the memorization regime to a lower degree: how much regularization you need is a property of the <em>data</em>, not just of the model.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-metrics">
+    <div class="lab-head">
+      <span class="lab-tag">Lab 3 · evaluation</span>
+      <h4>The confusion matrix and the accuracy paradox</h4>
+    </div>
+    <div class="lab-body">
+      <div class="lab-stage"></div>
+      <div class="lab-panel"></div>
+    </div>
+    <div class="lab-note">
+      <p>The top panel is the confusion matrix; the bottom panel plots accuracy against prevalence for this classifier (solid) and for the degenerate "always predict negative" rule (dashed).</p>
+      <p>Set sensitivity and specificity to 0.9 and drop prevalence to 2%. The classifier's accuracy is 0.9; the always-negative rule scores 0.98 while detecting nothing. Then read the precision column: it collapses toward 0.15. This is the single most important reason to report <strong>sensitivity, specificity and precision</strong> alongside accuracy.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+  <p>
+    The same three implementations, in the same order, every module: <strong>pure Python</strong> so nothing hides,
+    <strong>NumPy</strong> so it scales, and <strong>scikit-learn</strong> so you recognise production code. The repository
+    ships these as the tested module <code>mlfs.foundations</code>.
+  </p>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">scikit-learn</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 01 — confusion matrices, metrics, splits and k-fold, no libraries."""
+import random
+
+
+def confusion_matrix(y_true, y_pred, positive=1):
+    """Count the four cells of a binary confusion matrix."""
+    tp = fp = tn = fn = 0
+    for t, p in zip(y_true, y_pred):
+        if p == positive:
+            tp += t == positive
+            fp += t != positive
+        else:
+            fn += t == positive
+            tn += t != positive
+    return {"tp": tp, "fp": fp, "tn": tn, "fn": fn}
+
+
+def metrics(cm):
+    """Accuracy, sensitivity, specificity, precision, F1, balanced accuracy."""
+    tp, fp, tn, fn = cm["tp"], cm["fp"], cm["tn"], cm["fn"]
+    n = tp + fp + tn + fn
+    sens = tp / (tp + fn) if tp + fn else float("nan")
+    spec = tn / (tn + fp) if tn + fp else float("nan")
+    prec = tp / (tp + fp) if tp + fp else float("nan")
+    f1 = 2 * prec * sens / (prec + sens) if prec + sens else float("nan")
+    return {
+        "accuracy": (tp + tn) / n,
+        "sensitivity": sens,
+        "specificity": spec,
+        "precision": prec,
+        "f1": f1,
+        "balanced_accuracy": (sens + spec) / 2,
+        "prevalence": (tp + fn) / n,
+    }
+
+
+def stratified_holdout(y, frac, seed=0):
+    """Indices of a hold-out set that preserves each class's prevalence."""
+    rng = random.Random(seed)
+    by_class = {}
+    for i, label in enumerate(y):
+        by_class.setdefault(label, []).append(i)
+    held = []
+    for label, idx in by_class.items():
+        rng.shuffle(idx)
+        held.extend(idx[: max(1, round(len(idx) * frac))])
+    return sorted(held)
+
+
+def k_fold_indices(n, k=5, seed=0):
+    """Return k lists of indices covering range(n) exactly once."""
+    idx = list(range(n))
+    random.Random(seed).shuffle(idx)
+    return [idx[i::k] for i in range(k)]
+
+
+if __name__ == "__main__":
+    # A deliberately useless classifier on an imbalanced problem.
+    y_true = [1] * 10 + [0] * 90
+    y_pred = [0] * 100                      # always predict negative
+    m = metrics(confusion_matrix(y_true, y_pred))
+    print(f"accuracy = {m['accuracy']:.2f}  sensitivity = {m['sensitivity']:.2f}")
+    # accuracy = 0.90  sensitivity = 0.00   <-- the accuracy paradox
+
+    folds = k_fold_indices(n=10, k=5, seed=1)
+    assert sorted(i for f in folds for i in f) == list(range(10))
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 01 — the same operations, vectorised with NumPy."""
+import numpy as np
+
+
+def confusion_matrix(y_true, y_pred):
+    """Return [[TN, FP], [FN, TP]] — the scikit-learn convention."""
+    y_true = np.asarray(y_true).ravel()
+    y_pred = np.asarray(y_pred).ravel()
+    tn = int(np.sum((y_true == 0) &amp; (y_pred == 0)))
+    fp = int(np.sum((y_true == 0) &amp; (y_pred == 1)))
+    fn = int(np.sum((y_true == 1) &amp; (y_pred == 0)))
+    tp = int(np.sum((y_true == 1) &amp; (y_pred == 1)))
+    return np.array([[tn, fp], [fn, tp]])
+
+
+def metrics(cm):
+    tn, fp, fn, tp = cm.ravel().astype(float)
+    sens = tp / (tp + fn) if tp + fn else np.nan
+    spec = tn / (tn + fp) if tn + fp else np.nan
+    prec = tp / (tp + fp) if tp + fp else np.nan
+    return {
+        "accuracy": (tp + tn) / cm.sum(),
+        "sensitivity": sens,
+        "specificity": spec,
+        "precision": prec,
+        "f1": 2 * prec * sens / (prec + sens) if prec + sens else np.nan,
+        "balanced_accuracy": (sens + spec) / 2,
+    }
+
+
+def stratified_split(y, frac=0.2, seed=0):
+    """Boolean mask selecting a stratified hold-out."""
+    y = np.asarray(y)
+    rng = np.random.default_rng(seed)
+    mask = np.zeros(len(y), dtype=bool)
+    for cls in np.unique(y):
+        idx = np.flatnonzero(y == cls)
+        rng.shuffle(idx)
+        mask[idx[: max(1, int(round(len(idx) * frac)))]] = True
+    return mask
+
+
+def mse(y_true, y_pred):
+    return float(np.mean((np.asarray(y_true) - np.asarray(y_pred)) ** 2))
+
+
+def standardize(X):
+    """Column-wise (x - mean) / std, computed on the training data only."""
+    X = np.asarray(X, dtype=float)
+    mu = X.mean(axis=0)
+    sd = X.std(axis=0)
+    sd[sd == 0] = 1.0
+    return (X - mu) / sd, mu, sd
+
+
+if __name__ == "__main__":
+    y = np.array([1] * 10 + [0] * 90)
+    cm = confusion_matrix(y, np.zeros_like(y))
+    print(cm)                       # [[90  0] [10  0]]
+    print(metrics(cm)["accuracy"])  # 0.9
+    X = np.random.default_rng(0).normal(size=(200, 3))
+    Xs, mu, sd = standardize(X)
+    assert np.allclose(Xs.mean(axis=0), 0, atol=1e-12)
+    assert np.allclose(Xs.std(axis=0), 1, atol=1e-12)
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 01 — the production version, with scikit-learn."""
+import numpy as np
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
+from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_breast_cancer(return_X_y=True)          # 569 samples, 30 features
+
+# stratify=y keeps the class ratio identical in both halves
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.2, stratify=y, random_state=0
+)
+
+# The scaler lives INSIDE the pipeline: fitting it on the full dataset
+# would leak test-set statistics into training.
+pipe = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+scores = cross_validate(
+    pipe, X_tr, y_tr, cv=cv,
+    scoring=["accuracy", "balanced_accuracy", "roc_auc"],
+)
+for name in ("test_accuracy", "test_balanced_accuracy", "test_roc_auc"):
+    print(f"{name:26s} {scores[name].mean():.3f} +/- {scores[name].std():.3f}")
+
+pipe.fit(X_tr, y_tr)                                # refit on all training data
+y_hat = pipe.predict(X_te)
+y_prob = pipe.predict_proba(X_te)[:, 1]
+
+print("\nconfusion matrix [[TN FP] [FN TP]]:")
+print(confusion_matrix(y_te, y_hat))
+print(f"\nAUC on the held-out test set: {roc_auc_score(y_te, y_prob):.3f}")
+print(classification_report(y_te, y_hat, digits=3))
+</code></pre></div>
+    <div class="code-caption">
+      Reading the three versions side by side: the pure-Python code makes the definitions explicit; the NumPy code shows
+      that metrics are just masked sums; the scikit-learn code shows the two things people get wrong in practice —
+      forgetting <code>stratify=y</code>, and scaling before splitting.
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <span class="label">Leakage checklist</span>
+    <ul class="tight" style="margin-bottom:0">
+      <li>Fit every transformer (scaler, imputer, encoder, feature selector) on training data only — put them in a <code>Pipeline</code>.</li>
+      <li>Split by group, not by row, when rows are correlated (multiple visits per patient, multiple frames per video).</li>
+      <li>Never use the test set to choose a threshold, a feature subset, or a model.</li>
+    </ul>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="01">
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>An agent is given 10,000 unlabelled chest X-rays and asked to group them by visual similarity. Which paradigm is this?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Supervised learning</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Reinforcement learning</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Unsupervised learning</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Semi-supervised learning</span></button></li>
+      </ul>
+      <div class="explain"><p>No labels are supplied, so there is no ground-truth target to approximate — the algorithm must use similarity across features to produce clusters. Semi-supervised learning would require <em>some</em> labels.</p></div>
+    </div>
+
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>A screening test has sensitivity 0.95 and specificity 0.90. The disease has prevalence 1%. For a patient who tests positive, the probability they actually have the disease is closest to:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>95%</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>9%</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>50%</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>90%</span></button></li>
+      </ul>
+      <div class="explain"><p>$\text{PPV} = \frac{\pi\cdot\text{Sens}}{\pi\cdot\text{Sens} + (1-\pi)(1-\text{Spec})} = \frac{0.01(0.95)}{0.01(0.95)+0.99(0.10)} = \frac{0.0095}{0.1085} \approx 8.8\%$. This is the base-rate fallacy: sensitivity is a property of the test, PPV is a property of the test <em>and</em> the population.</p></div>
+    </div>
+
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>Training error keeps falling as you increase polynomial degree while validation error rises. The model is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Underfitting; increase the degree further</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Underfitting; decrease the degree</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Overfitting; increase the degree</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Overfitting; decrease the degree or increase regularization</span></button></li>
+      </ul>
+      <div class="explain"><p>Falling training error together with rising validation error <em>is</em> overfitting. Reduce capacity (lower degree, shallower tree, fewer neurons) or add an $\ell_1/\ell_2$ penalty.</p></div>
+    </div>
+
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>Why must feature selection be performed <em>inside</em> each cross-validation fold rather than once on the whole dataset?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Otherwise the held-out fold influenced which features were chosen, so the CV estimate is optimistically biased</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Because selection is slow and folds parallelise it</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Because the number of features must be a hyperparameter</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>It does not matter; selection is unsupervised</span></button></li>
+      </ul>
+      <div class="explain"><p>Selection uses the labels of every sample, including the ones that later become the held-out fold. That is leakage: the fold is no longer unseen, and the reported error is too low. Wrap the selector in a <code>Pipeline</code>.</p></div>
+    </div>
+
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>You have 40 patients, each contributing 12 hourly records. Which cross-validation protocol is appropriate?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Leave-one-out over the 480 records</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Standard stratified 10-fold over the 480 records</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Stratified group 5-fold, grouping by patient</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>No cross-validation; use a 50/50 split</span></button></li>
+      </ul>
+      <div class="explain"><p>Records from the same patient are autocorrelated. If some of a patient's hours land in training and others in the test fold, the model can partly memorise the patient and the estimate is inflated. Group the folds by patient, and stratify on the label.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+</section>
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click a card to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Empirical risk $\hat{R}_N(f)$</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">The average loss over the $N$ training samples: $\frac1N\sum_i \ell(f(\mathbf{x}^{(i)}), y^{(i)})$. It is the only error we can compute, and it is a biased-downward estimate of the risk for models selected to minimise it.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Sensitivity vs. specificity</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">Sensitivity $=TP/P$: of the truly positive, the fraction we caught. Specificity $=TN/N$: of the truly negative, the fraction we correctly ignored. Both condition on the <em>truth</em>, so neither depends on prevalence.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Precision (PPV)</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">$TP/(TP+FP)$: of the cases we flagged, the fraction that were real. It conditions on the <em>prediction</em>, so it depends heavily on prevalence — rare outcomes make precision collapse even for excellent tests.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Prevalence $\pi$</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">The proportion of positives in the population, $P/(P+N)$. It sets the weights in accuracy: $\text{Acc} = \pi\,\text{Sens} + (1-\pi)\,\text{Spec}$.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Hyperparameter</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">A choice about the learning algorithm that is <em>not</em> learned from the training data — $k$ in k-NN, $\lambda$ in ridge, tree depth, learning rate. Selected on validation data or by cross-validation.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">No free lunch theorem</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">Wolpert (1997): averaged over all possible problems, every learning algorithm performs equally. No single model wins everywhere — evaluate several on <em>your</em> data.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Regularization</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">Adding $\lambda R(\boldsymbol\theta)$ to the cost to penalise complexity: $g = \text{MSE} + \lambda R$. $\ell_2$ shrinks weights, $\ell_1$ zeroes some out. $\lambda$ trades fit against simplicity.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Data leakage</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">Any information about the test set, or about the label, that reaches the model during training. Symptoms: suspiciously good validation scores followed by disappointment in production.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">i.i.d. assumption</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">Samples are independent and drawn from the same distribution $P$. It is what makes sample averages meaningful, and what breaks under distribution shift.</div></div>
+    </div></div>
+    <div class="flashcard"><div class="flashcard-inner">
+      <div class="flashface"><span class="side">Term</span><div class="content">Stratified $k$-fold</div></div>
+      <div class="flashface back"><span class="side">Definition</span><div class="content">$k$-fold CV in which each fold preserves the class proportions of the full dataset. The default for classification, because a random fold can miss a rare class entirely.</div></div>
+    </div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+    <div style="height:3px;background:var(--line);border-radius:2px;margin-top:10px"><div data-deck-bar style="height:100%;width:0;background:var(--accent);border-radius:2px;transition:width .2s"></div></div>
+  </div>
+
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Confusion matrix arithmetic</h4></div>
+    <p>A classifier is evaluated on 500 patients: 60 truly have the condition. It flags 75 patients as positive, of which 45 are true positives. Build the confusion matrix and compute accuracy, sensitivity, specificity, precision and $F_1$.</p>
+    <button class="btn btn-sm" data-reveal="sol-01-1" type="button">Show solution</button>
+    <div id="sol-01-1" class="solution" hidden>
+      <p>$TP = 45$, $FP = 75-45 = 30$, $FN = 60-45 = 15$, $TN = 500-60-30 = 410$.</p>
+      <ul class="tight">
+        <li>Accuracy $= (45+410)/500 = 0.910$</li>
+        <li>Sensitivity $= 45/60 = 0.750$</li>
+        <li>Specificity $= 410/440 = 0.932$</li>
+        <li>Precision $= 45/75 = 0.600$</li>
+        <li>$F_1 = 2(0.6)(0.75)/(0.6+0.75) = 0.667$</li>
+      </ul>
+      <p class="small muted" style="margin-bottom:0">Note the gap between accuracy (91%) and precision (60%): most of the accuracy is bought by the 440 negatives. Balanced accuracy $=(0.75+0.932)/2 = 0.841$ is the honest single number here.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Design the evaluation protocol</h4></div>
+    <p>You are given 12,000 blood-pressure readings from 800 patients (15 readings each, over a year) and asked to predict whether each reading precedes a cardiac event. Propose a complete protocol: splits, CV scheme, metrics, and three specific leakage risks with mitigations.</p>
+    <button class="btn btn-sm" data-reveal="sol-01-2" type="button">Show solution</button>
+    <div id="sol-01-2" class="solution" hidden>
+      <p><strong>Splits.</strong> Hold out 20% of <em>patients</em> (160 patients, all 15 readings each) as a test set that is opened once. Use the remaining 640 patients for development.</p>
+      <p><strong>CV.</strong> Stratified group 5-fold on the 640 development patients: groups = patient id, stratification on the event rate. Report mean ± standard deviation across folds.</p>
+      <p><strong>Metrics.</strong> Events are likely rare, so report sensitivity, specificity, precision, balanced accuracy and AUROC — never accuracy alone. If clinicians act on a threshold, also report the confusion matrix at the operating threshold you would deploy.</p>
+      <p><strong>Leakage risks.</strong></p>
+      <ol class="tight">
+        <li><em>Patient leakage.</em> Readings from one patient in both train and test. Mitigation: group splits, never row splits.</li>
+        <li><em>Temporal leakage.</em> Using readings taken after the event, or scaling/imputing with statistics computed over the whole timeline. Mitigation: cut features at prediction time; fit transformers inside each fold.</li>
+        <li><em>Duplicate or near-duplicate readings.</em> Identical rows can land in different folds. Mitigation: deduplicate before splitting and verify overlap by patient id.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Prove the union-bound version of the generalization gap</h4></div>
+    <p>Suppose $|\mathcal{H}| = M$ hypotheses all have loss in $[0,1]$. Show that with probability at least $1-\delta$, <em>simultaneously</em> for every $f\in\mathcal{H}$,</p>
+    <div class="formula">$$ \big|\hat{R}_N(f) - R(f)\big| \le \sqrt{\frac{\ln(2M/\delta)}{2N}}. $$</div>
+    <p>Then explain what this implies about adding parameters to a model, and why the bound is loose for deep networks.</p>
+    <button class="btn btn-sm" data-reveal="sol-01-3" type="button">Show solution</button>
+    <div id="sol-01-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>For a fixed $f$, Hoeffding gives $\Pr(|\hat R_N(f)-R(f)| \ge \epsilon) \le 2e^{-2N\epsilon^2}$.</li>
+        <li>Let $E_f$ be that failure event. By the union bound (Boole's inequality), $\Pr\big(\bigcup_f E_f\big) \le \sum_f \Pr(E_f) \le 2M e^{-2N\epsilon^2}$.</li>
+        <li>Set $2Me^{-2N\epsilon^2} = \delta$ and solve: $\epsilon = \sqrt{\ln(2M/\delta)/(2N)}$.</li>
+        <li>With probability $\ge 1-\delta$ no hypothesis deviates by more than $\epsilon$ — in particular the one you pick <em>after</em> looking at the data. <span class="qed">∎</span></li>
+      </ol>
+      <p><strong>Implication.</strong> The penalty for searching a larger class is only $\ln M$: doubling the number of candidate models adds $\ln 2 \approx 0.69$ to the numerator. "More parameters" is therefore cheap in this bound — one reason it fails to explain deep learning, where the number of parameters is astronomical yet test error still falls with width and data. Modern theory replaces counting with capacity measures (VC dimension, Rademacher complexity, PAC-Bayes) and still does not fully explain the phenomenon (Zhang et al., 2017).</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 01</span>
+    <h3>An evaluation harness you would trust with a patient</h3>
+    <p>
+      Every later module will be judged by the harness you build here. The deliverable is a small, reusable Python
+      package (or notebook plus module) that takes a dataset and a model and produces an evaluation report a clinician,
+      an auditor or a reviewer could read without asking you questions.
+    </p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Pick a binary classification dataset with meaningful class imbalance: <code>sklearn.datasets.load_breast_cancer</code>, the UCI Heart Disease dataset, or a public readmission dataset.</li>
+      <li>Implement <code>split(X, y, groups=None, stratify=True)</code>, <code>confusion_matrix(y_true, y_pred)</code> and <code>report(cm)</code> <strong>from scratch</strong>, then assert parity with scikit-learn on the same inputs.</li>
+      <li>Produce a report containing: dataset description and prevalence; the split protocol with a diagram; 5-fold stratified CV results (mean ± sd) for at least three models; the test-set confusion matrix at a stated threshold; and a paragraph interpreting sensitivity, specificity and precision in the language of the application domain.</li>
+      <li>Add a <em>leakage audit</em>: every transformer used, and evidence that it was fitted inside the folds.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li>Repository with <code>README.md</code>, <code>evaluate.py</code>, <code>report.ipynb</code></li>
+      <li>Unit tests proving parity with scikit-learn</li>
+      <li>One-page report (Markdown or PDF) with the required sections</li>
+      <li>A 3-minute recorded walkthrough (optional but recommended)</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Correctness</td><td>From-scratch metrics match scikit-learn exactly; tests run in CI</td><td>30</td></tr>
+        <tr><td>Protocol</td><td>Group and stratification decisions justified; test set touched once; transformers inside folds</td><td>25</td></tr>
+        <tr><td>Interpretation</td><td>Metrics translated into domain consequences; base rate discussed</td><td>25</td></tr>
+        <tr><td>Communication</td><td>Report readable by a non-ML stakeholder; figures labelled and captioned</td><td>20</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Cost-sensitive threshold: given a false negative costing 10× a false positive, compute the threshold that minimises expected cost and mark it on the ROC curve.</li>
+      <li>Repeat the study under a simulated distribution shift (resample the test set at a different prevalence) and report how each metric moves.</li>
+      <li>Package it: <code>pip install -e .</code>, a CLI entry point <code>mlfs-eval --data path.csv --target y</code>, and a GitHub Actions workflow that runs the tests.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/01-evaluation-harness/</code> in the repository.</p>
+  </div>
+</section>

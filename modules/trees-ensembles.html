@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>08 · Decision Trees, Bagging & Boosting — ML from First Principles</title>
+<meta name="description" content="Recursive partitioning with the CART algorithm, Gini impurity and information gain, then bagging, random forests, AdaBoost's exponential loss and gradient boosting's residuals." />
+<meta property="og:title" content="08 · Decision Trees, Bagging & Boosting — ML from First Principles" />
+<meta property="og:description" content="Recursive partitioning with the CART algorithm, Gini impurity and information gain, then bagging, random forests, AdaBoost's exponential loss and gradient boosting's residuals." />
+<meta property="og:type" content="article" />
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css" />
+<link rel="stylesheet" href="../assets/css/site.css" />
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/js/viz.js"></script>
+<script defer src="../assets/js/mla.js"></script>
+<script defer src="../assets/js/site.js"></script>
+<script defer src="../assets/js/labs/08-trees-ensembles.js"></script>
+</head>
+<body data-module="trees-ensembles">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark">ML</span>
+      <span>ML from First Principles<small>Interactive course · CUNY CSC 74020</small></span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a class="opt" href="../index.html#curriculum">Curriculum</a>
+      <a class="opt" href="../index.html#python">Python library</a>
+      <a class="opt" href="../index.html#projects">Projects</a>
+      <a class="opt" href="../index.html#sources">Sources</a>
+      <button class="icon-btn" data-theme-toggle type="button" aria-label="Toggle theme">☾</button>
+      <button class="icon-btn" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">☰</button>
+    </nav>
+  </div>
+  <div id="navMenu" hidden style="border-top:1px solid var(--line);background:var(--panel)">
+    <div class="shell" style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:.86rem">
+      <a href="../modules/foundations.html" style="padding:4px 0;color:var(--ink-2)">01 · What Machine Learning Actually Is</a>
+      <a href="../modules/knn-evaluation.html" style="padding:4px 0;color:var(--ink-2)">02 · Nearest Neighbours & Honest Evaluation</a>
+      <a href="../modules/linear-regression.html" style="padding:4px 0;color:var(--ink-2)">03 · Linear Models & Least Squares</a>
+      <a href="../modules/logistic-regression.html" style="padding:4px 0;color:var(--ink-2)">04 · Logistic Regression & Classification Loss</a>
+      <a href="../modules/regularization.html" style="padding:4px 0;color:var(--ink-2)">05 · Regularization, Bias–Variance & Model Selection</a>
+      <a href="../modules/neural-networks.html" style="padding:4px 0;color:var(--ink-2)">06 · Artificial Neural Networks</a>
+      <a href="../modules/backpropagation.html" style="padding:4px 0;color:var(--ink-2)">07 · Backpropagation & Training Deep Networks</a>
+      <a href="../modules/trees-ensembles.html" style="padding:4px 0;color:var(--ink-2)">08 · Decision Trees, Bagging & Boosting</a>
+      <a href="../modules/clustering.html" style="padding:4px 0;color:var(--ink-2)">09 · Unsupervised Learning: Clustering</a>
+      <a href="../modules/cnns.html" style="padding:4px 0;color:var(--ink-2)">10 · Convolutional Neural Networks</a>
+      <a href="../modules/sequences.html" style="padding:4px 0;color:var(--ink-2)">11 · Sequences: RNNs, LSTMs & Attention</a>
+      <a href="../modules/transformers.html" style="padding:4px 0;color:var(--ink-2)">12 · Transformers & Large Language Models</a>
+      <a href="../modules/dimensionality-reduction.html" style="padding:4px 0;color:var(--ink-2)">13 · Dimensionality Reduction & Representation Learning</a>
+      <a href="../modules/svm-kernels.html" style="padding:4px 0;color:var(--ink-2)">14 · Support Vector Machines & Kernels</a>
+      <a href="../modules/reinforcement-learning.html" style="padding:4px 0;color:var(--ink-2)">15 · Reinforcement Learning</a>
+      <a href="../modules/interpretation.html" style="padding:4px 0;color:var(--ink-2)">16 · Model Interpretation & What Comes Next</a>
+    </div>
+  </div>
+</header>
+<main id="main" class="shell with-rail">
+<aside class="rail" aria-label="On this page">
+  <h4>08 · Classical ML</h4>
+  <ol>
+    <li><a href="#objectives">Learning objectives</a></li>
+    <li><a href="#intuition">1 · Intuition</a></li>
+    <li><a href="#math">2 · Mathematical foundations</a></li>
+    <li><a href="#labs">3 · Interactive visualizations</a></li>
+    <li><a href="#code">4 · Coding from scratch</a></li>
+    <li><a href="#assessment">5 · Assessment</a></li>
+    <li><a href="#project">6 · Portfolio project</a></li>
+  </ol>
+  <h4 style="margin-top:22px">All modules</h4>
+  <ol class="rail-sub">
+    <li><a href="foundations.html">01 What Machine Learning Actually Is</a></li>
+    <li><a href="knn-evaluation.html">02 Nearest Neighbours & Honest Evaluation</a></li>
+    <li><a href="linear-regression.html">03 Linear Models & Least Squares</a></li>
+    <li><a href="logistic-regression.html">04 Logistic Regression & Classification Loss</a></li>
+    <li><a href="regularization.html">05 Regularization, Bias–Variance & Model Selection</a></li>
+    <li><a href="neural-networks.html">06 Artificial Neural Networks</a></li>
+    <li><a href="backpropagation.html">07 Backpropagation & Training Deep Networks</a></li>
+    <li><a href="trees-ensembles.html" style="color:var(--accent);font-weight:600">08 Decision Trees, Bagging & Boosting</a></li>
+    <li><a href="clustering.html">09 Unsupervised Learning: Clustering</a></li>
+    <li><a href="cnns.html">10 Convolutional Neural Networks</a></li>
+    <li><a href="sequences.html">11 Sequences: RNNs, LSTMs & Attention</a></li>
+    <li><a href="transformers.html">12 Transformers & Large Language Models</a></li>
+    <li><a href="dimensionality-reduction.html">13 Dimensionality Reduction & Representation Learning</a></li>
+    <li><a href="svm-kernels.html">14 Support Vector Machines & Kernels</a></li>
+    <li><a href="reinforcement-learning.html">15 Reinforcement Learning</a></li>
+    <li><a href="interpretation.html">16 Model Interpretation & What Comes Next</a></li>
+  </ol>
+  <div style="margin-top:22px">
+    <button class="btn btn-sm" data-mark-complete type="button" style="width:100%;justify-content:center">Mark module complete</button>
+  </div>
+</aside>
+<article class="article">
+  <header>
+    <span class="kicker">Module 08 · Classical ML</span>
+    <h1>Decision Trees, Bagging & Boosting</h1>
+    <p class="lede">Recursive partitioning with the CART algorithm, Gini impurity and information gain, then bagging, random forests, AdaBoost's exponential loss and gradient boosting's residuals.</p>
+    <div class="header-meta">
+      <span>📚 Source: Lecture Notes 5</span>
+      <span>⏱ 75 min</span>
+      <span>🧪 3 interactive labs</span>
+      <span>🐍 3 implementations</span>
+    </div>
+  </header>
+
+  <section class="block" id="objectives">
+    <h2><span class="secnum">◎</span> Learning objectives</h2>
+    <div class="card">
+      <p class="small muted" style="margin-top:0">By the end of this module you should be able to:</p>
+      <ul class="tight">
+      <li>Grow a CART tree by hand, choosing splits that minimise the weighted Gini impurity.</li>
+      <li>Derive why Gini impurity is the expected error of the randomised-label rule.</li>
+      <li>Explain how bagging reduces variance while leaving bias untouched.</li>
+      <li>Derive AdaBoost's predictor weight α = η·log((1−r)/r) from the exponential loss.</li>
+      <li>Contrast boosting (sequential, bias-reducing) with bagging (parallel, variance-reducing).</li>
+      </ul>
+    </div>
+  </section>
+
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-tree">Decision trees</h3>
+  <p>
+    A decision tree predates machine learning — it comes from operations research — and it is the only model in this course
+    you can print out and hand to a domain expert. It partitions the feature space by <strong>dichotomizing</strong> one
+    feature at a time: "is petal width ≤ 0.8?" is a yes/no question that splits the data into two groups. The learning task is
+    to decide <em>which</em> questions to ask and in what order.
+  </p>
+  <p>
+    The dominant algorithm is <strong>CART</strong> (Classification and Regression Tree), which is what scikit-learn
+    implements. It grows the tree greedily:
+  </p>
+  <ol class="derivation">
+    <li>While the stopping criteria are not met:</li>
+    <li>For every impure leaf in the tree:</li>
+    <li>Choose the best feature $k$ and threshold $t_k$ according to the splitting criterion.</li>
+    <li>Split the data into two subspaces using $(k, t_k)$.</li>
+  </ol>
+  <p>
+    Stopping criteria are maximum depth, minimum samples per leaf, or a minimum impurity decrease. Because splits are
+    axis-aligned, the resulting decision boundary is a staircase — visible in lab 1 as a mosaic of rectangles.
+  </p>
+
+  <h3 class="sub" id="i-impurity">What makes a good split?</h3>
+  <p>
+    CART chooses $(k, t_k)$ to minimise the size-weighted impurity of the two children:
+  </p>
+  <div class="formula">$$ J(k, t_k) = \frac{m_{\text{left}}}{m}\,G_{\text{left}} + \frac{m_{\text{right}}}{m}\,G_{\text{right}} $$</div>
+  <p>where $G$ measures the impurity of a node and $m$ is the node's sample count. Three criteria are common:</p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Criterion</th><th>Formula</th><th>Range (2 classes)</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Gini</td><td>$1 - \sum_{i=1}^{K} p_i^2$</td><td>$[0, 0.5]$</td><td>default; cheap, works well</td></tr>
+        <tr><td>Entropy</td><td>$-\sum_i p_i\log_2 p_i$</td><td>$[0, 1]$</td><td>information gain; slightly more expensive</td></tr>
+        <tr><td>Misclassification</td><td>$1 - \max_i p_i$</td><td>$[0, 0.5]$</td><td>less sensitive to small changes; rarely used for growing</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Gini has a precise meaning: it is the probability that a randomly chosen sample would be <em>incorrectly labelled</em> if
+    labels were drawn at random from the node's class distribution. Section 2.1 derives this.
+  </p>
+  <p>
+    Once built, a tree estimates probabilities by sending a sample down to a leaf and returning the class frequencies observed
+    there during training. On iris, a fully grown tree's leaves are pure, so it returns 100% or 0% — a sign that it is
+    overfitting and should be pruned or depth-limited.
+  </p>
+
+  <h3 class="sub" id="i-ensemble">Ensembles: many weak models</h3>
+  <p>
+    <strong>Ensemble learning</strong> trains multiple models and combines their outputs. Because it is applied <em>on top of</em>
+    other methods, it is also called meta-learning. The goal is to turn weak learners into a strong one; the simplest combiner
+    is majority voting (a <em>hard</em> method), while averaging probabilities or using learned weights are <em>soft</em> methods.
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Family</th><th>How the models differ</th><th>Combination</th><th>Reduces</th><th>Parallel?</th></tr></thead>
+      <tbody>
+        <tr><td>Bagging</td><td>bootstrap resamples of the rows</td><td>vote / average</td><td>variance</td><td>yes</td></tr>
+        <tr><td>Random forest</td><td>bagging + random feature subsets</td><td>vote / average</td><td>variance (more)</td><td>yes</td></tr>
+        <tr><td>Boosting</td><td>sequential reweighting of samples</td><td>weighted sum</td><td>bias</td><td>no</td></tr>
+        <tr><td>Stacking</td><td>different algorithms</td><td>a model learns the blend</td><td>both</td><td>yes</td></tr>
+        <tr><td>Mixture of experts</td><td>models own disjoint regions</td><td>gated combination</td><td>bias</td><td>yes</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout insight">
+    <span class="label">Why averaging helps — the probabilistic argument</span>
+    <p>
+      A biased coin lands heads 51% of the time. Flip it 1,000 times and the <em>average</em> approaches 0.51 by the law of
+      large numbers. Treat each flip as a model and the average as the ensemble: the aggregate is more reliable than any single
+      member. The catch is the phrase "independent": if all the models make the same mistakes, averaging does nothing. That is
+      precisely why bagging resamples and random forests subsample features — both are ways of <em>decorrelating</em> the members.
+    </p>
+  </div>
+  <p>
+    The theoretical backing for boosting is computational learning theory. In the PAC framework (Valiant, 1984) a concept class
+    is <em>strongly learnable</em> if a learner can, with high probability, output a hypothesis that is correct on all but an
+    arbitrarily small fraction of instances. Schapire (1990) proved that any strongly learnable concept can be learned by
+    <em>weak</em> learners — those that do slightly better than chance. Boosting is the constructive version of that theorem.
+  </p>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Medicine · auditable rules</span>
+      <h4>Clinical decision rules</h4>
+      <p>A depth-3 tree reads like a triage protocol and can be validated by clinicians line by line. That auditability is worth more than a few points of AUC in regulated settings.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Finance · credit scoring</span>
+      <h4>Reason codes</h4>
+      <p>Tree ensembles dominate tabular credit models, and the tree structure supplies "reason codes" for adverse-action notices that fair-lending law requires.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Tabular ML · the default</span>
+      <h4>Gradient-boosted trees</h4>
+      <p>XGBoost, LightGBM and CatBoost remain the strongest methods on most tabular problems. Random forests are the low-tuning baseline that deep models still have to beat.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Ecology · presence modelling</span>
+      <h4>Habitat suitability</h4>
+      <p>Random forests handle mixed continuous/categorical predictors, missing values and non-linear interactions with almost no preprocessing — the reasons the lecture lists them as a "good general method".</p>
+    </div>
+    <div class="example">
+      <span class="tag">Manufacturing · anomaly flags</span>
+      <h4>Defect detection</h4>
+      <p>Boosted stumps on sensor features flag defective units; the ensemble's robustness to outliers matters more than its interpretability here.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Competitions · the workhorse</span>
+      <h4>Kaggle tabular</h4>
+      <p>Most winning tabular solutions are ensembles of gradient-boosted trees, often blended with linear models. Understanding bagging versus boosting is the difference between random tuning and deliberate design.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-gini">2.1 Gini impurity is an expected error rate</h3>
+  <details class="steps" open>
+    <summary>Derivation — why $1-\sum p_i^2$ measures impurity</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Take a node with class proportions $p_1,\dots,p_K$. Pick a sample at random and assign it a label drawn at random from the node's distribution.</li>
+        <li>The probability of a correct guess is
+          $$ \Pr(\text{correct}) = \sum_{i=1}^{K}\Pr(\text{pick class } i)\Pr(\text{guess } i) = \sum_i p_i\cdot p_i = \sum_i p_i^2. $$
+        </li>
+        <li>So the error probability is $1 - \sum_i p_i^2$, which is exactly the Gini impurity. <span class="qed">∎</span></li>
+        <li><strong>Sanity checks.</strong> A pure node ($p_1 = 1$) gives $1-1 = 0$. A balanced two-class node gives $1 - 2(1/4) = 0.5$, its maximum.</li>
+        <li><span class="why">Entropy has the same shape but a different justification: it is the expected number of bits needed to encode the label, $-\sum p_i\log_2 p_i$. Both are concave in $\mathbf{p}$, which is what makes greedy splitting sensible — a split that makes children purer always decreases the weighted average.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-split">2.2 The cost of finding a split</h3>
+  <p>
+    For a node with $m$ samples and $d$ features, CART sorts each feature ($O(m\log m)$) and evaluates up to $m-1$ thresholds.
+    Evaluating one threshold naively costs $O(m)$, giving $O(dm^2\log m)$ per node — expensive. In practice the class counts are
+    updated incrementally as the threshold sweeps, making one feature's scan $O(m\log m)$ and the whole node $O(dm\log m)$.
+    Total cost for a balanced tree of depth $\log m$ is $O(dm\log^2 m)$.
+  </p>
+
+  <h3 class="sub" id="m-bagging">2.3 Why bagging reduces variance but not bias</h3>
+  <details class="steps">
+    <summary>Derivation — the variance of an average of correlated models</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Let $M$ models each have variance $\sigma^2$ and pairwise correlation $\rho$. The average $\bar f = \frac1M\sum_m f_m$ has
+          $$ \mathrm{Var}(\bar f) = \frac{1}{M^2}\left[\sum_m \mathrm{Var}(f_m) + \sum_{m\ne m'}\mathrm{Cov}(f_m,f_{m'})\right] = \frac{\sigma^2}{M} + \frac{M-1}{M}\rho\sigma^2. $$
+        </li>
+        <li>As $M\to\infty$ the first term vanishes and the variance tends to $\rho\sigma^2$. <span class="qed">∎</span></li>
+        <li><span class="why">The correlation, not the number of models, is the binding constraint. Bagging decorrelates members by training on different resamples (so $\rho$ drops), but trees trained on the same data with the same greedy splits are still highly correlated — which is exactly why random forests also subsample <em>features</em> at each split, pushing $\rho$ down further.</span></li>
+        <li><strong>Bias.</strong> Averaging cannot move the mean, so bagging leaves bias untouched. Boosting is the complement: it attacks bias by fitting successive models to the errors of the current ensemble.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-adaboost">2.4 AdaBoost, derived</h3>
+  <p>AdaBoost maintains a weight $w^{(i)}$ for every training sample, starting uniform at $1/m$.</p>
+  <details class="steps">
+    <summary>Derivation — the weighted error, the predictor weight, and the reweighting</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li><strong>Weighted error of predictor $j$:</strong>
+          $$ r_j = \frac{\sum_{i=1}^{m} w^{(i)}\,\mathbb{1}\big[\hat y_j^{(i)} \ne y^{(i)}\big]}{\sum_{i=1}^{m} w^{(i)}}. $$
+        </li>
+        <li><strong>Predictor weight:</strong> $\alpha_j = \eta\log\frac{1-r_j}{r_j}$, where $\eta$ is a learning-rate hyperparameter. A predictor with $r_j \lt 0.5$ gets $\alpha_j \gt 0$; a random predictor ($r_j = 0.5$) gets $\alpha_j = 0$; a worse-than-random one gets a negative weight. Accurate models count more.</li>
+        <li><strong>Sample reweighting:</strong> multiply the weight of each misclassified sample by $e^{\alpha_j}$, leave correct ones unchanged, then renormalise. Since $\alpha_j \gt 0$, hard samples become relatively heavier and the next predictor is forced to focus on them.</li>
+        <li><strong>Why that exact form?</strong> AdaBoost is stagewise gradient descent on the <em>exponential loss</em> $L = \sum_i \exp\big(-y^{(i)}F(\mathbf{x}^{(i)})\big)$ where $F = \sum_j \alpha_j \hat y_j$. Adding the $j$-th predictor changes the loss to $\sum_i w^{(i)}\exp(-\alpha_j y^{(i)}\hat y_j^{(i)})$. Splitting the sum into correct and incorrect samples gives
+          $$ = e^{-\alpha_j}\sum_{\text{correct}} w^{(i)} + e^{\alpha_j}\sum_{\text{incorrect}} w^{(i)} = e^{-\alpha_j}(1-r_j) + e^{\alpha_j}r_j \;\;(\text{after normalising } \textstyle\sum_i w^{(i)}=1). $$
+          Differentiating with respect to $\alpha_j$ and setting to zero:
+          $$ -e^{-\alpha_j}(1-r_j) + e^{\alpha_j}r_j = 0 \;\Longrightarrow\; e^{2\alpha_j} = \frac{1-r_j}{r_j} \;\Longrightarrow\; \alpha_j = \tfrac12\log\frac{1-r_j}{r_j}. $$
+          <span class="qed">∎</span>
+        </li>
+        <li><strong>Prediction:</strong> for classification, $\hat y(\mathbf{x}) = \arg\max_k \sum_{j} \{\alpha_j : \hat y_j(\mathbf{x}) = k\}$; for regression, the weighted sum $\sum_j \alpha_j\hat y_j(\mathbf{x})$.</li>
+      </ol>
+    </div>
+  </details>
+  <p>
+    The default base estimator in scikit-learn's <code>AdaBoostClassifier</code> is a <strong>decision stump</strong> — a tree
+    with a single split. If the ensemble overfits, reduce the number of estimators or regularise them; if it underfits, add
+    estimators, reduce regularisation, or raise the learning rate slightly.
+  </p>
+
+  <h3 class="sub" id="m-gradboost">2.5 Gradient boosting</h3>
+  <p>
+    Gradient boosting is the same stagewise idea with a different target. Instead of reweighting samples, each new predictor is
+    fitted to the <em>residuals</em> of the current ensemble:
+  </p>
+  <div class="formula">$$ h_j^{(i)} = y^{(i)} - \hat y_j^{(i)}, \qquad F_{j+1} = F_j + \nu\,h_j $$</div>
+  <p>
+    with a shrinkage factor $\nu$ (the learning rate) that damps each step. For squared error, fitting residuals <em>is</em>
+    gradient descent on the loss — hence the name. For other losses you fit the negative gradient, which is why gradient
+    boosting generalises to logistic loss, Poisson loss and ranking losses.
+  </p>
+
+  <h3 class="sub" id="m-rf">2.6 Random forests and feature importance</h3>
+  <p>
+    A random forest is bagging over trees plus a random subset of features considered at each split (typically
+    $\sqrt{d}$ for classification, $d/3$ for regression). The extra randomness decorrelates the trees, which — by the variance
+    formula above — is what actually buys the improvement.
+  </p>
+  <p>
+    Random forests also produce an importance score: for each feature, average the impurity decrease it produced across all
+    nodes where it was used, weighted by the number of samples reaching those nodes. This supports wrapper-based feature
+    selection, but be careful: impurity importance is biased toward high-cardinality features, and permutation importance is
+    usually a better choice.
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Random forest summary</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>Tasks</td><td>classification, regression</td></tr>
+        <tr><td>Data types</td><td>continuous, categorical, ordinal</td></tr>
+        <tr><td>Assumptions</td><td>minimal</td></tr>
+        <tr><td>Strengths</td><td>no preprocessing needed, robust to noise and outliers, parallelisable</td></tr>
+        <tr><td>Weaknesses</td><td>reduced interpretability, limited gains on highly categorical data, large memory footprint</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-tree">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · CART</span><h4>Recursive partitioning, and where it goes wrong</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Each rectangle is a leaf: every point inside it gets the same predicted class. Raise the depth and watch the staircase boundary refine the three true regions. The black lines are the splits — always axis-aligned, because CART only asks questions of the form "is feature $k$ ≤ $t$?".</p>
+      <p>The lower plot is the point of the lab. Training accuracy rises monotonically with depth and reaches 100%; hold-out accuracy peaks around depth 3–4 and then falls. That gap is overfitting, and depth limits (or <code>min_samples_leaf</code>) are the tree equivalent of regularization.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-gini">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · impurity</span><h4>Gini, entropy and split quality</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>All three criteria are maximised at $p = 0.5$ (maximum confusion) and zero at the extremes (pure nodes). Gini and half-entropy are almost indistinguishable in shape, which is why the choice rarely matters in practice; misclassification is piecewise linear and therefore flat in places, giving no gradient signal — that is why it is a poor criterion for <em>growing</em> a tree.</p>
+      <p>Use the second slider to move a candidate split. The readout shows the size-weighted impurity of the two children; CART picks the threshold that minimises it. Compare your value with the best achievable — this is exactly the search the algorithm runs at every node.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-boosting">
+    <div class="lab-head"><span class="lab-tag">Lab 3 · boosting</span><h4>AdaBoost one stump at a time</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Top: the data, with dot size proportional to sample weight. Bottom: the ensemble score $F(x) = \sum_j \alpha_j h_j(x)$ (thick) and the individual stumps (thin).</p>
+      <p>Press <strong>Add boosting round</strong> repeatedly. After the first stump, the misclassified points are visibly larger — the weights have been multiplied by $e^{\alpha}$. The next stump therefore places its threshold where the <em>weighted</em> error is lowest, not where the raw error is lowest. Watch $\alpha$ shrink as the problem gets harder, and watch the ensemble staircase approximate a smooth boundary.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">scikit-learn</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 08 — CART (Gini) and AdaBoost stumps, from scratch."""
+from collections import Counter
+
+
+def gini(labels):
+    n = len(labels)
+    if n == 0:
+        return 0.0
+    counts = Counter(labels)
+    return 1.0 - sum((c / n) ** 2 for c in counts.values())
+
+
+def weighted_impurity(left, right):
+    n = len(left) + len(right)
+    return (len(left) * gini(left) + len(right) * gini(right)) / n
+
+
+def best_split(X, y):
+    """Exhaustive search over features and midpoints. Returns (feature, threshold, score)."""
+    best = None
+    for f in range(len(X[0])):
+        values = sorted(set(row[f] for row in X))
+        for a, b in zip(values, values[1:]):
+            thr = (a + b) / 2
+            left = [yi for row, yi in zip(X, y) if row[f] &lt;= thr]
+            right = [yi for row, yi in zip(X, y) if row[f] &gt; thr]
+            if not left or not right:
+                continue
+            score = weighted_impurity(left, right)
+            if best is None or score &lt; best[2]:
+                best = (f, thr, score)
+    return best
+
+
+class Stump:
+    """A depth-1 tree: one feature, one threshold, two labels."""
+
+    def fit(self, X, y, sample_weight=None):
+        w = sample_weight or [1.0] * len(y)
+        best = None
+        for f in range(len(X[0])):
+            values = sorted(set(row[f] for row in X))
+            for a, b in zip(values, values[1:]):
+                thr = (a + b) / 2
+                err = sum(wi for row, yi, wi in zip(X, y, w) if (row[f] &lt;= thr) != (yi == 1))
+                err = min(err, sum(w) - err)          # allow either polarity
+                if best is None or err &lt; best[0]:
+                    best = (err, f, thr)
+        _, self.f, self.thr = best
+        left = [yi for row, yi in zip(X, y) if row[self.f] &lt;= self.thr]
+        right = [yi for row, yi in zip(X, y) if row[self.f] &gt; self.thr]
+        self.left = Counter(left).most_common(1)[0][0] if left else 1
+        self.right = Counter(right).most_common(1)[0][0] if right else 0
+        return self
+
+    def predict(self, X):
+        return [self.left if row[self.f] &lt;= self.thr else self.right for row in X]
+
+
+class AdaBoost:
+    def __init__(self, n_estimators=20, lr=1.0):
+        self.n_estimators, self.lr, self.models = n_estimators, lr, []
+
+    def fit(self, X, y):
+        n = len(y)
+        w = [1.0 / n] * n
+        for _ in range(self.n_estimators):
+            m = Stump().fit(X, y, w)
+            pred = m.predict(X)
+            r = sum(wi for wi, pi, yi in zip(w, pred, y) if pi != yi) / sum(w)
+            r = min(max(r, 1e-10), 1 - 1e-10)
+            alpha = self.lr * 0.5 * __import__("math").log((1 - r) / r)
+            w = [wi * (2.718281828 ** (alpha if pi != yi else -alpha)) for wi, pi, yi in zip(w, pred, y)]
+            total = sum(w)
+            w = [wi / total for wi in w]
+            self.models.append((m, alpha))
+            if r &lt; 1e-10:
+                break
+        return self
+
+    def predict(self, X):
+        scores = [0.0] * len(X)
+        for m, alpha in self.models:
+            for i, p in enumerate(m.predict(X)):
+                scores[i] += alpha * (1 if p == 1 else -1)
+        return [1 if s &gt;= 0 else 0 for s in scores]
+
+
+if __name__ == "__main__":
+    X = [[0.1], [0.2], [0.3], [0.7], [0.8], [0.9], [0.45], [0.55]]
+    y = [0, 0, 0, 1, 1, 1, 0, 1]
+    print("best split:", best_split(X, y))
+    boost = AdaBoost(n_estimators=10).fit(X, y)
+    print("adaboost preds:", boost.predict(X))
+    print("accuracy:", sum(p == t for p, t in zip(boost.predict(X), y)) / len(y))
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 08 — vectorised impurity, a recursive CART, and bagging."""
+import numpy as np
+
+
+def gini_from_counts(counts):
+    """counts: (..., K) array of class counts -> Gini along the last axis."""
+    counts = np.asarray(counts, float)
+    n = counts.sum(-1, keepdims=True)
+    p = np.divide(counts, n, out=np.zeros_like(counts), where=n &gt; 0)
+    return 1.0 - (p ** 2).sum(-1)
+
+
+def best_split(X, y, n_classes):
+    """Vectorised scan: for each feature, sort once and sweep thresholds."""
+    n, d = X.shape
+    best = (None, None, np.inf)
+    for f in range(d):
+        order = np.argsort(X[:, f])
+        xs, ys = X[order, f], y[order]
+        onehot = np.zeros((n, n_classes))
+        onehot[np.arange(n), ys] = 1
+        cum = np.cumsum(onehot, axis=0)              # counts in the left child
+        total = cum[-1]
+        for i in range(n - 1):
+            if xs[i] == xs[i + 1]:
+                continue
+            left, right = cum[i], total - cum[i]
+            score = (left.sum() * gini_from_counts(left) + right.sum() * gini_from_counts(right)) / n
+            if score &lt; best[2]:
+                best = (f, (xs[i] + xs[i + 1]) / 2, score)
+    return best
+
+
+def grow(X, y, depth=0, max_depth=3, min_samples=5, n_classes=2):
+    counts = np.bincount(y, minlength=n_classes)
+    leaf = {"leaf": True, "label": int(counts.argmax()), "n": len(y)}
+    if depth &gt;= max_depth or len(y) &lt; 2 * min_samples or gini_from_counts(counts) == 0:
+        return leaf
+    f, thr, _ = best_split(X, y, n_classes)
+    if f is None:
+        return leaf
+    mask = X[:, f] &lt;= thr
+    if mask.sum() &lt; min_samples or (~mask).sum() &lt; min_samples:
+        return leaf
+    return {
+        "leaf": False, "f": f, "thr": thr, "n": len(y),
+        "left": grow(X[mask], y[mask], depth + 1, max_depth, min_samples, n_classes),
+        "right": grow(X[~mask], y[~mask], depth + 1, max_depth, min_samples, n_classes),
+    }
+
+
+def predict_tree(node, X):
+    out = np.empty(len(X), int)
+    for i, row in enumerate(X):
+        cur = node
+        while not cur["leaf"]:
+            cur = cur["left"] if row[cur["f"]] &lt;= cur["thr"] else cur["right"]
+        out[i] = cur["label"]
+    return out
+
+
+def bagged_forest(X, y, n_trees=25, max_depth=4, n_features=None, seed=0):
+    rng = np.random.default_rng(seed)
+    n, d = X.shape
+    n_features = n_features or max(1, int(np.sqrt(d)))
+    trees = []
+    for _ in range(n_trees):
+        idx = rng.integers(0, n, n)                       # bootstrap sample
+        feats = rng.choice(d, n_features, replace=False)  # random feature subspace
+        tree = grow(X[idx][:, feats], y[idx], max_depth=max_depth, n_classes=2)
+        trees.append((tree, feats))
+    return trees
+
+
+def forest_predict(trees, X):
+    votes = np.zeros((len(X), 2))
+    for tree, feats in trees:
+        for i, p in enumerate(predict_tree(tree, X[:, feats])):
+            votes[i, p] += 1
+    return votes.argmax(1)
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(300, 4))
+    y = ((X[:, 0] + 0.5 * X[:, 1] ** 2 + 0.3 * rng.normal(size=300)) &gt; 0.5).astype(int)
+    tree = grow(X, y, max_depth=3, n_classes=2)
+    print("single tree accuracy:", (predict_tree(tree, X) == y).mean().round(3))
+    forest = bagged_forest(X, y, n_trees=40)
+    print("forest accuracy     :", (forest_predict(forest, X) == y).mean().round(3))
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 08 — the production versions, with hyperparameters that matter."""
+import numpy as np
+from sklearn.datasets import load_breast_cancer
+from sklearn.ensemble import (AdaBoostClassifier, GradientBoostingClassifier,
+                              RandomForestClassifier)
+from sklearn.inspection import permutation_importance
+from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_split
+from sklearn.tree import DecisionTreeClassifier, export_text
+
+X, y = load_breast_cancer(return_X_y=True)
+names = load_breast_cancer().feature_names
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, stratify=y, random_state=0)
+cv = StratifiedKFold(5, shuffle=True, random_state=0)
+
+models = {
+    "tree (unlimited)": DecisionTreeClassifier(random_state=0),
+    "tree (depth 3)": DecisionTreeClassifier(max_depth=3, random_state=0),
+    "tree (min leaf 10)": DecisionTreeClassifier(min_samples_leaf=10, random_state=0),
+    "random forest": RandomForestClassifier(n_estimators=300, max_features="sqrt", random_state=0),
+    "adaboost": AdaBoostClassifier(n_estimators=200, learning_rate=0.5, random_state=0),
+    "gradboost": GradientBoostingClassifier(n_estimators=200, learning_rate=0.05, max_depth=3, random_state=0),
+}
+
+for name, model in models.items():
+    s = cross_validate(model, X_tr, y_tr, cv=cv, scoring=["accuracy", "roc_auc"])
+    print(f"{name:20s} acc={s['test_accuracy'].mean():.4f} +/- {s['test_accuracy'].std():.4f}  "
+          f"auc={s['test_roc_auc'].mean():.4f}")
+
+# A tree you can actually read
+small = DecisionTreeClassifier(max_depth=3, random_state=0).fit(X_tr, y_tr)
+print("\n" + export_text(small, feature_names=list(names), decimals=1)[:900])
+
+# Feature importance: impurity-based vs permutation-based
+rf = RandomForestClassifier(n_estimators=300, random_state=0).fit(X_tr, y_tr)
+imp = rf.feature_importances_
+perm = permutation_importance(rf, X_te, y_te, n_repeats=10, random_state=0)
+order = np.argsort(-imp)[:5]
+print("\nfeature                 impurity  permutation")
+for i in order:
+    print(f"{names[i]:22s} {imp[i]:8.3f}  {perm.importances_mean[i]:11.3f}")
+
+# Overfitting check: train vs test accuracy as depth grows
+for d in range(1, 16, 2):
+    t = DecisionTreeClassifier(max_depth=d, random_state=0).fit(X_tr, y_tr)
+    print(f"depth {d:2d}: train {t.score(X_tr, y_tr):.3f}  test {t.score(X_te, y_te):.3f}")
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block builds the vectorised threshold sweep that makes CART fast, then assembles a random forest from
+      bootstrap resamples plus random feature subspaces — the two sources of randomness the variance formula in §2.3 asks for.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="08">
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>A node contains 40 samples: 30 of class A and 10 of class B. Its Gini impurity is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>0.250</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>0.500</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>0.375</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>0.750</span></button></li>
+      </ul>
+      <div class="explain"><p>$p_A = 0.75$, $p_B = 0.25$, so Gini $= 1 - (0.75^2 + 0.25^2) = 1 - 0.625 = 0.375$.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>Bagging primarily reduces which term of the expected error?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Bias</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Variance</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Irreducible noise</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>All three equally</span></button></li>
+      </ul>
+      <div class="explain"><p>Averaging cannot move the mean, so bias is untouched; it lowers variance toward $\rho\sigma^2$, where $\rho$ is the correlation between members. Boosting is the bias-reducing counterpart.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>In AdaBoost, a base classifier with weighted error $r = 0.5$ receives weight $\alpha = \eta\log\frac{1-r}{r}$ equal to:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$\eta$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>A large positive weight</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>A large negative weight</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Zero — a random classifier contributes nothing</span></button></li>
+      </ul>
+      <div class="explain"><p>$\log(0.5/0.5) = \log 1 = 0$. Errors below 0.5 give positive weight; errors above 0.5 give negative weight (the classifier is worse than chance and gets inverted).</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>Why does a random forest subsample features at each split, beyond bagging rows?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>To decorrelate the trees, which is what makes the variance reduction effective</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>To reduce the bias of each tree</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>To make training slower but more accurate</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>To guarantee each feature is used</span></button></li>
+      </ul>
+      <div class="explain"><p>Variance of the average is $\rho\sigma^2 + \sigma^2(1-\rho)/M$, so the floor is set by the correlation $\rho$. Feature subsampling forces trees to differ, lowering $\rho$.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>Gradient boosting fits each new tree to:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>A bootstrap resample of the data</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Upweighted misclassified samples</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>The negative gradient of the loss, which for squared error is the residual</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The original labels, with a different loss</span></button></li>
+      </ul>
+      <div class="explain"><p>Each stage performs a gradient-descent step in function space: fit $h_j$ to $-\partial L/\partial F$, then add $\nu h_j$ to the ensemble. For MSE the negative gradient is exactly the residual $y - \hat y$.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">CART split objective</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$J(k,t_k) = \frac{m_L}{m}G_L + \frac{m_R}{m}G_R$: choose the feature and threshold minimising the size-weighted impurity of the children.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Gini impurity</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$1-\sum_i p_i^2$: the probability of mislabelling a random sample whose label is guessed from the node's class distribution.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Information gain</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Parent entropy minus the weighted average child entropy. The entropy-criterion version of the CART objective.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Out-of-bag (OOB) samples</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">The ~37% of rows left out of a bootstrap sample. They form an implicit validation set, so random forests can estimate performance without a separate hold-out.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Decision stump</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">A tree with a single split. The default weak learner for AdaBoost: high bias, low variance, but better than chance.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">AdaBoost predictor weight</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\alpha_j = \eta\log\frac{1-r_j}{r_j}$, derived by minimising the exponential loss. Accurate members count more; worse-than-chance members get negative weight.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Bagging vs. boosting</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Bagging: parallel, independent resamples, reduces variance. Boosting: sequential, each model fixes the previous errors, reduces bias.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Impurity vs. permutation importance</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Impurity importance is biased toward high-cardinality features; permutation importance measures the drop in performance when a feature is shuffled, and is generally more trustworthy.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Choose the better split</h4></div>
+    <p>A node has 20 samples (12 positive, 8 negative). Split A produces children (9 pos, 1 neg) and (3 pos, 7 neg). Split B produces (8 pos, 2 neg) and (4 pos, 6 neg). Which does CART prefer under Gini?</p>
+    <button class="btn btn-sm" data-reveal="sol-08-1" type="button">Show solution</button>
+    <div id="sol-08-1" class="solution" hidden>
+      <p>Parent Gini $= 1 - (0.6^2+0.4^2) = 0.48$.</p>
+      <p>Split A: left $n=10$, $p=0.9 \Rightarrow G=1-(0.81+0.01)=0.18$; right $n=10$, $p=0.3 \Rightarrow G=1-(0.09+0.49)=0.42$. Weighted: $\frac{10}{20}(0.18)+\frac{10}{20}(0.42) = 0.30$.</p>
+      <p>Split B: left $G=1-(0.64+0.04)=0.32$; right $G=1-(0.16+0.36)=0.48$. Weighted: $0.40$.</p>
+      <p>CART prefers <strong>Split A</strong> (0.30 &lt; 0.40). Note that A is preferred even though it creates one very mixed child: the objective is a <em>weighted average</em>, so a pure child can pay for a messy one.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Derive AdaBoost's α</h4></div>
+    <p>Using the exponential loss $L(\alpha) = e^{-\alpha}(1-r) + e^{\alpha}r$, minimise over $\alpha$ and show that the second derivative is positive.</p>
+    <button class="btn btn-sm" data-reveal="sol-08-2" type="button">Show solution</button>
+    <div id="sol-08-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>$\frac{dL}{d\alpha} = -e^{-\alpha}(1-r) + e^{\alpha}r = 0 \Rightarrow e^{2\alpha} = \frac{1-r}{r} \Rightarrow \alpha^\* = \frac12\log\frac{1-r}{r}$.</li>
+        <li>$\frac{d^2L}{d\alpha^2} = e^{-\alpha}(1-r) + e^{\alpha}r \gt 0$ for all $\alpha$ (both terms positive since $0\lt r\lt1$), so the stationary point is a minimum. <span class="qed">∎</span></li>
+        <li><span class="why">The loss is a convex combination of two exponentials in $\alpha$, hence strictly convex — which is why AdaBoost's per-round subproblem has a closed-form solution.</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Variance of a bagged ensemble</h4></div>
+    <p>Derive $\mathrm{Var}(\bar f) = \frac{\sigma^2}{M} + \frac{M-1}{M}\rho\sigma^2$ and compute the limit as $M\to\infty$ for $\rho = 0.2$, $\sigma^2 = 1$. What does this say about the marginal value of the 100th tree versus the 2nd?</p>
+    <button class="btn btn-sm" data-reveal="sol-08-3" type="button">Show solution</button>
+    <div id="sol-08-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>$\mathrm{Var}(\frac1M\sum_m f_m) = \frac{1}{M^2}\big[\sum_m\sigma^2 + \sum_{m\ne m'}\rho\sigma^2\big] = \frac{1}{M^2}\big[M\sigma^2 + M(M-1)\rho\sigma^2\big]$.</li>
+        <li>Simplifying gives $\frac{\sigma^2}{M} + \frac{M-1}{M}\rho\sigma^2 \to \rho\sigma^2 = 0.2$ as $M\to\infty$. <span class="qed">∎</span></li>
+        <li>With $M=2$ the variance is $0.5 + 0.5(0.2) = 0.6$; with $M=100$ it is $0.01 + 0.99(0.2) = 0.208$. The second tree removes 40% of the variance; the hundredth removes 0.2%. Beyond a few dozen trees you are paying compute for nothing unless you can lower $\rho$ itself.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 08</span>
+    <h3>A tree you can hand to a stakeholder</h3>
+    <p>Build a model that is both accurate and <em>readable</em>, then measure exactly what the readability costs.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Pick a tabular classification problem in a domain where explanations matter (health, credit, HR).</li>
+      <li>Implement CART from scratch (Gini, depth limit) and verify it against <code>DecisionTreeClassifier</code> on the same splits.</li>
+      <li>Produce a depth-3 tree diagram and a plain-language translation of each path into a decision rule.</li>
+      <li>Compare CV performance across: depth-3 tree, unlimited tree, random forest, gradient boosting. Report mean ± sd and quantify the accuracy you give up for interpretability.</li>
+      <li>Compute both impurity and permutation feature importance and explain any disagreement between them.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li>Tree diagram plus written rules</li>
+      <li>Model comparison table with error bars</li>
+      <li>One-page stakeholder memo</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Implementation</td><td>From-scratch CART matches scikit-learn's splits and predictions</td><td>25</td></tr>
+        <tr><td>Interpretation</td><td>Rules are correct, complete and readable by a non-ML reader</td><td>30</td></tr>
+        <tr><td>Comparison</td><td>Accuracy/interpretability trade-off quantified with error bars</td><td>30</td></tr>
+        <tr><td>Critical analysis</td><td>Importance disagreement explained; instability of trees discussed</td><td>15</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Measure tree instability: refit on bootstrap samples and count how often the root split changes.</li>
+      <li>Implement gradient boosting for regression and compare with random forest at equal tree count.</li>
+      <li>Add SHAP values (module 16) and compare the attributions with the tree's own path.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/08-interpretable-tree/</code>.</p>
+  </div>
+</section>
+
+
+  <nav class="pager" aria-label="Module navigation">
+  <a class="prev" href="backpropagation.html"><span>← Previous</span><b>07 · Backpropagation & Training Deep Networks</b></a>
+  <a class="next" href="clustering.html"><span>Next →</span><b>09 · Unsupervised Learning: Clustering</b></a>
+</nav>
+</article>
+</main>
+<footer class="site">
+  <div class="shell">
+    <div>
+      <strong>ML from First Principles</strong><br />
+      An interactive, open-source companion to CSC 74020 (Machine Learning), Fall 2025, taught by Prof. Jonathan Gryak at the CUNY Graduate Center.
+    </div>
+    <div>
+      <a href="../index.html">Home</a> ·
+      <a href="../index.html#curriculum">Curriculum</a> ·
+      <a href="../index.html#python">Python library</a> ·
+      <a href="../index.html#sources">Sources</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

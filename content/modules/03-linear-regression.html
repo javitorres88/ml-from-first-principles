@@ -1,0 +1,687 @@
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-linear">Linear models are the atom of machine learning</h3>
+  <p>
+    One of the fundamental building blocks of machine learning is the <strong>linear model</strong>, which solves a supervised
+    task using a linear function of the input vector. The same object covers all three task types:
+  </p>
+  <ul>
+    <li><strong>Regression</strong> — predict a scalar target, e.g. a stock price or a hospital length of stay.</li>
+    <li><strong>Binary classification</strong> — predict a binary label, e.g. spam vs. non-spam (module 04 wraps a linear model in a sigmoid).</li>
+    <li><strong>Multi-class classification</strong> — predict a discrete label among $k$ classes (module 04 uses softmax instead).</li>
+  </ul>
+  <p>Every linear model has the same shape:</p>
+  <div class="formula">$$ y = \mathbf{w}^\top\mathbf{x} + b $$</div>
+  <p>
+    where $\mathbf{w}$ is the <strong>weight vector</strong>, $b$ is the <strong>bias</strong>, and together they are the
+    <strong>model parameters</strong>. Each choice of $(\mathbf{w}, b)$ produces a different function — a different
+    <em>hypothesis</em> about how the world maps inputs to outputs.
+  </p>
+
+  <div class="callout">
+    <span class="label">Two ways to look at the same model</span>
+    <p>
+      <strong>Feature space:</strong> the data lives in $\mathbb{R}^d$ and the model is a line, plane or hyperplane cutting
+      through it. Learning means rotating and shifting that surface until it passes as close as possible to the points.<br />
+      <strong>Parameter space:</strong> each candidate $(\mathbf{w}, b)$ is a <em>single point</em>, and the cost function
+      $J(\mathbf{w},b)$ is a landscape over that space. Learning means walking downhill on that landscape. The second view is
+      what generalizes to neural networks — a network with a million weights is a point in a million-dimensional parameter
+      space, and training is still just walking downhill.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-residual">Loss, residuals, and why we square</h3>
+  <p>
+    To compare hypotheses we need a number. The <strong>loss function</strong> scores one prediction:
+  </p>
+  <div class="formula">$$ L(y, t) = \tfrac{1}{2}(y - t)^2 $$</div>
+  <p>
+    The quantity $y - t$ is the <strong>residual</strong> — the difference between our estimate and the ground truth. The
+    $\tfrac12$ is there purely for convenience: it cancels the factor of 2 when we differentiate. The <strong>cost
+    function</strong> averages the loss over all $N$ training samples:
+  </p>
+  <div class="formula">$$ J(\mathbf{w}, b) = \frac{1}{2N}\sum_{j=1}^{N}\left(y^{(j)} - t^{(j)}\right)^2 = \frac{1}{2N}\sum_{j=1}^{N}\left(\mathbf{w}^\top\mathbf{x}^{(j)} + b - t^{(j)}\right)^2 $$</div>
+  <p>
+    Squaring buys three things: it is differentiable everywhere (unlike $|\cdot|$ at zero), it treats over- and
+    under-estimates symmetrically, and — as section 2.4 proves — it is exactly what maximum likelihood gives you if the noise
+    is Gaussian.
+  </p>
+
+  <h3 class="sub" id="i-overdetermined">Why a line does not simply "solve" the data</h3>
+  <p>
+    With two points, a line is determined: $y_1 = wx_1 + b$ and $y_2 = wx_2 + b$ is a system of two equations in two
+    unknowns with (generically) exactly one solution. With $N = 100$ noisy points, the same exercise becomes
+  </p>
+  <div class="formula">$$ \underbrace{\begin{bmatrix} 1 &amp; x_1 \\ 1 &amp; x_2 \\ \vdots &amp; \vdots \\ 1 &amp; x_N\end{bmatrix}}_{A}\begin{bmatrix} b \\ w\end{bmatrix} = \begin{bmatrix} y_1 \\ y_2 \\ \vdots \\ y_N\end{bmatrix} $$</div>
+  <p>
+    This is an <strong>overdetermined</strong> system: more equations than unknowns, so generically it has <em>no</em> exact
+    solution. Least squares asks a different, answerable question: find the $\hat{\mathbf{w}}$ that makes $A\hat{\mathbf{w}}$
+    as close to $\mathbf{y}$ as possible,
+  </p>
+  <div class="formula">$$ \hat{\mathbf{w}} = \arg\min_{\mathbf{w}} \|A\mathbf{w} - \mathbf{y}\|_2 . $$</div>
+  <p>
+    Geometrically: $A\mathbf{w}$ can only produce vectors in the <strong>column space</strong> of $A$ (a plane, when there are
+    two parameters). The data vector $\mathbf{y}$ generally sits off that plane. The closest point in the plane is the
+    <em>orthogonal projection</em> of $\mathbf{y}$ onto it, and the residual is the perpendicular dropped from $\mathbf{y}$ to
+    the plane. That single picture is the whole of section 2.2.
+  </p>
+
+  <h3 class="sub" id="i-poly">Non-linear data, linear model</h3>
+  <p>
+    What if the trend is curved? Rather than abandoning linear models, we transform the features. Fitting a quadratic
+    $y = w_2x^2 + w_1x + w_0$ is a linear problem <em>in the coefficients</em> — and polynomials over a field form a vector
+    space, so after the transformation the model is linear with respect to the parameters. All the least-squares machinery
+    applies unchanged. This trick — the <strong>feature map</strong> $\phi$ — is the conceptual ancestor of kernels (module 14)
+    and of every hidden layer in a neural network (module 06).
+  </p>
+  <div class="callout warn">
+    <span class="label">The cost of the trick</span>
+    <p>
+      Higher degree means more parameters and a design matrix whose columns are nearly collinear ($x^7$ and $x^8$ look almost
+      the same on $[-1,1]$). The system becomes <strong>ill-conditioned</strong>: the fitted coefficients become huge and
+      unstable, and extrapolation explodes. Lab 3 lets you watch this happen and then repairs it with a ridge penalty.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Economics · trend estimation</span>
+      <h4>Fitting a trend line</h4>
+      <p>Least squares dates to Legendre and Gauss (1805/1809) and was invented to fit astronomical orbits and geodesic surveys. Every "line of best fit" in a spreadsheet is the same normal equation derived below.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Housing · multiple regression</span>
+      <h4>Hedonic pricing</h4>
+      <p>$y = w_1\cdot\text{area} + w_2\cdot\text{bedrooms} + w_3\cdot\text{distance to transit} + b$. The weights are interpretable as marginal prices, which is why linear models survive in regulated industries.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Medicine · the ARDS pipeline</span>
+      <h4>Feature construction</h4>
+      <p>In the ARDS case study, statistical features (mean, max, variance of vitals) and geographic features (proportion of lung opacity) are constructed and then fed to models — including linear ones — that must be auditable by clinicians.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Finance · forecasting</span>
+      <h4>Predicting a scalar</h4>
+      <p>Predict tomorrow's return from today's factors. Linear models are the standard baseline precisely because any non-linear model must beat them to justify its complexity.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Science · calibration</span>
+      <h4>Instrument calibration</h4>
+      <p>A sensor's reading is mapped to a true value with a polynomial fit. Here extrapolation stability matters more than training error, which is exactly why regularization (module 05) is standard practice.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Deep learning · the last layer</span>
+      <h4>A linear head on a deep network</h4>
+      <p>Almost every neural network ends in a linear layer. Understanding least squares means understanding what that final layer is doing, and why its gradient has the shape it does in module 07.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-matrix">2.1 The whole dataset at once</h3>
+  <p>
+    Stack the training samples as rows of a <strong>design matrix</strong> $X\in\mathbb{R}^{N\times m}$ and the targets as a
+    vector $\mathbf{t}\in\mathbb{R}^N$. Absorb the bias by adding a column of ones (so $\mathbf{w} = \langle b, w_1,\dots,w_m\rangle$), and
+    predictions for the entire dataset are a single matrix–vector product:
+  </p>
+  <div class="formula">$$ \mathbf{y} = X\mathbf{w} + b\mathbf{1} = \begin{bmatrix}\mathbf{w}^\top\mathbf{x}^{(1)} + b \\ \vdots \\ \mathbf{w}^\top\mathbf{x}^{(N)} + b\end{bmatrix}, \qquad J(\mathbf{w},b) = \frac{1}{2N}\|\mathbf{y} - \mathbf{t}\|_2^2 $$</div>
+  <p>
+    This is why vectorized code is not an optimisation but the natural notation: one matmul evaluates the model on all $N$
+    samples.
+  </p>
+
+  <h3 class="sub" id="m-normal">2.2 The normal equations, derived twice</h3>
+  <p>The minimum of a smooth function occurs at a critical point, where the gradient vanishes. Let us find it.</p>
+
+  <details class="steps" open>
+    <summary>Derivation A — calculus</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>
+          Work with the bias-augmented design matrix $A\in\mathbb{R}^{N\times(m+1)}$ and parameter vector $\boldsymbol\theta$, so
+          $J(\boldsymbol\theta) = \frac{1}{2N}(A\boldsymbol\theta - \mathbf{t})^\top(A\boldsymbol\theta - \mathbf{t})$.
+        </li>
+        <li>
+          Expand the quadratic form:
+          $$ J = \frac{1}{2N}\left(\boldsymbol\theta^\top A^\top A\boldsymbol\theta - 2\,\boldsymbol\theta^\top A^\top\mathbf{t} + \mathbf{t}^\top\mathbf{t}\right). $$
+          <span class="why">Cross terms merge because $\boldsymbol\theta^\top A^\top\mathbf{t}$ is a scalar and equals its own transpose.</span>
+        </li>
+        <li>
+          Differentiate using the two matrix-calculus rules
+          $\frac{\partial}{\partial\boldsymbol\theta}\boldsymbol\theta^\top M\boldsymbol\theta = 2M\boldsymbol\theta$ (for symmetric $M$) and
+          $\frac{\partial}{\partial\boldsymbol\theta}\mathbf{c}^\top\boldsymbol\theta = \mathbf{c}$:
+          $$ \nabla_{\boldsymbol\theta} J = \frac{1}{N}\left(A^\top A\boldsymbol\theta - A^\top\mathbf{t}\right). $$
+        </li>
+        <li>
+          Set the gradient to zero and multiply through by $N$:
+          $$ \boxed{\;A^\top A\,\hat{\boldsymbol\theta} = A^\top\mathbf{t}\;} \qquad\Longrightarrow\qquad \hat{\boldsymbol\theta} = (A^\top A)^{-1}A^\top\mathbf{t}. $$
+          <span class="why">These are the <strong>normal equations</strong>. The matrix $A^\top A$ is $(m{+}1)\times(m{+}1)$ — small even when $N$ is huge, which is why this closed form is practical for modest $m$.</span>
+        </li>
+        <li>
+          <span class="qed">∎</span> <strong>Is it a minimum?</strong> The Hessian is $\frac{1}{N}A^\top A$, which is positive
+          semi-definite for every $A$ because $\mathbf{v}^\top A^\top A\mathbf{v} = \|A\mathbf{v}\|^2 \ge 0$. A convex function has
+          no local minima other than global ones, so the critical point is the global minimum. It is unique iff $A$ has full
+          column rank.
+        </li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="steps">
+    <summary>Derivation B — geometry (the residual is orthogonal to the column space)</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>
+          The set of achievable predictions is the column space $\mathrm{col}(A) = \{A\boldsymbol\theta : \boldsymbol\theta\in\mathbb{R}^{m+1}\}$.
+          We want the point $\hat{\mathbf{y}} = A\hat{\boldsymbol\theta}$ in that subspace closest to $\mathbf{t}$.
+        </li>
+        <li>
+          Claim: the closest point is characterised by the residual $\mathbf{r} = \mathbf{t} - \hat{\mathbf{y}}$ being orthogonal to the
+          subspace. Suppose not; then some direction $\mathbf{u}\in\mathrm{col}(A)$ has $\mathbf{r}^\top\mathbf{u} \ne 0$, and moving
+          $\hat{\mathbf{y}}$ a small amount $\epsilon\mathbf{u}$ changes the squared distance by
+          $$ \|\mathbf{r} - \epsilon\mathbf{u}\|^2 = \|\mathbf{r}\|^2 - 2\epsilon\,\mathbf{r}^\top\mathbf{u} + \epsilon^2\|\mathbf{u}\|^2, $$
+          which decreases for small $\epsilon$ with the right sign — contradicting minimality.
+        </li>
+        <li>
+          Orthogonality to <em>every</em> column of $A$ means $A^\top\mathbf{r} = 0$, i.e.
+          $$ A^\top(\mathbf{t} - A\hat{\boldsymbol\theta}) = 0 \;\Longrightarrow\; A^\top A\hat{\boldsymbol\theta} = A^\top\mathbf{t}. $$
+          <span class="why">Same equation, no derivatives. Calculus and geometry agree, as they must.</span>
+        </li>
+        <li>
+          <span class="qed">∎</span> The fitted values are the orthogonal projection
+          $\hat{\mathbf{y}} = A(A^\top A)^{-1}A^\top\mathbf{t} = P\mathbf{t}$, where $P$ is the projection matrix onto $\mathrm{col}(A)$.
+          $P$ is symmetric and idempotent ($P^2 = P$) — the algebraic fingerprint of a projection.
+        </li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-pinv">2.3 The pseudoinverse</h3>
+  <p>
+    When $A^\top A$ is singular (collinear features, or more features than samples) the inverse does not exist. The
+    <strong>Moore–Penrose pseudoinverse</strong> $A^+$ still gives the minimum-norm least-squares solution:
+  </p>
+  <div class="formula">$$ A\mathbf{w} = \mathbf{y} \;\Longrightarrow\; A^+A\mathbf{w} = A^+\mathbf{y} \;\Longrightarrow\; \mathbf{w} = A^+\mathbf{y}, \qquad A^+ = V\Sigma^{+}U^\top $$</div>
+  <p>
+    where $A = U\Sigma V^\top$ is the SVD and $\Sigma^+$ inverts each non-zero singular value (and leaves zeros alone). In
+    practice you never form the inverse: <code>np.linalg.lstsq</code> uses a QR or SVD factorisation, which is numerically
+    far more stable than solving the normal equations directly. Squaring $A$ into $A^\top A$ squares the condition number —
+    the single most common numerical mistake in hand-rolled regression code.
+  </p>
+
+  <h3 class="sub" id="m-mle">2.4 Least squares is maximum likelihood under Gaussian noise</h3>
+  <p>
+    Why squared error and not absolute error? Because of a probabilistic assumption about how the data was generated.
+  </p>
+
+  <details class="steps">
+    <summary>Derivation — from Gaussian noise to squared error</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Assume the targets are the model plus independent Gaussian noise:
+          $$ t^{(j)} = \mathbf{w}^\top\mathbf{x}^{(j)} + b + \epsilon^{(j)}, \qquad \epsilon^{(j)} \sim \mathcal{N}(0,\sigma^2) \text{ i.i.d.} $$
+        </li>
+        <li>Then the likelihood of one sample is
+          $$ p(t^{(j)}\mid\mathbf{x}^{(j)};\mathbf{w},b) = \frac{1}{\sqrt{2\pi\sigma^2}}\exp\!\left(-\frac{(t^{(j)} - \mathbf{w}^\top\mathbf{x}^{(j)} - b)^2}{2\sigma^2}\right). $$
+        </li>
+        <li>Independence makes the joint likelihood a product; take the log:
+          $$ \log L(\mathbf{w},b) = -\frac{N}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2}\sum_{j=1}^{N}\left(t^{(j)} - \mathbf{w}^\top\mathbf{x}^{(j)} - b\right)^2. $$
+        </li>
+        <li>The first term is constant and $\sigma^2 \gt 0$, so maximising the log-likelihood is the same as
+          $$ \arg\min_{\mathbf{w},b}\sum_{j=1}^{N}\left(t^{(j)} - \mathbf{w}^\top\mathbf{x}^{(j)} - b\right)^2 = \arg\min_{\mathbf{w},b} 2N\,J(\mathbf{w},b). $$
+        </li>
+        <li><span class="qed">∎</span> <strong>Consequences.</strong> (i) Squared error is the right loss when noise is
+          Gaussian; with heavy-tailed noise, absolute error (the Laplace likelihood) is better, which is why MAE is preferred
+          for outlier-heavy targets. (ii) The fitted $\hat{\mathbf{w}}$ is the maximum-likelihood estimator, so it inherits
+          asymptotic efficiency. (iii) The estimate of $\sigma^2$ is $\frac{1}{N}\sum \hat{r}_j^2$.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-gd">2.5 Solving it iteratively: gradient descent</h3>
+  <p>
+    For large $m$, forming and inverting $A^\top A$ costs $O(m^3)$ and may not fit in memory. Gradient descent instead
+    iterates:
+  </p>
+  <div class="formula">$$ \boldsymbol\theta_{t+1} = \boldsymbol\theta_t - \alpha\nabla J(\boldsymbol\theta_t), \qquad \nabla J = \frac{1}{N}A^\top(A\boldsymbol\theta_t - \mathbf{t}) $$</div>
+
+  <details class="steps">
+    <summary>Derivation — which learning rates converge?</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>The cost is a quadratic with Hessian $H = \frac{1}{N}A^\top A$, symmetric positive semi-definite. Diagonalise it: $H = Q\Lambda Q^\top$ with eigenvalues $\lambda_1 \ge \dots \ge \lambda_{m+1} \ge 0$.</li>
+        <li>Change coordinates to the eigenbasis, $\mathbf{u} = Q^\top(\boldsymbol\theta - \hat{\boldsymbol\theta})$. Gradient descent decouples into independent scalar recursions
+          $$ u_i^{(t+1)} = (1 - \alpha\lambda_i)\,u_i^{(t)}. $$
+        </li>
+        <li>Each recursion converges iff $|1 - \alpha\lambda_i| \lt 1$, i.e. $0 \lt \alpha \lt 2/\lambda_i$, for <em>every</em> $i$. The binding constraint is the largest eigenvalue:
+          $$ \boxed{\;0 \lt \alpha \lt \frac{2}{\lambda_{\max}}\;} $$
+        </li>
+        <li>The convergence rate is governed by the smallest eigenvalue, so the number of iterations scales with the
+          <strong>condition number</strong> $\kappa = \lambda_{\max}/\lambda_{\min}$: an elongated bowl takes many steps along the
+          shallow direction. <span class="qed">∎</span></li>
+        <li><span class="why">This is exactly what module 07's momentum and adaptive methods fix — and why feature scaling
+          (which shrinks $\kappa$) speeds up gradient descent so dramatically.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-poly">2.6 Polynomial features and the Vandermonde matrix</h3>
+  <p>For a degree-$d$ polynomial the design matrix is a <strong>Vandermonde</strong> matrix:</p>
+  <div class="formula">$$ A = \begin{bmatrix} 1 &amp; x_1 &amp; x_1^2 &amp; \cdots &amp; x_1^d \\ \vdots &amp; &amp; &amp; &amp; \vdots \\ 1 &amp; x_N &amp; x_N^2 &amp; \cdots &amp; x_N^d \end{bmatrix} $$</div>
+  <p>
+    With several variables, add every product and power up to degree $d$; for $d=2$ and inputs $x_1,x_2$ the feature map is
+    $\phi(\mathbf{x}) = (1, x_1, x_2, x_1x_2, x_1^2, x_2^2)$. The number of features grows combinatorially in $d$, and the
+    columns become nearly dependent — hence ill-conditioning. Standard remedies: centre and scale $x$ to $[-1,1]$, fit with
+    QR/SVD rather than the normal equations, or regularize (module 05).
+  </p>
+
+  <h3 class="sub" id="m-r2">2.7 Coefficient of determination</h3>
+  <p>Beyond MSE, regression is often reported with $R^2$: the fraction of variance explained.</p>
+  <div class="formula">$$ R^2 = 1 - \frac{SS_{\text{res}}}{SS_{\text{tot}}}, \qquad SS_{\text{res}} = \sum_i (t_i - \hat{y}_i)^2, \quad SS_{\text{tot}} = \sum_i (t_i - \bar{t})^2 $$</div>
+  <p>
+    $R^2 = 1$ means perfect prediction; $R^2 = 0$ means the model is no better than predicting the mean; $R^2 \lt 0$ means it is
+    <em>worse</em> than the mean (which can happen on held-out data). Because $SS_{\text{tot}}$ does not depend on the model, $R^2$
+    is just a rescaled MSE — but the rescaling makes it comparable across datasets with different target scales.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-fit-line">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · the objective</span><h4>Squared error you can see</h4></div>
+    <div class="lab-body">
+      <div class="lab-stage"></div>
+      <div class="lab-panel"></div>
+    </div>
+    <div class="lab-note">
+      <p>Each training point casts a square whose side is the vertical residual — the square's <em>area</em> is that point's contribution to the sum of squares. Move the line with the sliders and watch SSE: the objective is the total area of all the squares.</p>
+      <p>Try to beat the dashed line by hand. You cannot: it is the least-squares optimum, computed from the normal equations. Notice which squares are red (the line is above the data) and which are green (below) — the optimum balances total area, not the count of errors.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-loss-surface">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · optimisation</span><h4>The loss landscape and gradient descent</h4></div>
+    <div class="lab-body">
+      <div class="lab-stage"></div>
+      <div class="lab-panel"></div>
+    </div>
+    <div class="lab-note">
+      <p>The plane is parameter space $(w, b)$; the colour is $\log J(w,b)$. It is a single smooth bowl — least squares is convex, so there is no local minimum to get stuck in. Press <strong>Run</strong> and watch the path bend toward the white ring, which marks the exact analytic optimum.</p>
+      <p>Now push the learning rate past $0.5$ and run again. The iterates overshoot, then oscillate, then diverge — exactly the $\alpha \lt 2/\lambda_{\max}$ condition derived in §2.5. Drop it to $0.02$ and count how many steps are needed: same destination, very different cost.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-polynomial">
+    <div class="lab-head"><span class="lab-tag">Lab 3 · feature maps</span><h4>Polynomial features, instability and ridge</h4></div>
+    <div class="lab-body">
+      <div class="lab-stage"></div>
+      <div class="lab-panel"></div>
+    </div>
+    <div class="lab-note">
+      <p>Degree 3 is roughly the truth. Raise the degree to 9: the training error keeps falling while the amber <em>extrapolation</em> region goes wild and <code>max |w|</code> explodes by orders of magnitude. That is ill-conditioning, not overfitting in the classical sense — the coefficients are being asked to cancel almost-identical columns.</p>
+      <p>Now add a small ridge penalty $\lambda \approx 0.02$ and watch the fit calm down. This is a preview of module 05: a tiny penalty can turn an unusable model into a serviceable one.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">scikit-learn</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 03 — linear regression from scratch: normal equations + gradient descent."""
+
+
+def transpose(M):
+    return [list(row) for row in zip(*M)]
+
+
+def matmul(A, B):
+    Bt = transpose(B)
+    return [[sum(a * b for a, b in zip(row, col)) for col in Bt] for row in A]
+
+
+def matvec(A, v):
+    return [sum(a * b for a, b in zip(row, v)) for row in A]
+
+
+def solve(A, b):
+    """Gauss-Jordan elimination with partial pivoting."""
+    n = len(A)
+    M = [row[:] + [b[i]] for i, row in enumerate(A)]
+    for col in range(n):
+        pivot = max(range(col, n), key=lambda r: abs(M[r][col]))
+        if abs(M[pivot][col]) &lt; 1e-12:
+            raise ValueError("singular matrix: features are collinear")
+        M[col], M[pivot] = M[pivot], M[col]
+        pv = M[col][col]
+        M[col] = [v / pv for v in M[col]]
+        for r in range(n):
+            if r != col and M[r][col]:
+                f = M[r][col]
+                M[r] = [a - f * b_ for a, b_ in zip(M[r], M[col])]
+    return [row[-1] for row in M]
+
+
+def design(X):
+    """Prepend a column of ones so the bias is just another weight."""
+    return [[1.0] + list(row) for row in X]
+
+
+def fit_normal_equations(X, t):
+    A = design(X)
+    At = transpose(A)
+    return solve(matmul(At, A), matvec(At, t))       # [b, w1, ..., wm]
+
+
+def fit_gradient_descent(X, t, lr=0.1, epochs=2000):
+    A = design(X)
+    n, m = len(A), len(A[0])
+    theta = [0.0] * m
+    for _ in range(epochs):
+        # gradient of (1/2n) * ||A theta - t||^2
+        pred = matvec(A, theta)
+        resid = [p - ti for p, ti in zip(pred, t)]
+        grad = [sum(A[i][j] * resid[i] for i in range(n)) / n for j in range(m)]
+        theta = [th - lr * g for th, g in zip(theta, grad)]
+    return theta
+
+
+def mse(t, pred):
+    return sum((a - b) ** 2 for a, b in zip(t, pred)) / len(t)
+
+
+if __name__ == "__main__":
+    # y = 3 + 4x with a little noise
+    X = [[0.0], [1.0], [2.0], [3.0], [4.0]]
+    t = [3.1, 7.2, 10.8, 15.1, 19.0]
+    theta_ne = fit_normal_equations(X, t)
+    theta_gd = fit_gradient_descent(X, t, lr=0.05, epochs=5000)
+    print("normal equations:", [round(v, 4) for v in theta_ne])   # [3.03, 3.99]
+    print("gradient descent:", [round(v, 4) for v in theta_gd])
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 03 — the vectorised version: lstsq, pinv, polynomial features, R^2."""
+import numpy as np
+
+
+def design(X, bias=True):
+    X = np.asarray(X, dtype=float)
+    if X.ndim == 1:
+        X = X[:, None]
+    return np.hstack([np.ones((len(X), 1)), X]) if bias else X
+
+
+def fit_lstsq(X, t):
+    """Solve min ||A theta - t|| with a QR/SVD-based solver (never invert A^T A)."""
+    A = design(X)
+    theta, *_ = np.linalg.lstsq(A, np.asarray(t, float), rcond=None)
+    return theta
+
+
+def fit_normal_equations(X, t):
+    A = design(X)
+    return np.linalg.solve(A.T @ A, A.T @ t)      # fine for small, well-conditioned A
+
+
+def fit_pinv(X, t):
+    return np.linalg.pinv(design(X)) @ np.asarray(t, float)
+
+
+def gradient_descent(X, t, lr=0.1, epochs=1000):
+    A = design(X)
+    theta = np.zeros(A.shape[1])
+    for _ in range(epochs):
+        grad = A.T @ (A @ theta - t) / len(A)
+        theta -= lr * grad
+    return theta
+
+
+def polynomial_features(x, degree):
+    x = np.asarray(x, float).ravel()
+    return np.vstack([x**k for k in range(1, degree + 1)]).T
+
+
+def r2_score(t, pred):
+    t, pred = np.asarray(t, float), np.asarray(pred, float)
+    ss_res = ((t - pred) ** 2).sum()
+    ss_tot = ((t - t.mean()) ** 2).sum()
+    return 1.0 - ss_res / ss_tot
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    x = np.linspace(-2, 2, 60)
+    t = 0.8 * x**3 - 0.5 * x + rng.normal(0, 0.15, size=x.size)
+
+    Phi = polynomial_features(x, 3)
+    theta = fit_lstsq(Phi, t)
+    print("coeffs (x, x^2, x^3):", np.round(theta, 3))     # [-0.5, ~0, 0.8]
+    print("R^2:", round(r2_score(t, design(Phi) @ theta), 4))
+
+    # conditioning: the normal equations square the condition number
+    A = design(polynomial_features(np.linspace(-1, 1, 40), 8))
+    print("cond(A)      =", f"{np.linalg.cond(A):.3e}")
+    print("cond(A^T A)  =", f"{np.linalg.cond(A.T @ A):.3e}")
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 03 — scikit-learn, the version you ship."""
+import numpy as np
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+
+rng = np.random.default_rng(0)
+x = np.linspace(-2, 2, 120)
+t = 0.8 * x**3 - 0.5 * x + rng.normal(0, 0.15, size=x.size)
+X = x[:, None]
+X_tr, X_te, t_tr, t_te = train_test_split(X, t, test_size=0.3, random_state=0)
+
+# Plain linear regression
+lin = LinearRegression().fit(X_tr, t_tr)
+print(f"linear:  w={lin.coef_[0]:.3f} b={lin.intercept_:.3f}  "
+      f"test R^2={r2_score(t_te, lin.predict(X_te)):.3f}")
+
+# Polynomial regression = feature map + linear model, wrapped in a pipeline.
+poly3 = make_pipeline(PolynomialFeatures(degree=3, include_bias=False), LinearRegression())
+poly3.fit(X_tr, t_tr)
+print(f"cubic:   test R^2={r2_score(t_te, poly3.predict(X_te)):.4f}")
+
+# High degree overfits; ridge rescues it. Scale AFTER expanding the basis.
+for degree in (3, 9):
+    for alpha in (0.0, 1e-3, 1e-1):
+        model = make_pipeline(
+            PolynomialFeatures(degree=degree, include_bias=False),
+            StandardScaler(),
+            Ridge(alpha=alpha) if alpha &gt; 0 else LinearRegression(),
+        )
+        scores = cross_val_score(model, X, t, cv=5, scoring="r2")
+        print(f"degree={degree} alpha={alpha:<6} CV R^2 = {scores.mean():.4f}")
+
+# Multiple regression on a real dataset
+from sklearn.datasets import load_diabetes
+Xd, td = load_diabetes(return_X_y=True)
+model = make_pipeline(StandardScaler(), LinearRegression()).fit(Xd, td)
+print("\ndiabetes R^2:", round(model.score(Xd, td), 3))
+print("largest coefficients:",
+      sorted(zip(np.round(model[-1].coef_, 1), load_diabetes().feature_names),
+             key=lambda p: -abs(p[0]))[:3])
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block prints the conditioning experiment from §2.3: <code>cond(AᵀA) ≈ cond(A)²</code>, which is why
+      <code>lstsq</code> exists. The scikit-learn block shows the pattern you will reuse for every non-linear feature map:
+      expand → scale → regularize → cross-validate.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="03">
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>The normal equations for least squares are:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$A\boldsymbol\theta = \mathbf{t}$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>$A^\top\boldsymbol\theta = \mathbf{t}$</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>$A^\top A\boldsymbol\theta = A^\top\mathbf{t}$</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>$AA^\top\boldsymbol\theta = \mathbf{t}$</span></button></li>
+      </ul>
+      <div class="explain"><p>Setting $\nabla J = \frac1N A^\top(A\boldsymbol\theta - \mathbf{t}) = 0$ gives $A^\top A\boldsymbol\theta = A^\top\mathbf{t}$ — equivalently, the residual $\mathbf{t} - A\boldsymbol\theta$ is orthogonal to every column of $A$.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>Why is the least-squares Hessian $\frac1N A^\top A$ guaranteed to give a global minimum?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Because $A$ is square</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Because $\mathbf{v}^\top A^\top A\mathbf{v} = \|A\mathbf{v}\|^2 \ge 0$, so it is positive semi-definite and the cost is convex</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Because gradient descent always converges</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Because the residuals are zero</span></button></li>
+      </ul>
+      <div class="explain"><p>A convex function has no spurious local minima. Positive semi-definiteness of the Hessian is exactly convexity for a quadratic. Uniqueness additionally requires full column rank of $A$.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>Squared error is the maximum-likelihood loss when the noise is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Uniform</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Laplace</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Poisson</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Gaussian with constant variance</span></button></li>
+      </ul>
+      <div class="explain"><p>The Gaussian log-density is quadratic in the residual, so maximising the log-likelihood is minimising the sum of squares. Laplace noise gives absolute error; Poisson gives deviance losses.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>Gradient descent on the least-squares cost with Hessian eigenvalues $\lambda_{\max}=4$ and $\lambda_{\min}=0.01$ converges only if:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$0 \lt \alpha \lt 0.5$, and it will be slow because $\kappa = 400$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>$\alpha \lt 2$, and it will converge in a few steps</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Any $\alpha \gt 0$ works</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>It cannot converge because the Hessian is singular</span></button></li>
+      </ul>
+      <div class="explain"><p>Each eigendirection needs $|1-\alpha\lambda_i| \lt 1$, so $\alpha \lt 2/\lambda_{\max} = 0.5$. The slowest direction decays like $(1-\alpha\lambda_{\min})^t$, which with $\alpha \approx 2/\lambda_{\max}$ gives a rate set by $\kappa = \lambda_{\max}/\lambda_{\min}$.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>You fit a degree-9 polynomial on $[-1,1]$ and the coefficients are enormous with wild extrapolation. The most accurate description is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>The model is underfitting</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>The normal equations are wrong</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>The design matrix is ill-conditioned, so nearly-collinear basis columns are cancelled by huge coefficients</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>There are too few parameters</span></button></li>
+      </ul>
+      <div class="explain"><p>On $[-1,1]$, $x^8$ and $x^9$ are almost indistinguishable, so their coefficients can be huge and opposite. The condition number of the Vandermonde matrix grows quickly; solve with QR/SVD, rescale the basis, or add a ridge penalty.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Design matrix $A$</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">The $N\times(m{+}1)$ matrix of training inputs with a leading column of ones. Row $j$ is sample $j$; the ones column turns the bias into a weight.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Residual</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$r_j = t^{(j)} - \hat{y}^{(j)}$, the signed vertical error. At the least-squares solution the residual vector is orthogonal to the column space of $A$.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Overdetermined system</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">More equations than unknowns. Generically no exact solution exists, so we look for the minimum-residual solution instead.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Projection matrix</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$P = A(A^\top A)^{-1}A^\top$ maps any target onto the closest point of $\mathrm{col}(A)$. It is symmetric and idempotent.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Pseudoinverse $A^+$</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$V\Sigma^+U^\top$ from the SVD. It inverts the non-zero singular values, giving the minimum-norm least-squares solution even when $A^\top A$ is singular.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Condition number</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\kappa = \sigma_{\max}/\sigma_{\min}$ of the design matrix. It bounds how much relative error in the data is amplified in the solution, and sets how slow gradient descent will be.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">$R^2$</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$1 - SS_{\text{res}}/SS_{\text{tot}}$: the fraction of the target's variance explained by the model. Zero means no better than the mean; negative means worse.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Feature map $\phi$</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">A transformation applied to inputs before a linear model. It makes non-linear problems linear in the parameters — the idea behind polynomial regression, kernels, and hidden layers.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Solve a tiny least-squares problem by hand</h4></div>
+    <p>Fit $y = wx + b$ to the three points $(0,1), (1,2), (2,4)$ using the normal equations.</p>
+    <button class="btn btn-sm" data-reveal="sol-03-1" type="button">Show solution</button>
+    <div id="sol-03-1" class="solution" hidden>
+      <p>$A = \begin{bmatrix}1&amp;0\\1&amp;1\\1&amp;2\end{bmatrix}$, $\mathbf{t}=\begin{bmatrix}1\\2\\4\end{bmatrix}$.</p>
+      <p>$A^\top A = \begin{bmatrix}3&amp;3\\3&amp;5\end{bmatrix}$, $A^\top\mathbf{t} = \begin{bmatrix}7\\11\end{bmatrix}$.</p>
+      <p>Solving $\begin{bmatrix}3&amp;3\\3&amp;5\end{bmatrix}\begin{bmatrix}b\\w\end{bmatrix} = \begin{bmatrix}7\\11\end{bmatrix}$ gives $w = 1.5$, $b = 2/3 \approx 0.667$. Predictions: $0.667, 2.167, 3.667$; residuals $-0.333, 0.167, -0.333$ — which sum to zero, as they must, because the ones column is in the column space.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Show that ridge shrinks the solution</h4></div>
+    <p>For the regularised objective $J_\lambda(\mathbf{w}) = \|A\mathbf{w}-\mathbf{t}\|^2 + \lambda\|\mathbf{w}\|^2$, derive the closed-form solution and show that $\|\hat{\mathbf{w}}_\lambda\| \le \|\hat{\mathbf{w}}_0\|$ in the eigenbasis of $A^\top A$.</p>
+    <button class="btn btn-sm" data-reveal="sol-03-2" type="button">Show solution</button>
+    <div id="sol-03-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>$\nabla J_\lambda = 2A^\top(A\mathbf{w}-\mathbf{t}) + 2\lambda\mathbf{w} = 0 \Rightarrow (A^\top A + \lambda I)\hat{\mathbf{w}}_\lambda = A^\top\mathbf{t}$.</li>
+        <li>Since $A^\top A$ is symmetric PSD, write $A^\top A = Q\Lambda Q^\top$ and rotate: $(\Lambda + \lambda I)Q^\top\hat{\mathbf{w}}_\lambda = Q^\top A^\top\mathbf{t}$, so componentwise $\hat{w}_\lambda^{(i)} = \frac{(Q^\top A^\top\mathbf{t})_i}{\lambda_i + \lambda}$ while $\hat{w}_0^{(i)} = \frac{(Q^\top A^\top\mathbf{t})_i}{\lambda_i}$.</li>
+        <li>Each component is multiplied by the shrinkage factor $\frac{\lambda_i}{\lambda_i+\lambda} \le 1$, so $|\hat{w}_\lambda^{(i)}| \le |\hat{w}_0^{(i)}|$ and therefore $\|\hat{\mathbf{w}}_\lambda\| \le \|\hat{\mathbf{w}}_0\|$. <span class="qed">∎</span></li>
+        <li><span class="why">Directions with small $\lambda_i$ (nearly collinear columns) are shrunk the most — which is precisely the ill-conditioned direction that caused the exploding polynomial coefficients.</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Derive the variance of the least-squares estimator</h4></div>
+    <p>Assume $\mathbf{t} = A\boldsymbol\theta^\* + \boldsymbol\epsilon$ with $\boldsymbol\epsilon\sim\mathcal{N}(0,\sigma^2 I)$. Show that $\hat{\boldsymbol\theta}$ is unbiased and that $\mathrm{Cov}(\hat{\boldsymbol\theta}) = \sigma^2(A^\top A)^{-1}$. What does this say about collinear features?</p>
+    <button class="btn btn-sm" data-reveal="sol-03-3" type="button">Show solution</button>
+    <div id="sol-03-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>$\hat{\boldsymbol\theta} = (A^\top A)^{-1}A^\top\mathbf{t} = (A^\top A)^{-1}A^\top(A\boldsymbol\theta^\* + \boldsymbol\epsilon) = \boldsymbol\theta^\* + (A^\top A)^{-1}A^\top\boldsymbol\epsilon$.</li>
+        <li>$\mathbb{E}[\hat{\boldsymbol\theta}] = \boldsymbol\theta^\* + (A^\top A)^{-1}A^\top\mathbb{E}[\boldsymbol\epsilon] = \boldsymbol\theta^\*$: unbiased.</li>
+        <li>For a linear transform $M\boldsymbol\epsilon$ with independent zero-mean noise of variance $\sigma^2$, the covariance is $\sigma^2 MM^\top$. With $M = (A^\top A)^{-1}A^\top$:
+          $$ \mathrm{Cov}(\hat{\boldsymbol\theta}) = \sigma^2(A^\top A)^{-1}A^\top A (A^\top A)^{-1} = \sigma^2 (A^\top A)^{-1}. $$
+        </li>
+        <li><span class="qed">∎</span> <strong>Interpretation.</strong> The diagonal entries are the variances of individual coefficients. If two columns are nearly collinear, $A^\top A$ is nearly singular, its inverse has enormous diagonal entries, and the coefficients swing wildly between samples — even though predictions may still be accurate. That is why interpretation and prediction are different problems.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 03</span>
+    <h3>A regression you can defend in a meeting</h3>
+    <p>Predict a continuous quantity and, more importantly, explain the model: which features matter, how stable the coefficients are, and where the fit fails.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Choose a regression dataset with at least 8 features (diabetes, California housing, or a domain dataset you care about).</li>
+      <li>Implement least squares three ways — normal equations, <code>lstsq</code>, gradient descent — and show they agree to 6 decimals on standardised data.</li>
+      <li>Report $\kappa(A)$ and $\kappa(A^\top A)$; demonstrate what happens when you drop the standardisation.</li>
+      <li>Fit polynomial features of degree 1–3 and plot train/validation error. Then add ridge and show the coefficient-norm trajectory as $\lambda$ increases.</li>
+      <li>Write a residual analysis: residuals vs. fitted, residuals vs. each important feature, and a QQ-style check for normality. State what you conclude about the Gaussian-noise assumption.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li>Notebook with the three implementations compared numerically</li>
+      <li>Three figures: coefficient path, residual diagnostics, learning curves</li>
+      <li>One-page summary written for a domain expert, not an ML reader</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Numerical care</td><td>Condition numbers reported; SVD-based solver preferred and justified</td><td>30</td></tr>
+        <tr><td>Diagnostics</td><td>Residual plots interpreted, not just produced; assumptions tested</td><td>30</td></tr>
+        <tr><td>Regularisation study</td><td>Coefficient paths plotted; a defensible $\lambda$ chosen by CV</td><td>25</td></tr>
+        <tr><td>Communication</td><td>Summary readable by a non-ML stakeholder with correct units and caveats</td><td>15</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Derive and implement weighted least squares (heteroscedastic noise) and show it changes the coefficient estimates.</li>
+      <li>Add a robust regression (Huber loss) and compare on a dataset where you deliberately inject outliers.</li>
+      <li>Time normal equations vs. <code>lstsq</code> vs. gradient descent as $m$ grows from 10 to 1000.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/03-regression-clinic/</code>.</p>
+  </div>
+</section>

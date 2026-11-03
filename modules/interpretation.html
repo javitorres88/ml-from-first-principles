@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>16 · Model Interpretation & What Comes Next — ML from First Principles</title>
+<meta name="description" content="Attribution as a research tool: linear weights, saliency, CAM and Grad-CAM; then Shapley values from cooperative game theory, their four axioms, and SHAP. Closes with vision transformers, contrastive learning, latent diffusion and neurosymbolic AI." />
+<meta property="og:title" content="16 · Model Interpretation & What Comes Next — ML from First Principles" />
+<meta property="og:description" content="Attribution as a research tool: linear weights, saliency, CAM and Grad-CAM; then Shapley values from cooperative game theory, their four axioms, and SHAP. Closes with vision transformers, contrastive learning, latent diffusion and neurosymbolic AI." />
+<meta property="og:type" content="article" />
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css" />
+<link rel="stylesheet" href="../assets/css/site.css" />
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/js/viz.js"></script>
+<script defer src="../assets/js/mla.js"></script>
+<script defer src="../assets/js/site.js"></script>
+<script defer src="../assets/js/labs/16-interpretation.js"></script>
+</head>
+<body data-module="interpretation">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark">ML</span>
+      <span>ML from First Principles<small>Interactive course · CUNY CSC 74020</small></span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a class="opt" href="../index.html#curriculum">Curriculum</a>
+      <a class="opt" href="../index.html#python">Python library</a>
+      <a class="opt" href="../index.html#projects">Projects</a>
+      <a class="opt" href="../index.html#sources">Sources</a>
+      <button class="icon-btn" data-theme-toggle type="button" aria-label="Toggle theme">☾</button>
+      <button class="icon-btn" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">☰</button>
+    </nav>
+  </div>
+  <div id="navMenu" hidden style="border-top:1px solid var(--line);background:var(--panel)">
+    <div class="shell" style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:.86rem">
+      <a href="../modules/foundations.html" style="padding:4px 0;color:var(--ink-2)">01 · What Machine Learning Actually Is</a>
+      <a href="../modules/knn-evaluation.html" style="padding:4px 0;color:var(--ink-2)">02 · Nearest Neighbours & Honest Evaluation</a>
+      <a href="../modules/linear-regression.html" style="padding:4px 0;color:var(--ink-2)">03 · Linear Models & Least Squares</a>
+      <a href="../modules/logistic-regression.html" style="padding:4px 0;color:var(--ink-2)">04 · Logistic Regression & Classification Loss</a>
+      <a href="../modules/regularization.html" style="padding:4px 0;color:var(--ink-2)">05 · Regularization, Bias–Variance & Model Selection</a>
+      <a href="../modules/neural-networks.html" style="padding:4px 0;color:var(--ink-2)">06 · Artificial Neural Networks</a>
+      <a href="../modules/backpropagation.html" style="padding:4px 0;color:var(--ink-2)">07 · Backpropagation & Training Deep Networks</a>
+      <a href="../modules/trees-ensembles.html" style="padding:4px 0;color:var(--ink-2)">08 · Decision Trees, Bagging & Boosting</a>
+      <a href="../modules/clustering.html" style="padding:4px 0;color:var(--ink-2)">09 · Unsupervised Learning: Clustering</a>
+      <a href="../modules/cnns.html" style="padding:4px 0;color:var(--ink-2)">10 · Convolutional Neural Networks</a>
+      <a href="../modules/sequences.html" style="padding:4px 0;color:var(--ink-2)">11 · Sequences: RNNs, LSTMs & Attention</a>
+      <a href="../modules/transformers.html" style="padding:4px 0;color:var(--ink-2)">12 · Transformers & Large Language Models</a>
+      <a href="../modules/dimensionality-reduction.html" style="padding:4px 0;color:var(--ink-2)">13 · Dimensionality Reduction & Representation Learning</a>
+      <a href="../modules/svm-kernels.html" style="padding:4px 0;color:var(--ink-2)">14 · Support Vector Machines & Kernels</a>
+      <a href="../modules/reinforcement-learning.html" style="padding:4px 0;color:var(--ink-2)">15 · Reinforcement Learning</a>
+      <a href="../modules/interpretation.html" style="padding:4px 0;color:var(--ink-2)">16 · Model Interpretation & What Comes Next</a>
+    </div>
+  </div>
+</header>
+<main id="main" class="shell with-rail">
+<aside class="rail" aria-label="On this page">
+  <h4>16 · Responsible ML</h4>
+  <ol>
+    <li><a href="#objectives">Learning objectives</a></li>
+    <li><a href="#intuition">1 · Intuition</a></li>
+    <li><a href="#math">2 · Mathematical foundations</a></li>
+    <li><a href="#labs">3 · Interactive visualizations</a></li>
+    <li><a href="#code">4 · Coding from scratch</a></li>
+    <li><a href="#assessment">5 · Assessment</a></li>
+    <li><a href="#project">6 · Portfolio project</a></li>
+  </ol>
+  <h4 style="margin-top:22px">All modules</h4>
+  <ol class="rail-sub">
+    <li><a href="foundations.html">01 What Machine Learning Actually Is</a></li>
+    <li><a href="knn-evaluation.html">02 Nearest Neighbours & Honest Evaluation</a></li>
+    <li><a href="linear-regression.html">03 Linear Models & Least Squares</a></li>
+    <li><a href="logistic-regression.html">04 Logistic Regression & Classification Loss</a></li>
+    <li><a href="regularization.html">05 Regularization, Bias–Variance & Model Selection</a></li>
+    <li><a href="neural-networks.html">06 Artificial Neural Networks</a></li>
+    <li><a href="backpropagation.html">07 Backpropagation & Training Deep Networks</a></li>
+    <li><a href="trees-ensembles.html">08 Decision Trees, Bagging & Boosting</a></li>
+    <li><a href="clustering.html">09 Unsupervised Learning: Clustering</a></li>
+    <li><a href="cnns.html">10 Convolutional Neural Networks</a></li>
+    <li><a href="sequences.html">11 Sequences: RNNs, LSTMs & Attention</a></li>
+    <li><a href="transformers.html">12 Transformers & Large Language Models</a></li>
+    <li><a href="dimensionality-reduction.html">13 Dimensionality Reduction & Representation Learning</a></li>
+    <li><a href="svm-kernels.html">14 Support Vector Machines & Kernels</a></li>
+    <li><a href="reinforcement-learning.html">15 Reinforcement Learning</a></li>
+    <li><a href="interpretation.html" style="color:var(--accent);font-weight:600">16 Model Interpretation & What Comes Next</a></li>
+  </ol>
+  <div style="margin-top:22px">
+    <button class="btn btn-sm" data-mark-complete type="button" style="width:100%;justify-content:center">Mark module complete</button>
+  </div>
+</aside>
+<article class="article">
+  <header>
+    <span class="kicker">Module 16 · Responsible ML</span>
+    <h1>Model Interpretation & What Comes Next</h1>
+    <p class="lede">Attribution as a research tool: linear weights, saliency, CAM and Grad-CAM; then Shapley values from cooperative game theory, their four axioms, and SHAP. Closes with vision transformers, contrastive learning, latent diffusion and neurosymbolic AI.</p>
+    <div class="header-meta">
+      <span>📚 Source: Lecture Notes 14</span>
+      <span>⏱ 70 min</span>
+      <span>🧪 2 interactive labs</span>
+      <span>🐍 3 implementations</span>
+    </div>
+  </header>
+
+  <section class="block" id="objectives">
+    <h2><span class="secnum">◎</span> Learning objectives</h2>
+    <div class="card">
+      <p class="small muted" style="margin-top:0">By the end of this module you should be able to:</p>
+      <ul class="tight">
+      <li>Explain why black-box models create legal and scientific problems.</li>
+      <li>Compute Shapley values exactly for a small cooperative game and verify the four axioms.</li>
+      <li>Describe KernelSHAP's weighted-least-squares approximation and its cost.</li>
+      <li>Compare architecture-specific attribution (saliency, CAM, Grad-CAM) with model-agnostic SHAP.</li>
+      <li>Summarise ViT, contrastive learning and latent diffusion at a conceptual level.</li>
+      </ul>
+    </div>
+  </section>
+
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-blackbox">The black-box problem</h3>
+  <p>
+    A model that maps input to output without exposing its reasoning creates two kinds of trouble: legal and scientific.
+    Fair-lending law (ECOA, FCRA) requires credit decisions to be explainable — a bank cannot tell a rejected applicant
+    "the score was 0.3" and stop there. And a scientist cannot debug, trust, or build on a model whose decisions they cannot
+    inspect.
+  </p>
+  <p>
+    <strong>Model interpretation</strong> asks how a model arrives at its decision for a given sample. The dominant approach is
+    <strong>attribution</strong>: explain the prediction in terms of the <em>features</em> that produced it.
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Model</th><th>Attributed to</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td>object recognition CNN</td><td>pixels / regions</td><td>verify the model looks at the animal, not the background</td></tr>
+        <tr><td>text sentiment model</td><td>individual words</td><td>catch spurious cues such as negation or author names</td></tr>
+        <tr><td>credit model</td><td>application features</td><td>legal requirement; detect discriminatory proxies</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Attribution serves four jobs: debugging predictions, generating end-user explanations, analysing robustness, and extracting rules for knowledge discovery.</p>
+
+  <h3 class="sub" id="i-methods">Two families of attribution</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Family</th><th>Methods</th><th>Trade-off</th></tr></thead>
+      <tbody>
+        <tr><td>Architecture-specific</td><td>linear weights, random-forest feature importance, saliency maps (input gradients), CAM / Grad-CAM</td><td>cheap and exact for their architecture, but not comparable across models</td></tr>
+        <tr><td>Model-agnostic</td><td>SHAP (Shapley values), permutation importance, LIME</td><td>works for anything, but approximate and expensive</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="sub" id="i-cnn">Interpreting CNNs: saliency and CAM</h3>
+  <p>
+    <strong>Saliency maps</strong> take the gradient of the class score with respect to the <em>input</em> and use its magnitude as
+    a per-pixel importance. <strong>Class Activation Mapping</strong> (Zhou et al., 2016) replaces the fully connected head with
+    global average pooling, so the class score becomes a weighted sum of the final feature maps — and that weighted sum
+    <em>is</em> a heatmap localised on the image.
+  </p>
+  <p><strong>Grad-CAM</strong> (Selvaraju et al., 2016) generalises this to any CNN, with or without a GAP head:</p>
+  <ol class="derivation">
+    <li>Let the gradients of the target class score flow into the last convolutional layer.</li>
+    <li>Average those gradients over each feature map $k$ to get an importance weight $\alpha_k$.</li>
+    <li>Take a weighted sum of the feature maps, $\sum_k\alpha_kA^k$, and rectify with ReLU to keep only evidence <em>for</em> the class.</li>
+  </ol>
+  <p>
+    The result is coarse, because it is upsampled from a small feature map, so <strong>Guided Grad-CAM</strong> multiplies it
+    element-wise with a guided-backpropagation saliency map to recover fine detail inside the coarse region.
+  </p>
+
+  <h3 class="sub" id="i-shapley">Shapley values, from cooperative game theory</h3>
+  <p>
+    Cooperative game theory studies games in which coalitions of players collaborate to produce a payoff: formally a value
+    function $v:2^D\to\mathbb{R}$ over subsets of the player set $D$. Lloyd Shapley (1953; Nobel Prize 2012) asked how the total
+    payoff should be divided fairly. His answer is the unique allocation satisfying four axioms:
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Axiom</th><th>Statement</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Null player</strong></td><td>a player who adds nothing to any coalition gets zero attribution</td></tr>
+        <tr><td><strong>Efficiency</strong></td><td>the attributions sum to the total payoff: $\sum_i\phi_i = v(D)$</td></tr>
+        <tr><td><strong>Symmetry</strong></td><td>interchangeable players receive equal credit</td></tr>
+        <tr><td><strong>Linearity</strong></td><td>attribution of a weighted sum of games is the weighted sum of attributions</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The map from <em>features</em> to <em>model output</em> is exactly a cooperative game: features are the players and the
+    prediction is the payoff. <strong>SHAP</strong> (SHapley Additive exPlanations, Lundberg &amp; Lee 2017) applies Shapley values
+    to individual predictions, which is what popularised them in machine learning.
+  </p>
+
+  <h3 class="sub" id="i-removal">SHAP as a removal-based explanation</h3>
+  <p>
+    To evaluate a coalition $S$ you must decide what happens to the features <em>not</em> in $S$. SHAP averages the model output
+    over all possible values of the missing features, weighted by their conditional probability given the observed ones:
+  </p>
+  <div class="formula">$$ F(x_S) = \mathbb{E}_{x_{\bar S}\mid x_S}\big[f(x_S, x_{\bar S})\big] = \sum_{x_{\bar S}} f(x_S, x_{\bar S})\,p(x_{\bar S}\mid x_S) $$</div>
+  <p>
+    Intuitively: fix the features you have, imagine every value the missing ones could take, and average the predictions. With
+    $M$ features this needs $2^M$ coalition evaluations — infeasible beyond about 15 features, which is why <strong>KernelSHAP</strong>
+    (a weighted least-squares approximation) and Monte Carlo permutation sampling exist.
+  </p>
+  <div class="callout insight">
+    <span class="label">The worked example from the lecture</span>
+    <p>
+      A company with Alice and Bob: $v(\varnothing)=0$, $v(\{A\})=20$, $v(\{B\})=10$, $v(\{A,B\})=50$. Enumerate the two orderings.
+      Alice first: she adds 20, Bob adds 30. Bob first: he adds 10, Alice adds 40. Averaging gives
+      $\phi_A = (20+40)/2 = 30$ and $\phi_B = (30+10)/2 = 20$. They sum to 50 — efficiency holds — and the synergy is split
+      evenly, because neither could produce it alone.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-trends">Where the field is going</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Direction</th><th>Idea</th></tr></thead>
+      <tbody>
+        <tr><td>Vision Transformers</td><td>apply the standard transformer encoder to image patches; needs large-scale pretraining to beat CNNs</td></tr>
+        <tr><td>Contrastive learning</td><td>pull augmented views of the same image together, push others apart — no labels needed</td></tr>
+        <tr><td>Latent diffusion</td><td>run the expensive reverse diffusion in a compressed latent space; the basis of Stable Diffusion</td></tr>
+        <tr><td>Neurosymbolic AI</td><td>combine learned perception with explicit reasoning, search and planning</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    <strong>Contrastive learning</strong> is worth understanding as a loss: given an anchor and a positive view, the model must
+    pick the positive out of $2N-1$ candidates, which is cross-entropy over the batch with a temperature $\tau$. CLIP extends it
+    to 400M image–text pairs, which is what enables zero-shot classification from a text prompt.
+  </p>
+  <p>
+    <strong>Diffusion models</strong> corrupt data with Gaussian noise over $T$ steps and learn to reverse it, trained by a simple
+    denoising regression: predict the noise that was added. <strong>Latent</strong> diffusion runs that process inside a
+    variational autoencoder's compressed space, and the text prompt enters through cross-attention — the same mechanism as
+    module 12.
+  </p>
+  <div class="callout warn">
+    <span class="label">Moravec's paradox, and what is still missing</span>
+    <p>
+      Things that are easy for humans (clearing a table, driving after 20 hours of practice) remain hard for AI, while things
+      that are hard for humans (chess, exams) are easy. LeCun's diagnosis is that current systems lack world models learned from
+      sensory input, persistent memory, the ability to plan, and safety by design. A four-year-old has processed more sensory
+      data than the largest LLM was trained on — the missing ingredient may be the <em>kind</em> of data, not the amount.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Finance · compliance</span>
+      <h4>Adverse-action notices</h4>
+      <p>Per-applicant SHAP values satisfy the "reason codes" requirement and survive an audit — but they explain the model, not the world.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Medicine · imaging</span>
+      <h4>Grad-CAM in radiology</h4>
+      <p>A heatmap showing which lung region drove a pneumonia prediction. Clinicians trust a model that highlights the right anatomy more than one with better accuracy and no explanation.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Debugging · shortcut detection</span>
+      <h4>Clever Hans models</h4>
+      <p>Attribution often reveals that a high-accuracy model is reading a hospital watermark or the photo's background. This is the single most valuable use of interpretation.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Science · knowledge discovery</span>
+      <h4>Rules from models</h4>
+      <p>A feature with consistently large SHAP values can motivate a follow-up experiment. The model becomes a hypothesis generator, not an oracle.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Robustness · adversarial analysis</span>
+      <h4>Attribution under attack</h4>
+      <p>Comparing attributions for clean and perturbed inputs reveals whether a model relies on fragile features — a test that accuracy alone misses.</p>
+    </div>
+    <div class="example">
+      <span class="tag">GenAI · provenance</span>
+      <h4>Interpretability of LLMs</h4>
+      <p>Attention maps and feature attribution for language models are active research: "which part of the prompt caused this output" is a genuinely hard question.</p>
+    </div>
+  </div>
+</section>
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-shapley">2.1 The Shapley value, defined and derived</h3>
+  <p>For a game $v$ on player set $D$ with $|D|=M$, the Shapley value of player $i$ is</p>
+  <div class="formula">$$ \phi_i(v) = \sum_{S\subseteq D\setminus\{i\}}\frac{|S|!\,(M-|S|-1)!}{M!}\big[v(S\cup\{i\}) - v(S)\big] $$</div>
+  <p>The weight is the fraction of all $M!$ orderings in which exactly the players of $S$ precede $i$, so the formula is "average marginal contribution over all orderings".</p>
+  <details class="steps" open>
+    <summary>Derivation — average marginal contribution over permutations</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Fix an ordering $\pi$. Player $i$'s <em>marginal contribution</em> is the increase in value when $i$ joins the set of players preceding it: $\Delta_i(\pi) = v(\mathrm{pre}(i)\cup\{i\}) - v(\mathrm{pre}(i))$.</li>
+        <li>Define $\phi_i = \frac{1}{M!}\sum_{\pi}\Delta_i(\pi)$.</li>
+        <li>Group the $M!$ orderings by $S = \mathrm{pre}(i)$. For $|S|=s$ the number of orderings realising that set is $s!\,(M-s-1)!$ — the orderings within $S$, times the orderings of the remaining players. Dividing by $M!$ gives the weight above. <span class="qed">∎</span></li>
+        <li><strong>Efficiency.</strong> Along any single ordering the marginals telescope to $v(D)-v(\varnothing)$; averaging preserves that, so $\sum_i\phi_i = v(D)$ when $v(\varnothing)=0$.</li>
+        <li><strong>Uniqueness.</strong> Shapley proved this is the <em>only</em> allocation satisfying the four axioms — the strongest justification any attribution method has.</li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-complexity">2.2 The cost of exact Shapley values</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Approach</th><th>Complexity</th><th>Feasible for</th></tr></thead>
+      <tbody>
+        <tr><td>Enumerate subsets</td><td>$O(2^M)$</td><td>about $M \le 15$</td></tr>
+        <tr><td>Enumerate permutations</td><td>$O(M!)$</td><td>about $M \le 8$</td></tr>
+        <tr><td>KernelSHAP</td><td>weighted least squares over $O(2^M)$ samples</td><td>any $M$ with sampling</td></tr>
+        <tr><td>Monte Carlo permutations</td><td>$O(M)$ per sample</td><td>large $M$, approximate</td></tr>
+        <tr><td>TreeSHAP</td><td>$O(TLD^2)$</td><td>exact and fast for tree ensembles</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The Monte Carlo estimator is just the permutation average over a random sample of orderings:</p>
+  <div class="formula">$$ \hat\phi_i = \frac{1}{m}\sum_{j=1}^{m}\Big[v\big(\mathrm{pre}_j(i)\cup\{i\}\big) - v\big(\mathrm{pre}_j(i)\big)\Big] $$</div>
+  <p>
+    In practice $v(S)$ itself is estimated by replacing the missing features with values sampled from a background dataset —
+    which is why SHAP explanations are stochastic and why the background set you choose changes the answer.
+  </p>
+
+  <h3 class="sub" id="m-linear">2.3 SHAP for a linear model</h3>
+  <p>For $f(\mathbf{x}) = \mathbf{w}^\top\mathbf{x} + b$, the Shapley values are exactly</p>
+  <div class="formula">$$ \phi_i = w_i\big(x_i - \mathbb{E}[x_i]\big) $$</div>
+  <details class="steps">
+    <summary>Why — and why the baseline matters</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>With missing features replaced by their expectations, $v(S) = \sum_{i\in S}w_ix_i + \sum_{i\notin S}w_i\mathbb{E}[x_i] + b$.</li>
+        <li>Adding player $i$ changes exactly one term, $w_ix_i - w_i\mathbb{E}[x_i]$, independent of $S$.</li>
+        <li>Every ordering therefore gives the same marginal, so the average is that value. <span class="qed">∎</span></li>
+        <li><strong>Efficiency.</strong> $\sum_i\phi_i = f(\mathbf{x}) - \mathbb{E}[f(\mathbf{x})]$: the attributions sum to the difference between this prediction and the average prediction.</li>
+        <li><span class="why">This is why naive importance $w_ix_i$ misleads: it attributes part of the <em>average</em> prediction to every feature. Lab 2 shows both side by side.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-gradcam">2.4 Grad-CAM, formally</h3>
+  <p>For class $c$, with $A^k$ the $k$-th feature map of the last convolutional layer and $y^c$ the class score:</p>
+  <div class="formula">$$ \alpha_k^c = \frac{1}{Z}\sum_i\sum_j\frac{\partial y^c}{\partial A^k_{ij}}, \qquad L^c_{\text{Grad-CAM}} = \mathrm{ReLU}\Big(\sum_k\alpha_k^c A^k\Big) $$</div>
+  <p>
+    The ReLU is not cosmetic: features that push the score <em>down</em> for class $c$ do not explain why $c$ was predicted, so
+    negative evidence is discarded. The map has the resolution of $A^k$ (often $7\times7$ for a $224\times224$ input), which is
+    why it is coarse and needs upsampling.
+  </p>
+
+  <h3 class="sub" id="m-contrastive">2.5 The InfoNCE loss and temperature</h3>
+  <p>
+    Contrastive learning (SimCLR, MoCo) takes a batch of $N$ images, produces two augmented views of each, and requires every
+    view to identify its partner among the $2N-1$ others. With cosine similarity $s_{i,j}$ and temperature $\tau$:
+  </p>
+  <div class="formula">$$ L_i = -\log\frac{\exp(s_{i,i^+}/\tau)}{\sum_{j\ne i}\exp(s_{i,j}/\tau)} $$</div>
+  <p>
+    This is exactly the softmax cross-entropy of module 04 with the positive pair as the correct class, and InfoNCE is a lower
+    bound on the mutual information between the two views. Small $\tau$ sharpens the distribution and concentrates on the hardest
+    negatives; large $\tau$ treats negatives more equally. Contrastive pretraining raised ImageNet linear-probe accuracy from the
+    high 40s to above 80% — the largest single jump in self-supervised vision.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-shapley">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · Shapley</span><h4>A three-player cooperative game</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Set the payoff of every coalition with the sliders. The bars are the exact Shapley values, computed by averaging each player's marginal contribution over all six orderings.</p>
+      <p>Check the efficiency readout: $\sum\phi$ always equals $v(ABC)$. That is not a coincidence, it is the axiom. Now make A and B perfect substitutes — set $v(AB) = v(A) = v(B)$ — and watch their attributions equalise. Then give C all the value and watch A and B collapse toward zero. The Shapley value is the only allocation that respects both symmetry and efficiency, which is why it is the default fair-credit rule.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-attribution">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · attribution</span><h4>Raw contributions vs. SHAP</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>A linear model with three features. In <strong>raw</strong> mode the bars are $w_ix_i$ and they sum to $f(x)$ — which includes the model's average prediction, so a feature looks important just because it has a large typical value. In <strong>SHAP</strong> mode the bars are $w_i(x_i - \mathbb{E}[x_i])$ and they sum to $f(x) - \mathbb{E}[f]$.</p>
+      <p>Move a feature to zero and switch modes: in SHAP its bar vanishes (it is at its baseline, so it explains nothing), while in raw mode it still shows a contribution. That is the difference between "this feature is big" and "this feature is why the prediction differs from the average".</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">shap / PyTorch</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 16 — exact Shapley values and a permutation Monte Carlo estimate."""
+import itertools
+import random
+from math import factorial
+
+
+def shapley_exact(value_fn, players):
+    """Average marginal contribution over all permutations."""
+    M = len(players)
+    phi = {p: 0.0 for p in players}
+    for perm in itertools.permutations(players):
+        before = []
+        for p in perm:
+            phi[p] += (value_fn(set(before) | {p}) - value_fn(set(before))) / factorial(M)
+            before.append(p)
+    return phi
+
+
+def shapley_subsets(value_fn, players):
+    """The closed form with the |S|!(M-|S|-1)!/M! weights — same answer, different route."""
+    M = len(players)
+    phi = {}
+    for p in players:
+        others = [q for q in players if q != p]
+        total = 0.0
+        for size in range(M):
+            for subset in itertools.combinations(others, size):
+                S = set(subset)
+                w = factorial(size) * factorial(M - size - 1) / factorial(M)
+                total += w * (value_fn(S | {p}) - value_fn(S))
+        phi[p] = total
+    return phi
+
+
+def shapley_montecarlo(value_fn, players, samples=2000, seed=0):
+    rng = random.Random(seed)
+    M = len(players)
+    phi = {p: 0.0 for p in players}
+    for _ in range(samples):
+        perm = players[:]
+        rng.shuffle(perm)
+        before = set()
+        for p in perm:
+            phi[p] += (value_fn(before | {p}) - value_fn(before)) / samples
+            before.add(p)
+    return phi
+
+
+def check_axioms(value_fn, players, phi):
+    """Efficiency and null-player sanity checks."""
+    total = sum(phi.values())
+    return {"sum_phi": round(total, 6), "v(all)": round(value_fn(set(players)), 6),
+            "efficiency_holds": abs(total - value_fn(set(players))) &lt; 1e-9}
+
+
+if __name__ == "__main__":
+    # The lecture's Alice/Bob game, plus a third player
+    table = {frozenset(): 0, frozenset("A"): 20, frozenset("B"): 10, frozenset("C"): 5,
+             frozenset("AB"): 50, frozenset("AC"): 30, frozenset("BC"): 20, frozenset("ABC"): 60}
+    v = lambda s: table[frozenset(s)]
+
+    phi = shapley_exact(v, ["A", "B", "C"])
+    print("exact (permutations):", {k: round(x, 3) for k, x in phi.items()})
+    print("exact (subsets)     :", {k: round(x, 3) for k, x in shapley_subsets(v, ["A", "B", "C"]).items()})
+    print("monte carlo (2k)    :", {k: round(x, 3) for k, x in shapley_montecarlo(v, ["A", "B", "C"]).items()})
+    print("axioms              :", check_axioms(v, ["A", "B", "C"], phi))
+
+    # Two-player case from the slides
+    v2 = lambda s: {frozenset(): 0, frozenset("A"): 20, frozenset("B"): 10, frozenset("AB"): 50}[frozenset(s)]
+    print("\nAlice/Bob:", {k: round(x, 3) for k, x in shapley_exact(v2, ["A", "B"]).items()})
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 16 — SHAP by hand for a linear model, plus saliency and Grad-CAM in NumPy."""
+import numpy as np
+
+
+def linear_shap(w, x, x_background):
+    """For a linear model, phi_i = w_i (x_i - E[x_i]) exactly."""
+    baseline = x_background.mean(axis=0)
+    return w * (x - baseline), float(w @ baseline)
+
+
+def montecarlo_shap(model, x, background, samples=200, seed=0):
+    """Model-agnostic estimate: sample orderings, fill missing features from the background."""
+    rng = np.random.default_rng(seed)
+    M = len(x)
+    phi = np.zeros(M)
+    for _ in range(samples):
+        perm = rng.permutation(M)
+        before = []
+        ref = background[rng.integers(len(background))]
+        for p in perm:
+            base = ref.copy()
+            base[before] = x[before]
+            with_p = base.copy()
+            with_p[p] = x[p]
+            phi[p] += (model(with_p[None])[0] - model(base[None])[0]) / samples
+            before.append(p)
+    return phi
+
+
+def saliency(model_grad, x):
+    """Magnitude of the input gradient, per pixel."""
+    return np.abs(model_grad(x))
+
+
+def grad_cam(feature_maps, grads, eps=1e-8):
+    """feature_maps, grads: (C, H, W). Returns a (H, W) heatmap."""
+    weights = grads.mean(axis=(1, 2))              # global-average-pooled gradients
+    cam = np.maximum((weights[:, None, None] * feature_maps).sum(0), 0)
+    cam = cam - cam.min()
+    return cam / (cam.max() + eps)
+
+
+def permutation_importance(model, X, y, metric, n_repeats=5, seed=0):
+    """Drop in performance when each feature is shuffled."""
+    rng = np.random.default_rng(seed)
+    base = metric(y, model(X))
+    imps = np.zeros(X.shape[1])
+    for j in range(X.shape[1]):
+        drops = []
+        for _ in range(n_repeats):
+            Xp = X.copy()
+            rng.shuffle(Xp[:, j])
+            drops.append(base - metric(y, model(Xp)))
+        imps[j] = np.mean(drops)
+    return imps
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    w = np.array([1.5, -2.0, 0.5])
+    bg = rng.normal(0, 1, (200, 3))
+    x = np.array([1.0, -1.0, 0.5])
+    model = lambda X: X @ w + 0.3
+
+    phi, base = linear_shap(w, x, bg)
+    print("linear SHAP:", np.round(phi, 3), " baseline:", round(base, 3))
+    print("sum(phi) vs f(x)-E[f]:", round(float(phi.sum()), 4), round(float(model(x[None])[0] - base), 4))
+
+    mc = montecarlo_shap(model, x, bg, samples=400)
+    print("monte carlo :", np.round(mc, 3), " (should approximate the above)")
+
+    maps = rng.random((8, 7, 7))
+    grads = rng.normal(0, 0.1, (8, 7, 7))
+    heat = grad_cam(maps, grads)
+    print("grad-cam heatmap:", heat.shape, " range:", round(float(heat.min()), 2), "to", round(float(heat.max()), 2))
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 16 — SHAP in practice, plus Grad-CAM and attention visualisation."""
+import numpy as np
+import shap
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+
+X, y = load_breast_cancer(return_X_y=True)
+names = list(load_breast_cancer().feature_names)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, stratify=y, random_state=0)
+
+model = RandomForestClassifier(n_estimators=200, random_state=0).fit(X_tr, y_tr)
+
+# ---- TreeSHAP: exact and fast for tree ensembles --------------------------
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_te[:100])
+sv = shap_values[1] if isinstance(shap_values, list) else shap_values
+print("shap values shape:", sv.shape)
+print("efficiency check (first sample):",
+      round(float(sv[0].sum()), 4), "vs",
+      round(float(model.predict_proba(X_te[:1])[0, 1] - explainer.expected_value[1]), 4))
+
+# ---- global importance: mean absolute SHAP ---------------------------------
+importance = np.abs(sv).mean(0)
+order = np.argsort(-importance)[:5]
+print("\ntop features by mean |SHAP|")
+for i in order:
+    print(f"  {names[i]:24s} {importance[i]:.4f}")
+
+# ---- a single prediction, explained ----------------------------------------
+i = 0
+print(f"\npatient 0: prediction {model.predict_proba(X_te[i:i+1])[0, 1]:.3f}")
+for j in np.argsort(-np.abs(sv[i]))[:4]:
+    print(f"  {names[j]:24s} value={X_te[i, j]:8.2f}  contribution={sv[i, j]:+.4f}")
+
+# ---- KernelSHAP: model-agnostic, slower ------------------------------------
+bg = shap.sample(X_tr, 50)
+kernel_explainer = shap.KernelExplainer(model.predict_proba, bg)
+ks = kernel_explainer.shap_values(X_te[:5], nsamples=200)
+print("\nkernelshap shape:", np.array(ks).shape, "(model-agnostic, approximate)")
+
+# ---- Grad-CAM in PyTorch, in five lines -----------------------------------
+import torch
+import torch.nn.functional as F
+
+def grad_cam(model, x, layer, class_idx=None):
+    feats, grads = {}, {}
+    layer.register_forward_hook(lambda m, i, o: feats.__setitem__("v", o))
+    layer.register_full_backward_hook(lambda m, gi, go: grads.__setitem__("v", go[0]))
+    out = model(x)
+    cls = out.argmax(1) if class_idx is None else torch.tensor([class_idx])
+    out[0, cls].backward()
+    w = grads["v"].mean(dim=(2, 3), keepdim=True)
+    cam = F.relu((w * feats["v"]).sum(1, keepdim=True))
+    cam = F.interpolate(cam, size=x.shape[-2:], mode="bilinear", align_corners=False)
+    return (cam - cam.min()) / (cam.max() + 1e-8)
+
+print("\ngrad_cam() defined — apply it to the CNN from module 10 with its last conv layer.")
+</code></pre></div>
+    <div class="code-caption">
+      The NumPy block verifies the linear-model identity from §2.3 twice: once analytically and once by Monte Carlo
+      permutation sampling, which is the general-purpose estimator used for black-box models.
+    </div>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="16">
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>The efficiency axiom of Shapley values states that:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Each player's attribution is proportional to its value alone</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Symmetric players get equal credit</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>The attributions sum to the total payoff of the grand coalition</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>A null player receives zero</span></button></li>
+      </ul>
+      <div class="explain"><p>$\sum_i\phi_i = v(D)$. This is what lets you say the SHAP values "add up" to the prediction (minus the baseline) — the property that makes them readable as a decomposition.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>Why are exact Shapley values impractical for a model with 50 features?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>They require gradients</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>They require evaluating all $2^{50}$ coalitions</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>They only work for linear models</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>They are not differentiable</span></button></li>
+      </ul>
+      <div class="explain"><p>Exact computation is $O(2^M)$ (subsets) or $O(M!)$ (permutations). KernelSHAP and Monte Carlo permutation sampling approximate the same quantity.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>For a linear model $f(\mathbf{x}) = \mathbf{w}^\top\mathbf{x} + b$, the SHAP value of feature $i$ is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$w_i(x_i - \mathbb{E}[x_i])$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>$w_ix_i$</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>$w_i$</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>$x_i - \mathbb{E}[x_i]$</span></button></li>
+      </ul>
+      <div class="explain"><p>Attribution is relative to the average prediction, so the baseline is subtracted. $w_ix_i$ sums to $f(x)$, not to $f(x)-\mathbb{E}[f]$ — a common source of misleading "importance" plots.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>In Grad-CAM, why is the ReLU applied to the weighted sum of feature maps?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>To normalise the heatmap to $[0,1]$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>To speed up computation</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>To match the network's own activation function</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>To keep only evidence <em>for</em> the class, discarding negative contributions</span></button></li>
+      </ul>
+      <div class="explain"><p>Regions that decrease the class score are irrelevant to explaining why the class was predicted. The ReLU removes them, leaving a heatmap of supporting evidence.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>Contrastive learning (InfoNCE) is best described as:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Regression to a scalar target</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Cross-entropy over the batch, where each view must pick its positive partner among the negatives</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Clustering with k-means</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Denoising with an autoencoder</span></button></li>
+      </ul>
+      <div class="explain"><p>With a temperature $\tau$, $L_i = -\log\frac{\exp(s_{i,i^+}/\tau)}{\sum_{j\ne i}\exp(s_{i,j}/\tau)}$ — literally the softmax cross-entropy of module 04 with the positive pair as the label.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Shapley value</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">The unique allocation satisfying null-player, efficiency, symmetry and linearity: each player's average marginal contribution over all orderings.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">SHAP</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Shapley values applied to a single prediction, treating features as players and the model output as the payoff.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Coalition value in SHAP</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$F(x_S) = \mathbb{E}_{x_{\bar S}\mid x_S}[f(x_S,x_{\bar S})]$: average the prediction over the missing features, weighted by their conditional distribution.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">KernelSHAP vs. TreeSHAP</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">KernelSHAP is model-agnostic and approximate (weighted least squares); TreeSHAP is exact and polynomial-time for tree ensembles.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Saliency map</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$|\partial y^c/\partial \mathbf{x}|$: the magnitude of the input gradient. Cheap, but noisy and easily fooled.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Grad-CAM</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\mathrm{ReLU}(\sum_k\alpha_kA^k)$ with $\alpha_k$ the globally averaged gradient of the class score with respect to feature map $k$. Works for any CNN; coarse resolution.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Why interpretation matters legally</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Fair-lending laws require credit decisions to be explainable. Per-feature attributions supply the required "reason codes".</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Latent diffusion</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Run the reverse denoising process in a VAE's compressed latent space rather than pixel space, making high-resolution generation affordable. Conditioning enters via cross-attention.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+</section>
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Shapley by hand</h4></div>
+    <p>Three players with $v(\varnothing)=0$, $v(A)=10$, $v(B)=0$, $v(C)=5$, $v(AB)=30$, $v(AC)=20$, $v(BC)=5$, $v(ABC)=40$. Compute all three Shapley values.</p>
+    <button class="btn btn-sm" data-reveal="sol-16-1" type="button">Show solution</button>
+    <div id="sol-16-1" class="solution" hidden>
+      <p>Enumerate the six orderings and record each player's marginal:</p>
+      <div class="table-wrap"><table class="data"><thead><tr><th>Ordering</th><th>m(A)</th><th>m(B)</th><th>m(C)</th></tr></thead><tbody>
+        <tr><td>A B C</td><td>10</td><td>20</td><td>10</td></tr>
+        <tr><td>A C B</td><td>10</td><td>20</td><td>10</td></tr>
+        <tr><td>B A C</td><td>30</td><td>0</td><td>10</td></tr>
+        <tr><td>B C A</td><td>35</td><td>0</td><td>5</td></tr>
+        <tr><td>C A B</td><td>15</td><td>20</td><td>5</td></tr>
+        <tr><td>C B A</td><td>35</td><td>0</td><td>5</td></tr>
+      </tbody></table></div>
+      <p>Averages: $\phi_A = (10+10+30+35+15+35)/6 = 135/6 = 22.5$; $\phi_B = 60/6 = 10$; $\phi_C = 45/6 = 7.5$.</p>
+      <p>Check: $22.5+10+7.5 = 40 = v(ABC)$. ✓ B is a null player alone but earns 10 by complementing A — which is exactly what the symmetry axiom does <em>not</em> rule out.</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Explain a loan rejection</h4></div>
+    <p>A logistic model gives $P(\text{default}) = 0.31$ for an applicant, above the 0.25 threshold. The SHAP values are: income −0.12, debt-to-income +0.18, credit history −0.05, employment length +0.02, baseline $\mathbb{E}[f]=0.10$. Verify efficiency, identify the two features to cite in an adverse-action notice, and state one thing SHAP cannot tell you.</p>
+    <button class="btn btn-sm" data-reveal="sol-16-2" type="button">Show solution</button>
+    <div id="sol-16-2" class="solution" hidden>
+      <p><strong>Efficiency.</strong> $0.10 + (-0.12+0.18-0.05+0.02) = 0.10 + 0.03 = 0.13$ — but the prediction is $0.31$. The gap is because SHAP for a <em>probability</em> output is computed on the probability scale and does not add up when the model is non-linear; the attributions above sum to the log-odds contribution, or the values were computed on a different scale. Check the scale before quoting them.</p>
+      <p><strong>Cite.</strong> Debt-to-income (+0.18) is the dominant adverse factor, and income (−0.12) is the dominant mitigating factor. A notice should name debt-to-income as the principal reason.</p>
+      <p><strong>What SHAP cannot tell you.</strong> Whether the model is <em>right</em>, whether debt-to-income is a proxy for a protected characteristic, or whether changing the debt ratio would actually change the outcome (attribution is not causation).</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Show that SHAP for a linear model is exact, and generalise</h4></div>
+    <p>Prove $\phi_i = w_i(x_i - \mathbb{E}[x_i])$ for $f(\mathbf{x}) = \mathbf{w}^\top\mathbf{x} + b$, then explain what changes if features are correlated.</p>
+    <button class="btn btn-sm" data-reveal="sol-16-3" type="button">Show solution</button>
+    <div id="sol-16-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>With independent features, the conditional expectation factorises: $\mathbb{E}[x_{\bar S}\mid x_S] = \mathbb{E}[x_{\bar S}]$, so $v(S) = \sum_{i\in S}w_ix_i + \sum_{i\notin S}w_i\mathbb{E}[x_i] + b$.</li>
+        <li>Marginal contribution of $i$: $v(S\cup i) - v(S) = w_i(x_i - \mathbb{E}[x_i])$, independent of $S$; averaging over orderings leaves it unchanged. <span class="qed">∎</span></li>
+        <li><strong>Correlated features.</strong> Then $\mathbb{E}[x_{\bar S}\mid x_S] \ne \mathbb{E}[x_{\bar S}]$: knowing one feature tells you something about the others, so the marginal contribution of $i$ depends on which features are already in $S$. The Shapley values still satisfy the axioms, but they now split credit between correlated features — two identical features each receive half the attribution. That is usually the desired behaviour, but it means attributions are not stable under adding a duplicate column.</li>
+        <li><span class="why">Practical consequence: report SHAP alongside the correlation structure, and never interpret a single attribution for a correlated group as "the effect of that feature".</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 16</span>
+    <h3>An interpretability report a stakeholder can act on</h3>
+    <p>Take a model you built earlier in this course and produce the explanation document that would accompany it in production.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Pick a model from an earlier module with a real prediction task and a domain audience.</li>
+      <li>Implement exact Shapley values for a small feature subset by hand, and verify them against <code>shap</code> on a model with the same features.</li>
+      <li>Produce a global explanation (mean |SHAP| ranking, beeswarm) and a local explanation for three contrasting individuals.</li>
+      <li>Add a <em>shortcut audit</em>: check whether any top-ranked feature is plausibly a proxy for something illegitimate, and test it by removing the feature and re-measuring.</li>
+      <li>For an image or sequence model, add Grad-CAM or attention visualisations and describe what the model attends to.</li>
+      <li>Write the caveats section: what attribution does <em>not</em> establish (causality, correctness, fairness).</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li>From-scratch Shapley implementation with a test against <code>shap</code></li>
+      <li>Global and local explanation figures</li>
+      <li>2–3 page report with an explicit caveats section</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Correctness</td><td>Hand-computed Shapley values match <code>shap</code>; efficiency verified</td><td>25</td></tr>
+        <tr><td>Communication</td><td>Explanations readable by the domain audience, not just ML readers</td><td>30</td></tr>
+        <tr><td>Shortcut audit</td><td>A concrete proxy tested and quantified</td><td>25</td></tr>
+        <tr><td>Caveats</td><td>Limits stated precisely: no causality, no fairness guarantee</td><td>20</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Compare TreeSHAP, KernelSHAP and permutation importance on the same model and explain the disagreements.</li>
+      <li>Show that two models with identical accuracy can have very different attributions.</li>
+      <li>Test attribution stability: how much do SHAP values change under bootstrap resampling of the background set?</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/16-interpretability-report/</code>.</p>
+  </div>
+</section>
+
+
+  <nav class="pager" aria-label="Module navigation">
+  <a class="prev" href="reinforcement-learning.html"><span>← Previous</span><b>15 · Reinforcement Learning</b></a>
+  <a class="next" href="../index.html#curriculum"><span>Done →</span><b>Back to curriculum</b></a>
+</nav>
+</article>
+</main>
+<footer class="site">
+  <div class="shell">
+    <div>
+      <strong>ML from First Principles</strong><br />
+      An interactive, open-source companion to CSC 74020 (Machine Learning), Fall 2025, taught by Prof. Jonathan Gryak at the CUNY Graduate Center.
+    </div>
+    <div>
+      <a href="../index.html">Home</a> ·
+      <a href="../index.html#curriculum">Curriculum</a> ·
+      <a href="../index.html#python">Python library</a> ·
+      <a href="../index.html#sources">Sources</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

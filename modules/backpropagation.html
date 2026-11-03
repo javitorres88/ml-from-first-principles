@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>07 · Backpropagation & Training Deep Networks — ML from First Principles</title>
+<meta name="description" content="Reverse-mode automatic differentiation from the chain rule up: computation graphs, Jacobians, the four vectorised gradients, then momentum, RMSProp, Adam, Xavier initialisation and dropout." />
+<meta property="og:title" content="07 · Backpropagation & Training Deep Networks — ML from First Principles" />
+<meta property="og:description" content="Reverse-mode automatic differentiation from the chain rule up: computation graphs, Jacobians, the four vectorised gradients, then momentum, RMSProp, Adam, Xavier initialisation and dropout." />
+<meta property="og:type" content="article" />
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../assets/vendor/katex/katex.min.css" />
+<link rel="stylesheet" href="../assets/css/site.css" />
+<script defer src="../assets/vendor/katex/katex.min.js"></script>
+<script defer src="../assets/vendor/katex/auto-render.min.js"></script>
+<script defer src="../assets/js/viz.js"></script>
+<script defer src="../assets/js/mla.js"></script>
+<script defer src="../assets/js/site.js"></script>
+<script defer src="../assets/js/labs/07-backpropagation.js"></script>
+</head>
+<body data-module="backpropagation">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="../index.html">
+      <span class="brand-mark">ML</span>
+      <span>ML from First Principles<small>Interactive course · CUNY CSC 74020</small></span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a class="opt" href="../index.html#curriculum">Curriculum</a>
+      <a class="opt" href="../index.html#python">Python library</a>
+      <a class="opt" href="../index.html#projects">Projects</a>
+      <a class="opt" href="../index.html#sources">Sources</a>
+      <button class="icon-btn" data-theme-toggle type="button" aria-label="Toggle theme">☾</button>
+      <button class="icon-btn" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Menu">☰</button>
+    </nav>
+  </div>
+  <div id="navMenu" hidden style="border-top:1px solid var(--line);background:var(--panel)">
+    <div class="shell" style="padding:12px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 18px;font-size:.86rem">
+      <a href="../modules/foundations.html" style="padding:4px 0;color:var(--ink-2)">01 · What Machine Learning Actually Is</a>
+      <a href="../modules/knn-evaluation.html" style="padding:4px 0;color:var(--ink-2)">02 · Nearest Neighbours & Honest Evaluation</a>
+      <a href="../modules/linear-regression.html" style="padding:4px 0;color:var(--ink-2)">03 · Linear Models & Least Squares</a>
+      <a href="../modules/logistic-regression.html" style="padding:4px 0;color:var(--ink-2)">04 · Logistic Regression & Classification Loss</a>
+      <a href="../modules/regularization.html" style="padding:4px 0;color:var(--ink-2)">05 · Regularization, Bias–Variance & Model Selection</a>
+      <a href="../modules/neural-networks.html" style="padding:4px 0;color:var(--ink-2)">06 · Artificial Neural Networks</a>
+      <a href="../modules/backpropagation.html" style="padding:4px 0;color:var(--ink-2)">07 · Backpropagation & Training Deep Networks</a>
+      <a href="../modules/trees-ensembles.html" style="padding:4px 0;color:var(--ink-2)">08 · Decision Trees, Bagging & Boosting</a>
+      <a href="../modules/clustering.html" style="padding:4px 0;color:var(--ink-2)">09 · Unsupervised Learning: Clustering</a>
+      <a href="../modules/cnns.html" style="padding:4px 0;color:var(--ink-2)">10 · Convolutional Neural Networks</a>
+      <a href="../modules/sequences.html" style="padding:4px 0;color:var(--ink-2)">11 · Sequences: RNNs, LSTMs & Attention</a>
+      <a href="../modules/transformers.html" style="padding:4px 0;color:var(--ink-2)">12 · Transformers & Large Language Models</a>
+      <a href="../modules/dimensionality-reduction.html" style="padding:4px 0;color:var(--ink-2)">13 · Dimensionality Reduction & Representation Learning</a>
+      <a href="../modules/svm-kernels.html" style="padding:4px 0;color:var(--ink-2)">14 · Support Vector Machines & Kernels</a>
+      <a href="../modules/reinforcement-learning.html" style="padding:4px 0;color:var(--ink-2)">15 · Reinforcement Learning</a>
+      <a href="../modules/interpretation.html" style="padding:4px 0;color:var(--ink-2)">16 · Model Interpretation & What Comes Next</a>
+    </div>
+  </div>
+</header>
+<main id="main" class="shell with-rail">
+<aside class="rail" aria-label="On this page">
+  <h4>07 · Deep learning</h4>
+  <ol>
+    <li><a href="#objectives">Learning objectives</a></li>
+    <li><a href="#intuition">1 · Intuition</a></li>
+    <li><a href="#math">2 · Mathematical foundations</a></li>
+    <li><a href="#labs">3 · Interactive visualizations</a></li>
+    <li><a href="#code">4 · Coding from scratch</a></li>
+    <li><a href="#assessment">5 · Assessment</a></li>
+    <li><a href="#project">6 · Portfolio project</a></li>
+  </ol>
+  <h4 style="margin-top:22px">All modules</h4>
+  <ol class="rail-sub">
+    <li><a href="foundations.html">01 What Machine Learning Actually Is</a></li>
+    <li><a href="knn-evaluation.html">02 Nearest Neighbours & Honest Evaluation</a></li>
+    <li><a href="linear-regression.html">03 Linear Models & Least Squares</a></li>
+    <li><a href="logistic-regression.html">04 Logistic Regression & Classification Loss</a></li>
+    <li><a href="regularization.html">05 Regularization, Bias–Variance & Model Selection</a></li>
+    <li><a href="neural-networks.html">06 Artificial Neural Networks</a></li>
+    <li><a href="backpropagation.html" style="color:var(--accent);font-weight:600">07 Backpropagation & Training Deep Networks</a></li>
+    <li><a href="trees-ensembles.html">08 Decision Trees, Bagging & Boosting</a></li>
+    <li><a href="clustering.html">09 Unsupervised Learning: Clustering</a></li>
+    <li><a href="cnns.html">10 Convolutional Neural Networks</a></li>
+    <li><a href="sequences.html">11 Sequences: RNNs, LSTMs & Attention</a></li>
+    <li><a href="transformers.html">12 Transformers & Large Language Models</a></li>
+    <li><a href="dimensionality-reduction.html">13 Dimensionality Reduction & Representation Learning</a></li>
+    <li><a href="svm-kernels.html">14 Support Vector Machines & Kernels</a></li>
+    <li><a href="reinforcement-learning.html">15 Reinforcement Learning</a></li>
+    <li><a href="interpretation.html">16 Model Interpretation & What Comes Next</a></li>
+  </ol>
+  <div style="margin-top:22px">
+    <button class="btn btn-sm" data-mark-complete type="button" style="width:100%;justify-content:center">Mark module complete</button>
+  </div>
+</aside>
+<article class="article">
+  <header>
+    <span class="kicker">Module 07 · Deep learning</span>
+    <h1>Backpropagation & Training Deep Networks</h1>
+    <p class="lede">Reverse-mode automatic differentiation from the chain rule up: computation graphs, Jacobians, the four vectorised gradients, then momentum, RMSProp, Adam, Xavier initialisation and dropout.</p>
+    <div class="header-meta">
+      <span>📚 Source: Lecture Notes 4</span>
+      <span>⏱ 85 min</span>
+      <span>🧪 3 interactive labs</span>
+      <span>🐍 3 implementations</span>
+    </div>
+  </header>
+
+  <section class="block" id="objectives">
+    <h2><span class="secnum">◎</span> Learning objectives</h2>
+    <div class="card">
+      <p class="small muted" style="margin-top:0">By the end of this module you should be able to:</p>
+      <ul class="tight">
+      <li>Build a computation graph for a two-layer network and label local and upstream gradients.</li>
+      <li>Derive ∂L/∂W⁽²⁾, ∂L/∂h, ∂L/∂z and ∂L/∂W⁽¹⁾ for a two-layer MLP.</li>
+      <li>Use shape analysis to reconstruct the matrix form of each gradient.</li>
+      <li>Explain how momentum, AdaGrad, RMSProp and Adam differ, and write each update rule.</li>
+      <li>Derive the Xavier initialisation variance and explain what dropout approximates at test time.</li>
+      </ul>
+    </div>
+  </section>
+
+<section class="block" id="intuition">
+  <h2><span class="secnum">1</span> Intuition</h2>
+
+  <h3 class="sub" id="i-why">Training = walking downhill, efficiently</h3>
+  <p>
+    Module 06 ended with a network whose parameters we cannot set by hand. Training means finding weights that minimise a loss,
+    and the only tool that scales is gradient descent — but plain gradient descent on a deep network is too slow, and
+    historically too fragile, to work. This module covers the two things that make it work: an efficient way to
+    <em>compute</em> the gradient (backpropagation) and better ways to <em>use</em> it (momentum, adaptive learning rates).
+  </p>
+  <p>Backpropagation, in the version published by Rumelhart, Hinton and Williams in 1986, is five steps:</p>
+  <ol class="derivation">
+    <li><strong>Initialise</strong> the weights (randomly, not at zero).</li>
+    <li><strong>Forward pass:</strong> feed a mini-batch through the network, storing every intermediate output.</li>
+    <li><strong>Loss:</strong> compare the output with the target.</li>
+    <li><strong>Reverse pass:</strong> compute each intermediate value's contribution to the loss using the multivariate chain rule, from the output backwards.</li>
+    <li><strong>Update:</strong> take a gradient-descent step on the weights.</li>
+  </ol>
+  <p>
+    The algorithm is <em>reverse-mode automatic differentiation</em>. Its magic is cost: computing the gradient of a scalar
+    loss with respect to <em>all</em> parameters costs roughly the same as one forward pass — a small constant multiple,
+    independent of how many parameters there are. That is what makes million-parameter models trainable at all.
+  </p>
+
+  <h3 class="sub" id="i-graph">Computation graphs and gradient routing</h3>
+  <p>
+    Draw every input and every computed value as a node, with a directed edge whenever one value is used to compute another.
+    Then each edge carries a <strong>local gradient</strong> (how the child changes with the parent), and the chain rule says:
+  </p>
+  <div class="formula">$$ \text{downstream} = \text{local gradient} \times \text{upstream gradient} $$</div>
+  <p>
+    Start at the loss with upstream gradient $1$, walk backwards, and multiply as you go. Where a node has several consumers,
+    their contributions <em>add</em> — that is the multivariate chain rule, and it is why a value used twice accumulates two
+    gradients.
+  </p>
+  <div class="callout insight">
+    <span class="label">The flattening trick</span>
+    <p>
+      Naively applying the chain rule repeats work. For $L = \frac12(\sigma(wx+b) - t)^2$ you compute
+      $\sigma'(wx+b)$ once for $\partial L/\partial w$ and again for $\partial L/\partial b$. Flattening the nested function into
+      named intermediates — $z = wx+b$, $y=\sigma(z)$, $L=\frac12(y-t)^2$ — lets you compute each local derivative
+      <em>once</em> and reuse it:
+      $\frac{dL}{dy} = y-t$, $\frac{dL}{dz} = \frac{dL}{dy}\sigma'(z)$, $\frac{\partial L}{\partial w} = \frac{dL}{dz}x$,
+      $\frac{\partial L}{\partial b} = \frac{dL}{dz}$.
+    </p>
+  </div>
+
+  <h3 class="sub" id="i-shapes">Shape analysis: how to remember the matrix gradients</h3>
+  <p>
+    You do not need to derive matrix calculus from scratch if you remember one rule: <strong>every gradient has the same shape
+    as the thing it is a gradient of</strong>. For $Y = XW$ with $X\in\mathbb{R}^{N\times D}$ and $W\in\mathbb{R}^{D\times M}$:
+  </p>
+  <div class="formula">$$ \frac{\partial L}{\partial X} = \frac{\partial L}{\partial Y}W^\top \;\; (N\times D), \qquad \frac{\partial L}{\partial W} = X^\top\frac{\partial L}{\partial Y} \;\; (D\times M) $$</div>
+  <p>
+    There is only one way to arrange those factors so the shapes come out right. This single observation replaces most of the
+    matrix-calculus you would otherwise need.
+  </p>
+
+  <h3 class="sub" id="i-optim">Beyond gradient descent</h3>
+  <p>
+    Plain SGD struggles for three reasons, all visible in the labs:
+  </p>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Problem</th><th>Symptom</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>High condition number</td><td>jitter across the steep direction, crawl along the shallow one</td><td>momentum, adaptive per-parameter rates, better conditioning</td></tr>
+        <tr><td>Saddle points and plateaus</td><td>gradient ≈ 0 without being at a minimum</td><td>momentum carries you through; noise in minibatches helps</td></tr>
+        <tr><td>Noisy gradients</td><td>loss oscillates, never settles</td><td>learning-rate decay schedules, larger batches, averaging</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Each optimiser in this module is a different answer to "how should I use the history of gradients?"</p>
+
+  <h3 class="sub" id="i-examples">Real-world examples</h3>
+  <div class="examples">
+    <div class="example">
+      <span class="tag">Frameworks · autograd</span>
+      <h4>PyTorch and JAX</h4>
+      <p>Every <code>loss.backward()</code> call builds a computation graph during the forward pass and walks it in reverse. Understanding the graph is understanding the framework.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Optimisation · defaults that work</span>
+      <h4>Adam as the default</h4>
+      <p>$\beta_1=0.9$, $\beta_2=0.999$, $\alpha=10^{-3}$ is a strong starting point for most models. Transformers, diffusion models and recommender systems are all trained this way.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Debugging · gradient checks</span>
+      <h4>Numerical gradients</h4>
+      <p>Before trusting a hand-written backward pass, compare it with central differences. A relative error above $10^{-6}$ means a bug — usually a transposed matrix or a missing factor.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Stability · initialisation</span>
+      <h4>Xavier and He scaling</h4>
+      <p>$\mathrm{std}=1/\sqrt{D_{\text{in}}}$ for tanh/sigmoid, $\sqrt{2/D_{\text{in}}}$ for ReLU. Get this wrong and a 20-layer network either dies or saturates before the first update.</p>
+    </div>
+    <div class="example">
+      <span class="tag">Regularisation · dropout</span>
+      <h4>Randomised training</h4>
+      <p>Zeroing activations with probability $p$ prevents co-adaptation of features; at test time you scale by $1-p$ (or scale during training instead, "inverted dropout").</p>
+    </div>
+    <div class="example">
+      <span class="tag">Practice · learning-rate schedules</span>
+      <h4>Warmup then decay</h4>
+      <p>Large models use a linear warmup followed by cosine or step decay. The learning rate is usually the single most important hyperparameter to tune.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="math">
+  <h2><span class="secnum">2</span> Mathematical foundations</h2>
+
+  <h3 class="sub" id="m-chain">2.1 The chain rule, in the two forms you need</h3>
+  <p>
+    <strong>Univariate:</strong> if $f(x) = h(g(x))$ then $\frac{df}{dx} = \frac{dh}{dg}\cdot\frac{dg}{dx}$. For example
+    $f(x) = (1+x^2)^3$ gives $f'(x) = 3(1+x^2)^2\cdot 2x = 6x(1+x^2)^2$.
+  </p>
+  <p>
+    <strong>Multivariate:</strong> if $f$ depends on $x(t)$ and $y(t)$, every path contributes:
+  </p>
+  <div class="formula">$$ \frac{df}{dt} = \frac{\partial f}{\partial x}\frac{dx}{dt} + \frac{\partial f}{\partial y}\frac{dy}{dt} $$</div>
+  <p>
+    This sum-over-paths is exactly what "gradients accumulate at nodes with multiple consumers" means in the graph.
+  </p>
+
+  <h3 class="sub" id="m-mlp">2.2 Backpropagation through a two-layer MLP, derived</h3>
+  <p>Take a network with one hidden layer, a scalar output and squared loss:</p>
+  <div class="formula">$$ \mathbf{z} = W^{(1)}\mathbf{x} + \mathbf{b}^{(1)},\quad \mathbf{h} = \sigma(\mathbf{z}),\quad y = W^{(2)}\mathbf{h} + b^{(2)},\quad L = \tfrac12(y-t)^2 $$</div>
+  <details class="steps" open>
+    <summary>Derivation — all four gradients, then their matrix form</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li><strong>Output:</strong> $\dfrac{dL}{dy} = y - t$. <span class="why">This is the base case: the derivative of the loss with respect to its own input.</span></li>
+        <li><strong>Output weights:</strong> $y = \sum_i w^{(2)}_i h_i + b^{(2)}$, so $\dfrac{\partial y}{\partial w^{(2)}_i} = h_i$ and
+          $$ \frac{dL}{dw^{(2)}_i} = \frac{dL}{dy}\,h_i, \qquad \frac{dL}{db^{(2)}} = \frac{dL}{dy}. $$
+        </li>
+        <li><strong>Hidden activations:</strong> $h_i$ influences $y$ only through $w^{(2)}_i$, so
+          $$ \frac{dL}{dh_i} = \frac{dL}{dy}\,w^{(2)}_i. $$
+        </li>
+        <li><strong>Pre-activations:</strong> $h_i = \sigma(z_i)$ and $z_i$ depends on $h_i$ only, so
+          $$ \frac{dL}{dz_i} = \frac{dL}{dh_i}\,\sigma'(z_i). $$
+        </li>
+        <li><strong>Hidden weights:</strong> $z_i = \sum_j w^{(1)}_{ij}x_j + b^{(1)}_i$, so
+          $$ \frac{dL}{dw^{(1)}_{ij}} = \frac{dL}{dz_i}\,x_j, \qquad \frac{dL}{db^{(1)}_i} = \frac{dL}{dz_i}. $$
+        </li>
+        <li><strong>Vectorised.</strong> With a batch $X\in\mathbb{R}^{N\times d}$ and per-sample loss vector, stacking the above:
+          $$ \frac{dL}{dW^{(2)}} = \frac{dL}{d\mathbf{y}}\,\mathbf{h}^\top,\quad \frac{dL}{d\mathbf{h}} = W^{(2)\top}\frac{dL}{d\mathbf{y}},\quad \frac{dL}{d\mathbf{z}} = \frac{dL}{d\mathbf{h}}\odot\sigma'(\mathbf{z}),\quad \frac{dL}{dW^{(1)}} = \frac{dL}{d\mathbf{z}}\,\mathbf{x}^\top $$
+          where $\odot$ is the element-wise product. <span class="qed">∎</span>
+        </li>
+        <li><span class="why">Check the shapes: $W^{(1)}\in\mathbb{R}^{h\times d}$ and $\frac{dL}{d\mathbf{z}}\mathbf{x}^\top$ is $(h\times1)(1\times d) = h\times d$. ✓</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-jacobian">2.3 Jacobians, and why you never build them</h3>
+  <p>
+    For a vector function $f:\mathbb{R}^m\to\mathbb{R}^n$ the Jacobian is the $n\times m$ matrix of partial derivatives,
+    $[J_f]_{ij} = \partial f_i/\partial x_j$. Backpropagation multiplies the upstream gradient by a local Jacobian:
+  </p>
+  <div class="formula">$$ \frac{\partial L}{\partial \mathbf{x}} = \underbrace{\frac{\partial \mathbf{z}}{\partial \mathbf{x}}}_{\text{Jacobian}}\;\underbrace{\frac{\partial L}{\partial \mathbf{z}}}_{\text{upstream}} $$</div>
+  <p>
+    For an element-wise activation the Jacobian is diagonal, so the multiplication is an element-wise product — cheap. For a
+    matrix multiply $Y = XW$ the Jacobian has $N^2DM$ entries; with $N=64$ and $D=M=4096$ that is 256 GB. You never form it:
+    you apply the <em>implicit</em> multiplication $\frac{\partial L}{\partial X} = \frac{\partial L}{\partial Y}W^\top$, which
+    costs one matmul. This is the single most important implementation insight in deep learning.
+  </p>
+
+  <h3 class="sub" id="m-momentum">2.4 Momentum</h3>
+  <p>
+    Momentum replaces "position changes by the gradient" with "velocity accumulates the gradient, position changes by velocity":
+  </p>
+  <div class="formula">$$ \mathbf{v}_{t+1} = \rho\,\mathbf{v}_t + \nabla f(\boldsymbol\theta_t), \qquad \boldsymbol\theta_{t+1} = \boldsymbol\theta_t - \alpha\,\mathbf{v}_{t+1} $$</div>
+  <p>
+    $\rho$ (typically 0.9 or 0.99) acts as friction. Two equivalent formulations appear in the literature; they differ only by
+    whether $\alpha$ multiplies the gradient before or after the accumulation.
+  </p>
+  <details class="steps">
+    <summary>Why momentum helps — and how much</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Unroll the recursion: $\mathbf{v}_{t+1} = \sum_{k=0}^{t}\rho^{\,t-k}\nabla f(\boldsymbol\theta_k)$ — an exponentially decaying average of past gradients.</li>
+        <li>Along a consistent direction (a shallow valley), the terms add coherently. The steady-state velocity is
+          $\frac{1}{1-\rho}$ times the gradient, so with $\rho=0.9$ the effective step is $10\times$ larger.</li>
+        <li>Across an oscillating direction, consecutive gradients alternate sign and cancel — the jitter is damped.</li>
+        <li>For a quadratic with condition number $\kappa$, momentum reduces the iteration count from $O(\kappa)$ to
+          $O(\sqrt{\kappa})$, with the optimal $\rho = \left(\frac{\sqrt\kappa - 1}{\sqrt\kappa + 1}\right)^2$. <span class="qed">∎</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-adaptive">2.5 Adaptive methods</h3>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>Method</th><th>Update rule (per parameter)</th><th>Idea</th></tr></thead>
+      <tbody>
+        <tr><td>AdaGrad</td><td>$\theta \mathrel{-}= \alpha\,\dfrac{g}{\sqrt{\sum_{\tau\le t}g_\tau^2}+\epsilon}$</td><td>scale by the historical sum of squares: damp steep directions, accelerate flat ones. Can stall because the denominator only grows.</td></tr>
+        <tr><td>RMSProp</td><td>$s_t = \beta s_{t-1} + (1-\beta)g_t^2$; $\;\theta \mathrel{-}= \alpha\,\dfrac{g_t}{\sqrt{s_t}+\epsilon}$</td><td>replace the sum with an exponential average so old gradients are forgotten.</td></tr>
+        <tr><td>Adam</td><td>$m_t = \beta_1m_{t-1}+(1-\beta_1)g_t$; $v_t = \beta_2v_{t-1}+(1-\beta_2)g_t^2$; bias-correct: $\hat m_t = m_t/(1-\beta_1^t)$, $\hat v_t = v_t/(1-\beta_2^t)$; $\theta \mathrel{-}= \alpha\,\hat m_t/(\sqrt{\hat v_t}+\epsilon)$</td><td>momentum on the first moment <em>and</em> RMSProp on the second, with bias correction.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <details class="steps">
+    <summary>Why Adam needs bias correction</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Initialise $m_0 = 0$. After one step, $m_1 = (1-\beta_1)g_1$, which has expectation $(1-\beta_1)\mathbb{E}[g]$ — biased toward zero by a factor $1-\beta_1 = 0.1$.</li>
+        <li>Unrolling: $\mathbb{E}[m_t] = (1-\beta_1)\sum_{k=1}^{t}\beta_1^{t-k}\mathbb{E}[g] = \big(1-\beta_1^t\big)\mathbb{E}[g]$.</li>
+        <li>Dividing by $(1-\beta_1^t)$ therefore removes the bias exactly. At $t=1$ it multiplies the estimate by $10$, which is precisely what is needed. <span class="qed">∎</span></li>
+        <li><span class="why">Without correction the first steps are tiny (the second moment has the same problem with $1-\beta_2^t \approx 0.001$), and Adam behaves erratically at the start of training.</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-init">2.6 Initialisation: keep the variance constant</h3>
+  <details class="steps">
+    <summary>Derivation — Xavier (Glorot) initialisation</summary>
+    <div class="steps-body">
+      <p>Consider one layer $y_i = \sum_{j=1}^{D_{\text{in}}} x_j w_j$ with $x$ and $w$ independent, zero-mean, and identically distributed.</p>
+      <ol class="derivation">
+        <li>Variance of a sum of independent terms: $\mathrm{Var}(y_i) = D_{\text{in}}\,\mathrm{Var}(x_jw_j)$.</li>
+        <li>For independent zero-mean variables, $\mathrm{Var}(xw) = \mathbb{E}[x^2]\mathbb{E}[w^2] - \mathbb{E}[x]^2\mathbb{E}[w]^2 = \mathrm{Var}(x)\mathrm{Var}(w)$.</li>
+        <li>Hence $\mathrm{Var}(y_i) = D_{\text{in}}\,\mathrm{Var}(x)\,\mathrm{Var}(w)$.</li>
+        <li>Requiring $\mathrm{Var}(y) = \mathrm{Var}(x)$ — no shrinkage, no blow-up, layer after layer — gives
+          $$ \boxed{\;\mathrm{Var}(w) = \frac{1}{D_{\text{in}}}\;} \qquad \text{i.e. } \mathrm{std}(w) = \frac{1}{\sqrt{D_{\text{in}}}}. $$
+        </li>
+        <li><span class="qed">∎</span> With ReLU, half the units are zeroed, which halves the variance, so the factor becomes
+          $\sqrt{2/D_{\text{in}}}$ — the <strong>He</strong> initialisation. When $D_{\text{in}}\ne D_{\text{out}}$, the harmonic
+          mean $D_{\text{avg}} = \frac{D_{\text{in}}+D_{\text{out}}}{2}$ is often used. For convolutional layers,
+          $D_{\text{in}} = k^2\cdot C_{\text{in}}$.</li>
+      </ol>
+      <div class="table-wrap"><table class="data"><thead><tr><th>Initialisation</th><th>Activation</th><th>std</th></tr></thead><tbody>
+        <tr><td>Glorot / Xavier</td><td>none, tanh, sigmoid, softmax</td><td>$1/\sqrt{D_{\text{avg}}}$</td></tr>
+        <tr><td>He</td><td>ReLU, Leaky ReLU, ELU, Swish</td><td>$\sqrt{2/D_{\text{in}}}$</td></tr>
+        <tr><td>LeCun</td><td>SELU</td><td>$1/\sqrt{D_{\text{in}}}$</td></tr>
+      </tbody></table></div>
+    </div>
+  </details>
+
+  <h3 class="sub" id="m-dropout">2.7 Dropout and its test-time correction</h3>
+  <p>
+    During training, zero each activation with probability $p$ (typically 0.1–0.5). This prevents <em>co-adaptation</em>: no
+    feature can rely on another always being present, so the network learns redundant representations. The trouble is that
+    dropout makes the output random, and at test time we want a deterministic prediction — ideally the expectation over all
+    $2^n$ masks.
+  </p>
+  <details class="steps">
+    <summary>Derivation — the $1-p$ scaling</summary>
+    <div class="steps-body">
+      <ol class="derivation">
+        <li>Consider one neuron with two inputs and weights $w_1,w_2$. During training with dropout on both inputs, the four equally likely masks give
+          $$ y = \tfrac14\big[(w_1x_1 + w_2x_2) + (w_1x_1 + 0) + (0 + w_2x_2) + 0\big] = \tfrac12(w_1x_1 + w_2x_2). $$
+        </li>
+        <li>At test time all inputs are present, giving $w_1x_1 + w_2x_2$ — exactly twice the training-time expectation.</li>
+        <li>So either scale the weights by $1-p$ at test time, or (equivalently, and now standard) divide the surviving activations by $1-p$ <em>during training</em>. This is <strong>inverted dropout</strong>: training and testing then use the same code path. <span class="qed">∎</span></li>
+      </ol>
+    </div>
+  </details>
+  <p>
+    This "add randomness in training, average it out at test time" pattern also describes batch normalisation, and it is the
+    same idea that later appears as data augmentation and as stochastic depth in modern architectures.
+  </p>
+</section>
+<section class="block" id="labs">
+  <h2><span class="secnum">3</span> Interactive visualizations</h2>
+
+  <div class="lab" data-lab="lab-gradcheck">
+    <div class="lab-head"><span class="lab-tag">Lab 1 · backpropagation</span><h4>Gradients routed through a computation graph</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Forward values flow left to right; red numbers are the gradients that flow right to left. Change any input and watch the whole backward pass update. Note that $x$ and $y$ share the node $q = x+y$, so both receive the <em>same</em> gradient — the sum node distributes upstream gradient unchanged to each parent.</p>
+      <p>The panel's last row compares these analytic gradients with central finite differences: the agreement is around $10^{-10}$. That check is the single most valuable debugging tool you have when writing a backward pass by hand.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-optimizers">
+    <div class="lab-head"><span class="lab-tag">Lab 2 · optimisers</span><h4>Four trajectories on the same elongated bowl</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>The loss has condition number 6: steep in $\theta_2$, shallow in $\theta_1$. Press <strong>Run</strong> and watch all four methods race from the same start. SGD (red) oscillates vertically and crawls horizontally. Momentum (amber) overshoots and then accelerates along the valley. RMSProp (blue) and Adam (green) normalise each direction separately and head almost straight for the minimum.</p>
+      <p>Now lower the learning rate to $0.01$ and run again: momentum still wins, but the adaptive methods lose their advantage because the problem is no longer step-size-limited. This is why practitioners tune $\alpha$ before switching optimiser.</p>
+    </div>
+  </div>
+
+  <div class="lab" data-lab="lab-init">
+    <div class="lab-head"><span class="lab-tag">Lab 3 · initialisation</span><h4>Does the signal survive ten layers?</h4></div>
+    <div class="lab-body"><div class="lab-stage"></div><div class="lab-panel"></div></div>
+    <div class="lab-note">
+      <p>Each point is the standard deviation of activations in one layer of a randomly initialised network. Ideally the curve is flat — the signal enters and leaves every layer with the same scale.</p>
+      <p>Start at init std $=0.01$: the curve collapses toward zero and the network cannot learn (gradients vanish). Raise it to $0.1$ with sigmoid: activations saturate and gradients die the other way. Press <strong>Use He/Xavier scale</strong> and the curve flattens. Switch the activation to ReLU and notice the scale must change to $\sqrt{2/D}$ — exactly the derivation in §2.6.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="code">
+  <h2><span class="secnum">4</span> Coding from scratch</h2>
+
+  <div class="codeblock">
+    <div class="code-tabs">
+      <button data-pane="py" aria-selected="true">Pure Python</button>
+      <button data-pane="np" aria-selected="false">NumPy</button>
+      <button data-pane="sk" aria-selected="false">scikit-learn / PyTorch</button>
+      <span class="spacer"></span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <div class="code-pane active" data-pane="py"><pre><code>"""Module 07 — backprop from scratch on a scalar computation graph + gradient check."""
+import math
+
+
+def sigmoid(z):
+    return 1.0 / (1.0 + math.exp(-z)) if z &gt;= 0 else math.exp(z) / (1.0 + math.exp(z))
+
+
+def f(x, y, z):
+    """f = (x + y) * sigmoid(z)"""
+    return (x + y) * sigmoid(z)
+
+
+def grads(x, y, z):
+    """Reverse-mode differentiation, written out node by node."""
+    q = x + y                     # forward
+    s = sigmoid(z)
+    out = q * s
+
+    dout = 1.0                    # base case
+    dq = dout * s                 # multiply node: local gradient = the other input
+    ds = dout * q
+    dz = ds * s * (1 - s)         # sigmoid node
+    dx = dq * 1.0                 # add node: local gradient = 1
+    dy = dq * 1.0
+    return out, {"x": dx, "y": dy, "z": dz}
+
+
+def numeric_grad(fn, args, i, h=1e-5):
+    """Central difference w.r.t. argument i."""
+    a = list(args); b = list(args)
+    a[i] += h; b[i] -= h
+    return (fn(*a) - fn(*b)) / (2 * h)
+
+
+def check(x, y, z):
+    _, g = grads(x, y, z)
+    worst = 0.0
+    for i, name in enumerate("xyz"):
+        n = numeric_grad(f, (x, y, z), i)
+        rel = abs(g[name] - n) / max(1e-8, abs(g[name]) + abs(n))
+        worst = max(worst, rel)
+        print(f"  d/d{name}: analytic={g[name]: .6f}  numeric={n: .6f}  rel err={rel:.2e}")
+    return worst
+
+
+if __name__ == "__main__":
+    print("gradient check at (x,y,z) = (-2, 5, -4):")
+    print("  worst relative error:", f"{check(-2, 5, -4):.2e}")
+    print("gradient check at a random point:")
+    print("  worst relative error:", f"{check(0.3, -1.7, 2.2):.2e}")
+</code></pre></div>
+    <div class="code-pane" data-pane="np"><pre><code>"""Module 07 — a full MLP with manual backprop, plus SGD/momentum/RMSProp/Adam."""
+import numpy as np
+
+
+def init_mlp(sizes, scheme="he", seed=0):
+    rng = np.random.default_rng(seed)
+    params = []
+    for n_in, n_out in zip(sizes[:-1], sizes[1:]):
+        std = np.sqrt(2.0 / n_in) if scheme == "he" else np.sqrt(1.0 / n_in)
+        params.append([rng.normal(0, std, (n_in, n_out)), np.zeros(n_out)])
+    return params
+
+
+def forward(X, params):
+    cache = []
+    A = X
+    for i, (W, b) in enumerate(params):
+        Z = A @ W + b
+        A = np.maximum(Z, 0) if i &lt; len(params) - 1 else Z   # ReLU hidden, linear output
+        cache.append((A, Z))
+    return A, cache
+
+
+def backward(X, T, params, cache):
+    """Returns gradients with the same structure as params."""
+    grads = [None] * len(params)
+    n = X.shape[0]
+    dA = 2 * (cache[-1][0] - T) / n                      # dL/dOutput for MSE
+    for i in reversed(range(len(params))):
+        A_prev = X if i == 0 else cache[i - 1][0]
+        Z = cache[i][1]
+        dZ = dA if i == len(params) - 1 else dA * (Z &gt; 0)
+        dW = A_prev.T @ dZ
+        db = dZ.sum(axis=0)
+        grads[i] = [dW, db]
+        dA = dZ @ params[i][0].T
+    return grads
+
+
+class SGDMomentum:
+    def __init__(self, params, lr=0.05, rho=0.9):
+        self.lr, self.rho = lr, rho
+        self.v = [[np.zeros_like(p) for p in layer] for layer in params]
+
+    def step(self, params, grads):
+        for i, layer in enumerate(params):
+            for j in range(len(layer)):
+                self.v[i][j] = self.rho * self.v[i][j] + grads[i][j]
+                layer[j] -= self.lr * self.v[i][j]
+
+
+class Adam:
+    def __init__(self, params, lr=1e-3, b1=0.9, b2=0.999, eps=1e-8):
+        self.lr, self.b1, self.b2, self.eps, self.t = lr, b1, b2, eps, 0
+        self.m = [[np.zeros_like(p) for p in layer] for layer in params]
+        self.v = [[np.zeros_like(p) for p in layer] for layer in params]
+
+    def step(self, params, grads):
+        self.t += 1
+        for i, layer in enumerate(params):
+            for j in range(len(layer)):
+                g = grads[i][j]
+                self.m[i][j] = self.b1 * self.m[i][j] + (1 - self.b1) * g
+                self.v[i][j] = self.b2 * self.v[i][j] + (1 - self.b2) * g * g
+                mh = self.m[i][j] / (1 - self.b1 ** self.t)
+                vh = self.v[i][j] / (1 - self.b2 ** self.t)
+                layer[j] -= self.lr * mh / (np.sqrt(vh) + self.eps)
+
+
+def grad_check(X, T, params, eps=1e-6):
+    """Compare analytic and numerical gradients for every parameter."""
+    out, cache = forward(X, params)
+    grads = backward(X, T, params, cache)
+    worst = 0.0
+    for i, layer in enumerate(params):
+        for j in range(len(layer)):
+            flat = layer[j].ravel()
+            for k in range(min(flat.size, 8)):
+                old = flat[k]
+                flat[k] = old + eps
+                lp, _ = forward(X, params)
+                flat[k] = old - eps
+                lm, _ = forward(X, params)
+                flat[k] = old
+                num = (np.mean((lp - T) ** 2) - np.mean((lm - T) ** 2)) / (2 * eps)
+                ana = grads[i][j].ravel()[k]
+                worst = max(worst, abs(num - ana) / max(1e-8, abs(num) + abs(ana)))
+    return worst
+
+
+if __name__ == "__main__":
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(32, 5))
+    T = np.sin(X[:, :1]) + 0.1 * rng.normal(size=(32, 1))
+
+    params = init_mlp([5, 16, 16, 1])
+    print("worst relative gradient error:", f"{grad_check(X, T, params):.2e}")
+
+    opt = Adam(params, lr=5e-3)
+    for epoch in range(300):
+        out, cache = forward(X, params)
+        g = backward(X, T, params, cache)
+        opt.step(params, g)
+        if epoch % 100 == 0:
+            print(f"epoch {epoch:3d}  MSE = {np.mean((out - T) ** 2):.5f}")
+</code></pre></div>
+    <div class="code-pane" data-pane="sk"><pre><code>"""Module 07 — the same thing in PyTorch, to see what the framework automates."""
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+# --- 1. Autograd: the computation graph is built for you -------------------
+x = torch.tensor([-2.0], requires_grad=True)
+y = torch.tensor([5.0], requires_grad=True)
+z = torch.tensor([-4.0], requires_grad=True)
+f = (x + y) * torch.sigmoid(z)
+f.backward()
+print("autograd:", x.grad.item(), y.grad.item(), z.grad.item())
+# matches the hand-written grads in the pure-Python block
+
+# --- 2. A model, an optimiser, and the training loop ------------------------
+torch.manual_seed(0)
+X = torch.randn(256, 5)
+T = torch.sin(X[:, :1]) + 0.1 * torch.randn(256, 1)
+
+model = nn.Sequential(
+    nn.Linear(5, 16), nn.ReLU(),
+    nn.Linear(16, 16), nn.ReLU(),
+    nn.Linear(16, 1),
+)
+
+for opt_name, opt_cls, kwargs in [
+    ("SGD", optim.SGD, {"lr": 0.05}),
+    ("SGD+momentum", optim.SGD, {"lr": 0.05, "momentum": 0.9}),
+    ("RMSProp", optim.RMSprop, {"lr": 0.01}),
+    ("Adam", optim.Adam, {"lr": 5e-3}),
+]:
+    torch.manual_seed(0)
+    m = nn.Sequential(nn.Linear(5, 16), nn.ReLU(), nn.Linear(16, 16), nn.ReLU(), nn.Linear(16, 1))
+    opt = opt_cls(m.parameters(), **kwargs)
+    for step in range(400):
+        loss = nn.functional.mse_loss(m(X), T)
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+    print(f"{opt_name:14s} final MSE = {loss.item():.5f}")
+
+# --- 3. Initialisation and dropout -----------------------------------------
+def init_weights(m):
+    if isinstance(m, nn.Linear):
+        nn.init.kaiming_normal_(m.weight, nonlinearity="relu")   # He init
+        nn.init.zeros_(m.bias)
+
+model.apply(init_weights)
+drop = nn.Sequential(nn.Linear(5, 16), nn.ReLU(), nn.Dropout(p=0.3), nn.Linear(16, 1))
+print("dropout is identity at eval:", torch.allclose(drop.eval()(X), drop.eval()(X)))
+print("dropout is random at train:", not torch.allclose(drop.train()(X), drop.train()(X)))
+</code></pre></div>
+    <div class="code-caption">
+      Read the three blocks in order: the first shows what a gradient <em>is</em>, the second shows how to compute it and how
+      four optimisers consume it, the third shows the two lines of PyTorch that replace the middle block — and the four
+      optimiser names that are the same four algorithms.
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <span class="label">Debugging checklist for a backward pass</span>
+    <ol class="tight" style="margin-bottom:0">
+      <li>Gradient-check on a tiny batch (8 samples, 2 layers) before scaling up.</li>
+      <li>If the loss is <code>nan</code>: check for <code>log(0)</code>, division by zero, or a learning rate that is too large.</li>
+      <li>If only the last layer learns: suspect a missing non-linearity or a vanishing gradient.</li>
+      <li>If the loss does not move: verify that <code>zero_grad()</code> is called (PyTorch accumulates by default).</li>
+    </ol>
+  </div>
+</section>
+<section class="block" id="assessment">
+  <h2><span class="secnum">5</span> Assessment</h2>
+
+  <h3 class="sub" id="a-quiz">Quiz</h3>
+  <div class="quiz" data-quiz="07">
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q1</span><div class="qtext"><p>For $Y = XW$ with $X\in\mathbb{R}^{N\times D}$ and $W\in\mathbb{R}^{D\times M}$, the gradient with respect to $W$ is:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>$\frac{\partial L}{\partial Y}X$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>$X^\top\frac{\partial L}{\partial Y}$</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>$\frac{\partial L}{\partial Y}W^\top$</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>$W^\top\frac{\partial L}{\partial Y}$</span></button></li>
+      </ul>
+      <div class="explain"><p>Shape analysis: $\partial L/\partial W$ must be $D\times M$, and $X^\top$ is $D\times N$ while $\partial L/\partial Y$ is $N\times M$ — the only arrangement that works. Option C is $\partial L/\partial X$.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="c">
+      <div class="qhead"><span class="qnum">Q2</span><div class="qtext"><p>Momentum with $\rho=0.9$ along a direction where the gradient is constant multiplies the effective step size by about:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>0.9</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>1.9</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>10</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>0.1</span></button></li>
+      </ul>
+      <div class="explain"><p>The velocity reaches steady state $v = g/(1-\rho) = 10g$. Momentum reduces the iteration count for a quadratic from $O(\kappa)$ to $O(\sqrt\kappa)$.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="d">
+      <div class="qhead"><span class="qnum">Q3</span><div class="qtext"><p>Why does Adam divide by $(1-\beta_1^t)$ and $(1-\beta_2^t)$?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>To normalise the learning rate across layers</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>To clip the gradient</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>To implement weight decay</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Because the running averages start at zero and are therefore biased toward zero early in training</span></button></li>
+      </ul>
+      <div class="explain"><p>After $t$ steps, $\mathbb{E}[m_t] = (1-\beta_1^t)\mathbb{E}[g]$. Dividing by that factor removes the bias exactly, which matters most at $t=1$ where $1-\beta_1 = 0.1$.</p></div>
+    </div>
+    <div class="quiz-item" data-answer="a">
+      <div class="qhead"><span class="qnum">Q4</span><div class="qtext"><p>Xavier initialisation sets $\mathrm{std}(w) = 1/\sqrt{D_{\text{in}}}$ in order to:</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Keep the variance of activations (and of gradients) constant across layers</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Guarantee convergence in a fixed number of steps</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Make all weights positive</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>Reduce the number of parameters</span></button></li>
+      </ul>
+      <div class="explain"><p>$\mathrm{Var}(y) = D_{\text{in}}\mathrm{Var}(x)\mathrm{Var}(w)$, so $\mathrm{Var}(w) = 1/D_{\text{in}}$ makes $\mathrm{Var}(y) = \mathrm{Var}(x)$. For ReLU the factor becomes $\sqrt{2/D_{\text{in}}}$ (He).</p></div>
+    </div>
+    <div class="quiz-item" data-answer="b">
+      <div class="qhead"><span class="qnum">Q5</span><div class="qtext"><p>With inverted dropout (dividing by $1-p$ during training), what happens at inference?</p></div></div>
+      <ul class="opts">
+        <li><button class="opt" data-key="a"><span class="key">A</span><span>Weights must be scaled by $1-p$</span></button></li>
+        <li><button class="opt" data-key="b"><span class="key">B</span><span>Nothing — the network runs unchanged with all units active</span></button></li>
+        <li><button class="opt" data-key="c"><span class="key">C</span><span>Dropout must still be applied with the same probability</span></button></li>
+        <li><button class="opt" data-key="d"><span class="key">D</span><span>The output must be averaged over 100 random masks</span></button></li>
+      </ul>
+      <div class="explain"><p>Scaling during training makes the expected activation at training time equal the actual activation at test time, so inference is the plain forward pass.</p></div>
+    </div>
+    <div class="quiz-score" data-score></div>
+    <div style="margin-top:12px"><button class="btn btn-sm" data-reset type="button">Reset quiz</button></div>
+  </div>
+
+  <h3 class="sub" id="a-cards">Flashcards</h3>
+  <div class="deck">
+    <div class="deck-toolbar"><span>Click to flip · arrow keys to navigate</span></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Local vs. upstream gradient</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Local: how a node's output changes with its input. Upstream: how the loss changes with the node's output. Their product is the downstream gradient.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Reverse-mode autodiff</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Compute the gradient of one scalar output w.r.t. all inputs in a single backward sweep, at roughly the cost of one forward pass. What backpropagation is.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Gradient accumulation</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">At a node used by several consumers, downstream gradients <em>add</em>. This is the multivariate chain rule and the reason <code>loss.backward()</code> must be preceded by <code>zero_grad()</code>.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Condition number</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Ratio of largest to smallest Hessian eigenvalue. High $\kappa$ means an elongated valley: SGD jitters across the steep direction and crawls along the shallow one.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">AdaGrad's flaw</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">The denominator accumulates all past squared gradients, so the effective learning rate decays to zero and training stalls. RMSProp fixes it with an exponential average.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Bias correction</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">Divide the running moment by $1-\beta^t$ so that it is an unbiased estimate of the true moment even at $t=1$.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">Dropout at test time</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">All units active. With inverted dropout the scaling already happened during training, so inference is the ordinary forward pass.</div></div></div></div>
+    <div class="flashcard"><div class="flashcard-inner"><div class="flashface"><span class="side">Term</span><div class="content">He initialisation</div></div><div class="flashface back"><span class="side">Definition</span><div class="content">$\mathrm{std} = \sqrt{2/D_{\text{in}}}$ for ReLU networks: the factor 2 compensates for the half of units that ReLU zeroes out.</div></div></div></div>
+    <div class="deck-controls">
+      <button class="btn btn-sm" data-prev type="button">← Prev</button>
+      <button class="btn btn-sm" data-next type="button">Next →</button>
+      <button class="btn btn-sm" data-shuffle type="button">Shuffle</button>
+      <span class="deck-progress" data-deck-progress></span>
+    </div>
+  </div>
+
+  <h3 class="sub" id="a-practice">Practice problems</h3>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl easy">Easy</span><h4 style="margin:0">Backprop by hand</h4></div>
+    <p>For $f(a,b,c) = (a+b)\cdot c^2$ with $a=1$, $b=-2$, $c=3$: draw the graph and compute $\partial f/\partial a$, $\partial f/\partial b$, $\partial f/\partial c$.</p>
+    <button class="btn btn-sm" data-reveal="sol-07-1" type="button">Show solution</button>
+    <div id="sol-07-1" class="solution" hidden>
+      <p>Forward: $q = a+b = -1$; $s = c^2 = 9$; $f = q\cdot s = -9$.</p>
+      <p>Backward: $\partial f/\partial f = 1$; $\partial f/\partial q = s = 9$; $\partial f/\partial s = q = -1$.</p>
+      <p>$\partial f/\partial a = 9\cdot1 = 9$; $\partial f/\partial b = 9\cdot1 = 9$; $\partial f/\partial c = -1\cdot 2c = -6$.</p>
+      <p class="small muted" style="margin-bottom:0">Sanity check: increasing $c$ by 0.01 changes $f$ by about $-0.06$. ✓</p>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl med">Medium</span><h4 style="margin:0">Derive the vectorised gradients</h4></div>
+    <p>For a batch of $N$ samples, $Z = XW^{(1)}+\mathbf{b}^{(1)}$, $H=\mathrm{ReLU}(Z)$, $O = HW^{(2)}+\mathbf{b}^{(2)}$, and $L = \frac{1}{2N}\|O-T\|_F^2$, derive $\partial L/\partial W^{(2)}$, $\partial L/\partial H$, $\partial L/\partial Z$, $\partial L/\partial W^{(1)}$ and verify each shape.</p>
+    <button class="btn btn-sm" data-reveal="sol-07-2" type="button">Show solution</button>
+    <div id="sol-07-2" class="solution" hidden>
+      <ol class="derivation">
+        <li>$\dfrac{\partial L}{\partial O} = \dfrac{1}{N}(O-T)$, shape $N\times k$.</li>
+        <li>$\dfrac{\partial L}{\partial W^{(2)}} = H^\top\dfrac{\partial L}{\partial O}$, shape $(N\times h)^\top(N\times k) = h\times k$ ✓. $\dfrac{\partial L}{\partial \mathbf{b}^{(2)}} = \mathbf{1}^\top\dfrac{\partial L}{\partial O}$, shape $k$ ✓.</li>
+        <li>$\dfrac{\partial L}{\partial H} = \dfrac{\partial L}{\partial O}W^{(2)\top}$, shape $(N\times k)(k\times h) = N\times h$ ✓.</li>
+        <li>$\dfrac{\partial L}{\partial Z} = \dfrac{\partial L}{\partial H}\odot\mathbb{1}[Z\gt0]$, same shape $N\times h$ ✓ (ReLU's local Jacobian is diagonal).</li>
+        <li>$\dfrac{\partial L}{\partial W^{(1)}} = X^\top\dfrac{\partial L}{\partial Z}$, shape $d\times h$ ✓; $\dfrac{\partial L}{\partial \mathbf{b}^{(1)}} = \mathbf{1}^\top\dfrac{\partial L}{\partial Z}$ ✓. <span class="qed">∎</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="exercise">
+    <div class="exhead"><span class="lvl hard">Hard</span><h4 style="margin:0">Why the memory is the problem</h4></div>
+    <p>For a layer with $N=64$ samples, $D=M=4096$, estimate the size of the full Jacobian $\partial Y/\partial X$, and show that the implicit product costs only $O(NDM)$ time and $O(ND+NM)$ memory.</p>
+    <button class="btn btn-sm" data-reveal="sol-07-3" type="button">Show solution</button>
+    <div id="sol-07-3" class="solution" hidden>
+      <ol class="derivation">
+        <li>$Y = XW$ has $NM$ outputs and $X$ has $ND$ inputs, so the Jacobian has $(NM)\times(ND)$ entries $= 64\cdot4096\cdot64\cdot4096 \approx 6.9\times10^{10}$ values. In float32 that is about 274 GB.</li>
+        <li>The implicit product $\frac{\partial L}{\partial X} = \frac{\partial L}{\partial Y}W^\top$ is one matrix multiply: $2NDM \approx 2.1\times10^{9}$ flops and stores only the $N\times D$ result.</li>
+        <li>Memory for the forward pass is $O(ND + NM)$ — the activations, not the Jacobians. <span class="qed">∎</span></li>
+        <li><span class="why">This is why frameworks store activations ("checkpointing" trades memory for recomputation) and why a batch that is twice as large needs roughly twice the activation memory.</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="project">
+  <h2><span class="secnum">6</span> Portfolio project</h2>
+  <div class="project">
+    <span class="chip chip-accent">Project 07</span>
+    <h3>A mini autograd engine</h3>
+    <p>Build the thing that makes PyTorch PyTorch: a small reverse-mode automatic differentiation library with a handful of operations, then use it to train a real network.</p>
+    <h4>Brief</h4>
+    <ol>
+      <li>Implement a <code>Tensor</code> class that records its parents and a local backward function, supporting <code>+</code>, <code>*</code>, <code>@</code>, <code>exp</code>, <code>log</code>, <code>tanh</code>, <code>relu</code>, <code>sum</code>, <code>mean</code> and broadcasting.</li>
+      <li>Implement <code>backward()</code> as a topological sort followed by a reverse sweep with gradient accumulation.</li>
+      <li>Prove correctness: gradient-check every operation, and check the whole graph against PyTorch on random inputs.</li>
+      <li>Implement SGD, momentum and Adam on top of it, and reproduce the four-optimiser comparison from lab 2.</li>
+      <li>Train a 2-layer MLP on two-moons and a 3-layer MLP on a small regression problem.</li>
+    </ol>
+    <h4>Deliverables</h4>
+    <ul class="deliverables">
+      <li><code>micrograd.py</code> with the Tensor class and optimisers</li>
+      <li>Test suite: numerical gradient checks plus parity tests against PyTorch</li>
+      <li>Notebook with the optimiser comparison and learning curves</li>
+    </ul>
+    <h4>Rubric</h4>
+    <table class="rubric">
+      <thead><tr><th>Criterion</th><th>What "excellent" looks like</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Correctness</td><td>Gradient checks pass for every op, including broadcasting; parity with PyTorch to $10^{-6}$</td><td>35</td></tr>
+        <tr><td>Design</td><td>Topological sort correct; gradients accumulate rather than overwrite</td><td>25</td></tr>
+        <tr><td>Optimisers</td><td>Three optimisers implemented and compared on a real problem</td><td>25</td></tr>
+        <tr><td>Documentation</td><td>Short write-up mapping each line to the derivation in §2.2</td><td>15</td></tr>
+      </tbody>
+    </table>
+    <h4>Stretch goals</h4>
+    <ul class="tight">
+      <li>Add broadcasting-aware gradient reduction and demonstrate it with a bias added to a batch.</li>
+      <li>Add gradient clipping and show it rescues a deliberately unstable RNN-like recurrence.</li>
+      <li>Implement learning-rate schedules (step decay, cosine) and compare final losses.</li>
+    </ul>
+    <p class="small muted" style="margin-bottom:0">Starter code: <code>projects/07-micrograd/</code>.</p>
+  </div>
+</section>
+
+
+  <nav class="pager" aria-label="Module navigation">
+  <a class="prev" href="neural-networks.html"><span>← Previous</span><b>06 · Artificial Neural Networks</b></a>
+  <a class="next" href="trees-ensembles.html"><span>Next →</span><b>08 · Decision Trees, Bagging & Boosting</b></a>
+</nav>
+</article>
+</main>
+<footer class="site">
+  <div class="shell">
+    <div>
+      <strong>ML from First Principles</strong><br />
+      An interactive, open-source companion to CSC 74020 (Machine Learning), Fall 2025, taught by Prof. Jonathan Gryak at the CUNY Graduate Center.
+    </div>
+    <div>
+      <a href="../index.html">Home</a> ·
+      <a href="../index.html#curriculum">Curriculum</a> ·
+      <a href="../index.html#python">Python library</a> ·
+      <a href="../index.html#sources">Sources</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
