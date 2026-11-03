@@ -304,8 +304,9 @@ ol.derivation > li > .why { display: block; color: var(--ink-3); font-size: .86r
 .lab-panel { border-left: 1px solid var(--line); padding: 16px; background: var(--panel-2); font-size: .86rem; }
 @media (max-width: 780px) { .lab-panel { border-left: 0; border-top: 1px solid var(--line); } }
 .lab-panel .readout { font-family: var(--mono); font-size: .8rem; color: var(--ink-2); }
-.lab-panel .readout div { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
-.lab-panel .readout b { font-weight: 600; color: var(--ink); }
+.lab-panel .readout div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 2px 0; }
+.lab-panel .readout div > span { min-width: 0; }
+.lab-panel .readout b { font-weight: 600; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .lab-note { padding: 12px 20px; border-top: 1px solid var(--line); font-size: .86rem; color: var(--ink-2); background: var(--panel); }
 .lab-note p:last-child { margin-bottom: 0; }
 .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .78rem; color: var(--ink-2); margin-top: 10px; }
