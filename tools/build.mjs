@@ -13,6 +13,7 @@ const write = (p, s) => {
 };
 
 /* ------------------------------------------------------------------ shared */
+const REPO = "https://github.com/javitorres88/ml-from-first-principles";
 function head({ title, description, depth = 1, extraScripts = [] }) {
   const up = "../".repeat(depth);
   return `<!doctype html>
@@ -75,7 +76,8 @@ function footer(depth = 1) {
       <a href="${up}index.html">Home</a> ·
       <a href="${up}index.html#curriculum">Curriculum</a> ·
       <a href="${up}index.html#python">Python library</a> ·
-      <a href="${up}index.html#sources">Sources</a>
+      <a href="${up}index.html#sources">Sources</a> ·
+      <a href="${REPO}">Source on GitHub</a>
     </div>
   </div>
 </footer>`;

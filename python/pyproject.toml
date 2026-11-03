@@ -21,9 +21,10 @@ classifiers = [
 dependencies = ["numpy>=1.24"]
 
 # Fill these in once the repository has a public home.
-# [project.urls]
-# Homepage = "https://github.com/<owner>/ml-from-first-principles"
-# Issues = "https://github.com/<owner>/ml-from-first-principles/issues"
+[project.urls]
+Homepage = "https://javitorres88.github.io/ml-from-first-principles/"
+Repository = "https://github.com/javitorres88/ml-from-first-principles"
+Issues = "https://github.com/javitorres88/ml-from-first-principles/issues"
 
 [project.optional-dependencies]
 sklearn = ["scikit-learn>=1.3"]

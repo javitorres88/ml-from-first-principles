@@ -1,5 +1,9 @@
 # ML from First Principles
 
+**Live site: <https://javitorres88.github.io/ml-from-first-principles/>** — no install, no build step, no tracking.
+
+[![CI + deploy](https://github.com/javitorres88/ml-from-first-principles/actions/workflows/pages.yml/badge.svg)](https://github.com/javitorres88/ml-from-first-principles/actions/workflows/pages.yml)
+
 An interactive, open-source course that rebuilds machine learning from scratch — intuition, mathematics, live
 simulations, and three implementations of every algorithm — built as a companion to **CSC 74020 Machine Learning**
 (Prof. Jonathan Gryak, CUNY Graduate Center, Fall 2025).
